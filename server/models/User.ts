@@ -1,22 +1,29 @@
-import mongoose from 'mongoose';
+import mongoose, { Document } from 'mongoose';
 
-const UserSchema = new mongoose.Schema({
-  username: { type: String, unique: true, required: true },
-  password: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now },
-  isAdmin: { type: Boolean, default: false }
-});
+export interface IUser extends Document {
+  username: string;
+  password: string;
+  isAdmin: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
-UserSchema.pre('save', async function (next) {
-  if (this.isNew) {
-    const userCount = await mongoose.model('User').countDocuments();
-    if (userCount === 0) {
-      this.isAdmin = true;
-    }
+const userSchema = new mongoose.Schema({
+  username: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  password: {
+    type: String,
+    required: true
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false
   }
-  next();
+}, {
+  timestamps: true
 });
 
-const User = mongoose.model('User', UserSchema);
-
-export default User; 
+export const User = mongoose.model<IUser>('User', userSchema); 

@@ -2,6 +2,9 @@ import dotenv from 'dotenv';
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import practiceTypesRouter from './routes/practiceTypes';
+import codeExamplesRouter from './routes/codeExamples';
+import authRouter from './routes/auth';
 
 // 加载环境变量
 dotenv.config();
@@ -10,23 +13,25 @@ const app = express();
 
 // 中间件配置
 app.use(express.json());
-app.use(cors({
-  origin: `http://localhost:${process.env.CLIENT_PORT || 3001}`
-}));
+app.use(cors());
 
 // MongoDB 连接
-mongoose.connect(process.env.MONGODB_URI!)
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/typeskill';
+
+mongoose.connect(MONGODB_URI)
   .then(() => {
-    console.log('MongoDB connected successfully');
+    console.log('Connected to MongoDB');
   })
-  .catch((err) => {
-    console.error('MongoDB connection error:', err);
+  .catch((error) => {
+    console.error('MongoDB connection error:', error);
   });
 
 // 路由配置
-// ... 其他路由配置 ...
+app.use('/api/practice-types', practiceTypesRouter);
+app.use('/api/code-examples', codeExamplesRouter);
+app.use('/api/auth', authRouter);
 
-const port = process.env.SERVER_PORT || 5001;
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+const PORT = process.env.PORT || 5001;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });

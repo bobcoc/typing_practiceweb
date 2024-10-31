@@ -1,62 +1,50 @@
 import express from 'express';
-import CodeExample from '../models/CodeExample';
-import { isAdmin } from '../middleware/auth';
+import { CodeExample } from '../models/CodeExample';
 
 const router = express.Router();
 
 // 获取所有代码示例
-router.get('/', isAdmin, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const examples = await CodeExample.find();
+    const examples = await CodeExample.find().sort({ createdAt: -1 });
     res.json(examples);
   } catch (error) {
-    res.status(500).json({ error: '无法获取代码示例' });
+    res.status(500).json({ message: 'Error fetching code examples' });
   }
 });
 
-// 添加新的代码示例
-router.post('/', isAdmin, async (req, res) => {
-  const { level, code } = req.body;
+// 创建新代码示例
+router.post('/', async (req, res) => {
   try {
-    const newExample = new CodeExample({ level, code });
-    await newExample.save();
-    res.status(201).json(newExample);
+    const example = new CodeExample(req.body);
+    await example.save();
+    res.status(201).json(example);
   } catch (error) {
-    res.status(500).json({ error: '无法添加代码示例' });
+    res.status(500).json({ message: 'Error creating code example' });
   }
 });
 
 // 更新代码示例
-router.put('/:id', isAdmin, async (req, res) => {
-  const { id } = req.params;
-  const { level, code } = req.body;
+router.put('/:id', async (req, res) => {
   try {
-    const example = await CodeExample.findById(id);
-    if (example) {
-      example.level = level;
-      example.code = code;
-      await example.save();
-      res.json(example);
-    } else {
-      res.status(404).json({ error: '代码示例未找到' });
-    }
+    const example = await CodeExample.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    res.json(example);
   } catch (error) {
-    res.status(500).json({ error: '无法更新代码示例' });
+    res.status(500).json({ message: 'Error updating code example' });
   }
 });
 
 // 删除代码示例
-router.delete('/:id', isAdmin, async (req, res) => {
-  const { id } = req.params;
+router.delete('/:id', async (req, res) => {
   try {
-    const example = await CodeExample.findByIdAndDelete(id);
-    if (example) {
-      res.json({ message: '代码示例已删除' });
-    } else {
-      res.status(404).json({ error: '代码示例未找到' });
-    }
+    await CodeExample.findByIdAndDelete(req.params.id);
+    res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: '无法删除代码示例' });
+    res.status(500).json({ message: 'Error deleting code example' });
   }
 });
 

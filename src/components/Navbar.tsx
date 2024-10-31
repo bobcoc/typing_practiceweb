@@ -19,25 +19,21 @@ const Navbar: React.FC = () => {
                 <Typography variant="h6" style={{ flexGrow: 1 }}>
                     Type Practice
                 </Typography>
-                <Button color="inherit" component={Link} to="/practice/1">
-                    练习
-                </Button>
-                {user && user.isAdmin && (
-                    <Button color="inherit" component={Link} to="/admin/code-manager">
-                        管理代码示例
-                    </Button>
-                )}
-                {user ? (
-                    <Button color="inherit" onClick={handleLogout}>
-                        注销
-                    </Button>
-                ) : (
+                {user && (
                     <>
-                        <Button color="inherit" component={Link} to="/login">
-                            登录
+                        <Button color="inherit" component={Link} to="/">
+                            首页
                         </Button>
-                        <Button color="inherit" component={Link} to="/register">
-                            注册
+                        <Button color="inherit" component={Link} to="/practice/1">
+                            练习
+                        </Button>
+                        {user.isAdmin && (
+                            <Button color="inherit" component={Link} to="/admin/code-manager">
+                                管理代码示例
+                            </Button>
+                        )}
+                        <Button color="inherit" onClick={handleLogout}>
+                            注销
                         </Button>
                     </>
                 )}
