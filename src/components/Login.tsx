@@ -7,12 +7,30 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    // 模拟登录逻辑
-    const user = { username, isAdmin: false }; // 假设从服务器获取的用户信息
-    localStorage.setItem('user', JSON.stringify(user));
-    navigate('/'); // 确保导航到主页
-    window.dispatchEvent(new Event('storage')); // 手动触发 storage 事件
+  const handleLogin = async () => {
+    try {
+      // 假设这是您的登录逻辑
+      const user = { username, isAdmin: false }; // 这里应该是实际的登录API调用
+      
+      // 1. 先存储用户信息
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      // 2. 强制更新应用状态（如果您使用了全局状态管理）
+      window.dispatchEvent(new Event('storage'));
+      
+      // 3. 清空表单
+      setUsername('');
+      setPassword('');
+      
+      // 4. 使用 replace 而不是 push 进行导航
+      navigate('/', { replace: true });
+      
+      // 5. 可选：强制刷新页面（如果其他方法都不起作用）
+      // window.location.href = '/';
+    } catch (error) {
+      console.error('Login failed:', error);
+      // 处理登录错误
+    }
   };
 
   return (

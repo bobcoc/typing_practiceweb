@@ -40,15 +40,15 @@ const App: React.FC = () => {
             <Route path="/" element={<Home />} />
             <Route path="/practice/:level" element={<Practice />} />
             <Route path="/admin/code-manager" element={<AdminCodeManager />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </>
         ) : (
           <>
-            <Route path="/" element={<Navigate to="/login" />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </>
         )}
-        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
   );

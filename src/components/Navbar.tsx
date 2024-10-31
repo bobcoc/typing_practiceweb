@@ -9,7 +9,8 @@ const Navbar: React.FC = () => {
 
     const handleLogout = () => {
         localStorage.removeItem('user');
-        navigate('/login');
+        window.dispatchEvent(new Event('storage'));
+        navigate('/login', { replace: true });
     };
 
     return (
