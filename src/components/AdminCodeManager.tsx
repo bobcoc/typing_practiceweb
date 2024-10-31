@@ -28,6 +28,8 @@ interface EditingExample {
   title?: string;
   content: string;
   level: PracticeLevel | '';
+  description?: string;
+  difficulty?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -37,7 +39,9 @@ const AdminCodeManager: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [editingExample, setEditingExample] = useState<EditingExample>({
     content: '',
-    level: ''
+    level: '',
+    description: '',
+    difficulty: 1
   });
   const [isEditing, setIsEditing] = useState(false);
 
@@ -60,11 +64,18 @@ const AdminCodeManager: React.FC = () => {
       setEditingExample({
         ...example,
         content: example.content,
-        level: example.level
+        level: example.level,
+        description: example.description || '',
+        difficulty: example.difficulty || 1
       });
       setIsEditing(true);
     } else {
-      setEditingExample({ content: '', level: '' });
+      setEditingExample({
+        content: '',
+        level: '',
+        description: '',
+        difficulty: 1
+      });
       setIsEditing(false);
     }
     setOpen(true);
@@ -72,7 +83,12 @@ const AdminCodeManager: React.FC = () => {
 
   const handleClose = () => {
     setOpen(false);
-    setEditingExample({ content: '', level: '' });
+    setEditingExample({
+      content: '',
+      level: '',
+      description: '',
+      difficulty: 1
+    });
     setIsEditing(false);
   };
 
@@ -97,7 +113,9 @@ const AdminCodeManager: React.FC = () => {
       const dataToSave: Omit<CodeExample, '_id'> = {
         title: editingExample.title || '',
         content: processedContent,
-        level: editingExample.level
+        level: editingExample.level,
+        description: editingExample.description || '',
+        difficulty: editingExample.difficulty || 1
       };
 
       const url = isEditing && editingExample._id
@@ -134,18 +152,59 @@ const AdminCodeManager: React.FC = () => {
     }
   };
 
-  const getPlaceholderText = (level: string) => {
+  const getTemplateForLevel = (level: PracticeLevel): string => {
     switch(level) {
       case 'keyword':
-        return '请输入关键字，每行一个\n例如：\nfor\nwhile\nif';
+        return '请输入关键字，每行一个：\n\nfor\nwhile\nif\nelse\nreturn';
+        
       case 'basic':
-        return '// 请输入基础算法代码\n// 例如：冒泡排序\nvoid bubbleSort() {\n    // 代码内容\n}';
+        return `// 基础算法示例 - 冒泡排序
+void bubbleSort(int arr[], int n) {
+    for(int i = 0; i < n-1; i++) {
+        for(int j = 0; j < n-i-1; j++) {
+            if(arr[j] > arr[j+1]) {
+                int temp = arr[j];
+                arr[j] = arr[j+1];
+                arr[j+1] = temp;
+            }
+        }
+    }
+}`;
+        
       case 'intermediate':
-        return '// 请输入中级算法代码\n// 例如：快速排序\nvoid quickSort() {\n    // 代码内容\n}';
+        return `// 中级算法示例 - 快速排序
+int partition(int arr[], int low, int high) {
+    int pivot = arr[high];
+    int i = (low - 1);
+    
+    for(int j = low; j <= high - 1; j++) {
+        if(arr[j] < pivot) {
+            i++;
+            swap(&arr[i], &arr[j]);
+        }
+    }
+    swap(&arr[i + 1], &arr[high]);
+    return (i + 1);
+}`;
+        
       case 'advanced':
-        return '// 请输入高级算法代码\n// 例如：红黑树\nclass RedBlackTree {\n    // 代码内容\n}';
-      default:
-        return '';
+        return `// 高级算法示例 - 红黑树节点插入
+void insertFixup(Node* k) {
+    Node* u;
+    while(k->parent->color == RED) {
+        if(k->parent == k->parent->parent->right) {
+            u = k->parent->parent->left;
+            if(u->color == RED) {
+                u->color = BLACK;
+                k->parent->color = BLACK;
+                k->parent->parent->color = RED;
+                k = k->parent->parent;
+            }
+        }
+        // ... 其余情况处理
+    }
+    root->color = BLACK;
+}`;
     }
   };
 
@@ -154,7 +213,7 @@ const AdminCodeManager: React.FC = () => {
     setEditingExample({
       ...editingExample,
       level: newLevel,
-      content: getPlaceholderText(newLevel)
+      content: getTemplateForLevel(newLevel)
     });
   };
 
@@ -194,15 +253,36 @@ const AdminCodeManager: React.FC = () => {
       </TableContainer>
 
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle>{isEditing ? '编辑代码示例' : '添加新代码示例'}</DialogTitle>
+        <DialogTitle>
+          {isEditing ? '编辑代码示例' : '添加新代码示例'}
+        </DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
             label="标题"
             value={editingExample.title || ''}
-            onChange={(e) => setEditingExample({ ...editingExample, title: e.target.value })}
+            onChange={(e) => setEditingExample({ 
+              ...editingExample, 
+              title: e.target.value 
+            })}
             margin="normal"
+            helperText="请输入算法名称，例如：'冒泡排序'"
           />
+          
+          <TextField
+            fullWidth
+            label="描述"
+            value={editingExample.description || ''}
+            onChange={(e) => setEditingExample({ 
+              ...editingExample, 
+              description: e.target.value 
+            })}
+            margin="normal"
+            multiline
+            rows={2}
+            helperText="简要描述算法的功能和用途"
+          />
+
           <FormControl fullWidth margin="normal">
             <InputLabel>代码类型</InputLabel>
             <Select
@@ -216,30 +296,55 @@ const AdminCodeManager: React.FC = () => {
               <MenuItem value="advanced">高级算法</MenuItem>
             </Select>
             <FormHelperText>
-              {editingExample.level === 'keyword' ? 
-                '每个关键字占一行' : 
-                '请输入完整的函数或类定义'}
+              {editingExample.level === 'keyword' 
+                ? '每个关键字占一行' 
+                : '请输入一个完整的函数实现'}
             </FormHelperText>
           </FormControl>
+
+          {editingExample.level !== 'keyword' && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>难度等级</InputLabel>
+              <Select
+                value={editingExample.difficulty || 1}
+                onChange={(e) => setEditingExample({
+                  ...editingExample,
+                  difficulty: Number(e.target.value)
+                })}
+                label="难度等级"
+              >
+                {[1,2,3,4,5].map(level => (
+                  <MenuItem key={level} value={level}>
+                    {level} {level === 1 ? '(最简单)' : level === 5 ? '(最难)' : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>设置算法的难度等级</FormHelperText>
+            </FormControl>
+          )}
+
           <TextField
             fullWidth
             label="代码内容"
             multiline
-            rows={10}
+            rows={12}
             value={editingExample.content || ''}
             onChange={(e) => setEditingExample({
               ...editingExample,
               content: e.target.value
             })}
-            placeholder={getPlaceholderText(editingExample.level || '')}
             margin="normal"
+            placeholder={getTemplateForLevel(editingExample.level as PracticeLevel)}
+            helperText={
+              editingExample.level === 'keyword'
+                ? '每行输入一个关键字'
+                : '请输入完整的函数实现，包含函数声明和实现'
+            }
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>取消</Button>
-          <Button onClick={handleSave} color="primary">
-            保存
-          </Button>
+          <Button onClick={handleSave} color="primary">保存</Button>
         </DialogActions>
       </Dialog>
     </Container>

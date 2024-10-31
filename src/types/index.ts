@@ -11,10 +11,11 @@ export interface CodeExample {
   _id: string;
   title: string;
   content: string;
+  description?: string;
   level: PracticeLevel;
+  difficulty?: number;
   createdAt?: Date;
   updatedAt?: Date;
-  codeLines?: string[];
 }
 
 // 练习级别类型
