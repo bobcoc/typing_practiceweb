@@ -5,7 +5,9 @@ import cors from 'cors';
 import practiceTypesRouter from './routes/practiceTypes';
 import codeExamplesRouter from './routes/codeExamples';
 import authRouter from './routes/auth';
-
+import keywordsRouter from './routes/keywords';
+import practiceRecordsRouter from './routes/practiceRecords';
+import leaderboardRouter from './routes/leaderboard';
 // 加载环境变量
 dotenv.config();
 
@@ -30,7 +32,9 @@ mongoose.connect(MONGODB_URI)
 app.use('/api/practice-types', practiceTypesRouter);
 app.use('/api/code-examples', codeExamplesRouter);
 app.use('/api/auth', authRouter);
-
+app.use('/api/keywords', keywordsRouter);
+app.use('/api/practice-records', practiceRecordsRouter);
+app.use('/api/leaderboard', leaderboardRouter);
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

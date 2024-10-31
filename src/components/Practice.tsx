@@ -1,266 +1,270 @@
-import React, { useEffect, useState, KeyboardEvent } from 'react';
-import { useParams } from 'react-router-dom';
-import { 
-  Container, 
-  Typography,
-  Box,
-  TextField,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Grid,
-  Paper
-} from '@mui/material';
-import { CodeExample } from '../types';
+import React, { useState, useEffect } from 'react';
+import { message } from 'antd';
+import Input from 'antd/lib/input';
+import Card from 'antd/lib/card';
+import Progress from 'antd/lib/progress';
+import Modal from 'antd/lib/modal';
+import Row from 'antd/lib/row';
+import Col from 'antd/lib/col';
+import Button from 'antd/lib/button';
+import { useNavigate, useParams } from 'react-router-dom';
+import { API_BASE_URL, API_PATHS } from '../config';
+import type { ChangeEvent, KeyboardEvent } from 'react';
+
+// 类型定义
+interface PracticeStats {
+  totalWords: number;
+  correctWords: number;
+  accuracy: number;
+  wordsPerMinute: number;
+  startTime: Date;
+  endTime?: Date;
+  duration: number;
+}
+
+interface CodeExampleResponse {
+  content: string;
+}
+
+interface KeywordsResponse {
+  content: string;
+}
 
 const Practice: React.FC = () => {
+  const navigate = useNavigate();
   const { level } = useParams<{ level: string }>();
-  const [examples, setExamples] = useState<CodeExample[]>([]);
-  const [currentExample, setCurrentExample] = useState<CodeExample | null>(null);
-  const [userInput, setUserInput] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalAttempts: 0,
-    correctAttempts: 0,
+  const [content, setContent] = useState<string>('');
+  const [currentKeyword, setCurrentKeyword] = useState<string>('');
+  const [userInput, setUserInput] = useState<string>('');
+  const [stats, setStats] = useState<PracticeStats>({
+    totalWords: 0,
+    correctWords: 0,
     accuracy: 0,
-    averageTime: 0,
-    startTime: Date.now()
+    wordsPerMinute: 0,
+    startTime: new Date(),
+    duration: 0,
   });
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    console.log('Current level:', level);
-    fetchExamples();
-  }, [level]);
+    fetchContent();
+    const intervalTimer = setInterval(updateTimer, 1000);
+    setTimer(intervalTimer);
 
-  const fetchExamples = async () => {
-    try {
-      setLoading(true);
-      console.log('Fetching examples for level:', level);
-      
-      const url = `http://localhost:5001/api/code-examples?level=${encodeURIComponent(level || '')}`;
-      console.log('Fetching URL:', url);
-      
-      const response = await fetch(url);
-      console.log('Response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+    return () => {
+      if (timer) {
+        clearInterval(timer);
       }
+    };
+  }, []);
+
+  const updateTimer = () => {
+    setStats(prev => {
+      const duration = (new Date().getTime() - prev.startTime.getTime()) / 1000;
+      const wordsPerMinute = (prev.totalWords / duration) * 60;
+      return { ...prev, duration, wordsPerMinute };
+    });
+  };
+
+  const fetchContent = async () => {
+    try {
+      const endpoint = level === 'keyword' 
+        ? API_PATHS.KEYWORDS
+        : `${API_PATHS.CODE_EXAMPLES}/${level}`;
+        
+      const response = await fetch(`${API_BASE_URL}${endpoint}`);
+      if (!response.ok) {
+        throw new Error('获取内容失败');
+      }
+
+      const data: KeywordsResponse | CodeExampleResponse = await response.json();
       
-      const data = await response.json();
-      console.log('Received data:', data);
-      
-      if (Array.isArray(data) && data.length > 0) {
-        setExamples(data);
-        const randomExample = data[Math.floor(Math.random() * data.length)];
-        console.log('Setting current example:', randomExample);
-        setCurrentExample(randomExample);
+      if (level === 'keyword') {
+        const keywordArray = data.content
+          .split('\n')
+          .filter(k => k.trim() !== '');
+        setContent(data.content);
+        getRandomKeyword(keywordArray);
       } else {
-        console.log('No examples found or invalid data format');
-        setExamples([]);
-        setCurrentExample(null);
+        setContent(data.content);
       }
     } catch (error) {
-      console.error('Error fetching examples:', error);
-      setExamples([]);
-      setCurrentExample(null);
-    } finally {
-      setLoading(false);
+      message.error('获取内容失败');
+      console.error('获取内容失败:', error);
     }
   };
 
-  const handleKeywordInput = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter' && level === 'keyword') {
-      checkKeywordAnswer();
+  const getRandomKeyword = (keywordArray: string[]) => {
+    if (keywordArray.length === 0) {
+      setCurrentKeyword('');
+      return;
+    }
+    const randomIndex = Math.floor(Math.random() * keywordArray.length);
+    setCurrentKeyword(keywordArray[randomIndex]);
+  };
+
+  const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setUserInput(e.target.value);
+    if (level !== 'keyword') {
+      updateStats(e.target.value);
     }
   };
 
-  const getNextExample = () => {
-    if (examples.length > 0) {
-      const randomIndex = Math.floor(Math.random() * examples.length);
-      const nextExample = examples[randomIndex];
-      console.log('Next example:', nextExample);
-      setCurrentExample(nextExample);
+  const handleKeywordInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setUserInput(e.target.value);
+  };
+
+  const handleKeywordSubmit = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const isCorrect = userInput.trim() === currentKeyword;
+      updateKeywordStats(isCorrect);
       setUserInput('');
-      setStats(prev => ({
-        ...prev,
-        startTime: Date.now()
-      }));
+      getRandomKeyword(content.split('\n').filter(k => k.trim() !== ''));
     }
   };
 
-  const checkKeywordAnswer = () => {
-    if (!currentExample) return;
+  const updateKeywordStats = (isCorrect: boolean) => {
+    setStats(prev => ({
+      ...prev,
+      totalWords: prev.totalWords + 1,
+      correctWords: prev.correctWords + (isCorrect ? 1 : 0),
+      accuracy: ((prev.correctWords + (isCorrect ? 1 : 0)) / (prev.totalWords + 1)) * 100,
+    }));
 
-    const timeTaken = (Date.now() - stats.startTime) / 1000;
-    const isCorrect = userInput.trim() === currentExample.content.trim();
-    console.log('Answer check:', { isCorrect, timeTaken });
+    if (isCorrect) {
+      message.success('正确!');
+    } else {
+      message.error(`错误! 正确答案是: ${currentKeyword}`);
+    }
+  };
 
-    setStats(prev => {
-      const newStats = {
-        totalAttempts: prev.totalAttempts + 1,
-        correctAttempts: prev.correctAttempts + (isCorrect ? 1 : 0),
-        accuracy: ((prev.correctAttempts + (isCorrect ? 1 : 0)) / (prev.totalAttempts + 1)) * 100,
-        averageTime: (prev.averageTime * prev.totalAttempts + timeTaken) / (prev.totalAttempts + 1),
-        startTime: Date.now()
+  const updateStats = (currentInput: string) => {
+    const words = currentInput.split(/\s+/);
+    const contentWords = content.split(/\s+/);
+    const correctWords = words.filter((word, index) => word === contentWords[index]);
+
+    setStats(prev => ({
+      ...prev,
+      totalWords: words.length,
+      correctWords: correctWords.length,
+      accuracy: words.length > 0 ? (correctWords.length / words.length) * 100 : 0,
+    }));
+  };
+
+  const handleExit = () => {
+    setIsModalVisible(true);
+  };
+
+  const confirmExit = async () => {
+    try {
+      const finalStats = {
+        ...stats,
+        endTime: new Date(),
       };
-      console.log('Updated stats:', newStats);
-      return newStats;
-    });
 
-    getNextExample();
+      const response = await fetch(`${API_BASE_URL}${API_PATHS.PRACTICE_RECORDS}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: level,
+          stats: finalStats,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('保存记录失败');
+      }
+
+      message.success('练习记录已保存');
+      navigate('/practice-history');
+    } catch (error) {
+      message.error('保存记录失败');
+      console.error('保存记录失败:', error);
+    }
+    setIsModalVisible(false);
   };
 
   const renderStats = () => (
-    <Card sx={{ mb: 3 }}>
-      <CardContent>
-        <Grid container spacing={2}>
-          <Grid item xs={3}>
-            <Typography variant="subtitle2">总尝试次数</Typography>
-            <Typography variant="h6">{stats.totalAttempts}</Typography>
-          </Grid>
-          <Grid item xs={3}>
-            <Typography variant="subtitle2">正确次数</Typography>
-            <Typography variant="h6">{stats.correctAttempts}</Typography>
-          </Grid>
-          <Grid item xs={3}>
-            <Typography variant="subtitle2">正确率</Typography>
-            <Typography variant="h6">{stats.accuracy.toFixed(1)}%</Typography>
-          </Grid>
-          <Grid item xs={3}>
-            <Typography variant="subtitle2">平均用时</Typography>
-            <Typography variant="h6">{stats.averageTime.toFixed(1)}秒</Typography>
-          </Grid>
-        </Grid>
-      </CardContent>
-    </Card>
-  );
-
-  const renderKeywordPractice = () => (
-    <Box sx={{ mt: 4 }}>
-      {renderStats()}
-      <Box sx={{ textAlign: 'center', mb: 4 }}>
-        {currentExample ? (
-          <Typography variant="h2" gutterBottom sx={{ 
-            fontFamily: 'monospace',
-            letterSpacing: '0.1em',
-            color: '#1976d2'
-          }}>
-            {currentExample.content}
-          </Typography>
-        ) : (
-          <Typography variant="h5" color="text.secondary">
-            暂无练习内容
-          </Typography>
-        )}
-      </Box>
-      <TextField
-        fullWidth
-        value={userInput}
-        onChange={(e) => setUserInput(e.target.value)}
-        onKeyPress={(e) => {
-          if (e.key === 'Enter') {
-            console.log('Checking answer:', {
-              input: userInput,
-              expected: currentExample?.content
-            });
-            checkKeywordAnswer();
-          }
-        }}
-        variant="outlined"
-        placeholder="输入关键字后按回车继续"
-        disabled={!currentExample}
-        sx={{ 
-          '& .MuiInputBase-input': {
-            fontSize: '2rem',
-            textAlign: 'center',
-            fontFamily: 'monospace',
-            letterSpacing: '0.1em'
-          }
-        }}
+    <div style={{ marginBottom: 20 }}>
+      <Progress
+        type="circle"
+        percent={Math.round(stats.accuracy)}
+        format={(percent?: number) => `正确率: ${percent || 0}%`}
       />
-    </Box>
+      <div style={{ marginTop: 10 }}>
+        <p>总单词数: {stats.totalWords}</p>
+        <p>正确单词数: {stats.correctWords}</p>
+        <p>每分钟单词数: {Math.round(stats.wordsPerMinute)}</p>
+        <p>练习时间: {Math.round(stats.duration)}秒</p>
+      </div>
+    </div>
   );
-
-  const renderAlgorithmPractice = () => (
-    <Box sx={{ mt: 4 }}>
-      {renderStats()}
-      <Grid container spacing={3}>
-        <Grid item xs={6}>
-          <Paper sx={{ p: 2, height: '70vh', overflow: 'auto' }}>
-            <Typography variant="h6" gutterBottom>
-              {currentExample?.title}
-            </Typography>
-            <Typography
-              component="pre"
-              sx={{
-                fontFamily: 'monospace',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-all'
-              }}
-            >
-              {currentExample?.content}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={6}>
-          <TextField
-            fullWidth
-            multiline
-            rows={25}
-            value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
-            variant="outlined"
-            sx={{ 
-              height: '70vh',
-              '& .MuiInputBase-root': {
-                height: '100%'
-              },
-              '& .MuiInputBase-input': {
-                fontFamily: 'monospace'
-              }
-            }}
-          />
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
-            <Button 
-              variant="contained" 
-              color="secondary"
-              onClick={getNextExample}
-            >
-              跳过
-            </Button>
-            <Button 
-              variant="contained" 
-              color="primary"
-              onClick={checkKeywordAnswer}
-            >
-              提交
-            </Button>
-          </Box>
-        </Grid>
-      </Grid>
-    </Box>
-  );
-
-  if (loading) {
-    return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
-      </Container>
-    );
-  }
 
   return (
-    <Container maxWidth="lg">
-      <Typography variant="h4" align="center" gutterBottom sx={{ mt: 4 }}>
-        {level === 'keyword' ? '关键字练习' : 
-         level === 'basic' ? '基础算法练习' :
-         level === 'intermediate' ? '中级算法练习' : '高级算法练习'}
-      </Typography>
-      
-      {level === 'keyword' ? renderKeywordPractice() : renderAlgorithmPractice()}
-    </Container>
+    <Card title={`${level === 'keyword' ? '关键字' : '代码'}打字练习`}>
+      {level === 'keyword' ? (
+        <div style={{ textAlign: 'center' }}>
+          {renderStats()}
+          <div style={{ margin: '20px 0', fontSize: '24px', fontFamily: 'monospace' }}>
+            {currentKeyword || '没有可用的关键字'}
+          </div>
+          <Input
+            value={userInput}
+            onChange={handleKeywordInputChange}
+            onKeyPress={handleKeywordSubmit}
+            placeholder="输入关键字，按回车确认"
+            style={{ maxWidth: 300, marginBottom: 20 }}
+            autoFocus
+          />
+        </div>
+      ) : (
+        <Row gutter={16}>
+          <Col xs={24} md={12}>
+            <pre style={{ 
+              background: '#f5f5f5', 
+              padding: 16, 
+              borderRadius: 4,
+              maxHeight: '70vh',
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordWrap: 'break-word'
+            }}>
+              {content}
+            </pre>
+          </Col>
+          <Col xs={24} md={12}>
+            {renderStats()}
+            <Input.TextArea
+              value={userInput}
+              onChange={handleInputChange}
+              placeholder="在此输入代码"
+              style={{ height: '60vh' }}
+              autoFocus
+            />
+          </Col>
+        </Row>
+      )}
+
+      <div style={{ textAlign: 'center', marginTop: 20 }}>
+        <Button type="primary" danger onClick={handleExit}>
+          结束练习
+        </Button>
+      </div>
+
+      <Modal
+        title="确认结束练习"
+        open={isModalVisible}
+        onOk={confirmExit}
+        onCancel={() => setIsModalVisible(false)}
+      >
+        <p>确定要结束本次练习吗？您的练习记录将被保存。</p>
+        <p>当前正确率: {Math.round(stats.accuracy)}%</p>
+        <p>每分钟单词数: {Math.round(stats.wordsPerMinute)}</p>
+      </Modal>
+    </Card>
   );
 };
 
