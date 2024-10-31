@@ -1,17 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import Practice from './components/Practice';
-import AdminCodeManager from './components/AdminCodeManager';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import Home from './components/Home';
 import Login from './components/Login';
 import Register from './components/Register';
-
-const Home: React.FC = () => (
-  <div>
-    <h1>欢迎来到 Type Practice</h1>
-    <p>请选择一个练习等级开始。</p>
-  </div>
-);
+import Practice from './components/Practice';
+import AdminCodeManager from './components/AdminCodeManager';
 
 const App: React.FC = () => {
   const [user, setUser] = useState(() => {
@@ -26,9 +20,7 @@ const App: React.FC = () => {
     };
 
     window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   return (
