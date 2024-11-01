@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import { User } from '../models/User';
 import jwt from 'jsonwebtoken'; 
 import { config } from '../config'; 
-
+import { MongoError } from 'mongodb'; 
 const router = express.Router();
 
 // 定义路由处理函数类型
@@ -76,6 +76,8 @@ const registerHandler: RouteHandler = async (req, res) => {
   try {
     const { username, password } = req.body;
     
+    console.log('Registration attempt:', { username });
+    
     const userCount = await User.countDocuments();
     const isAdmin = userCount === 0;
     
@@ -87,13 +89,40 @@ const registerHandler: RouteHandler = async (req, res) => {
     
     await user.save();
     
-    res.status(201).json({
+    const token = jwt.sign(
+      {
+        _id: user._id,
+        username: user.username,
+        isAdmin: user.isAdmin
+      },
+      config.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    console.log('Registration successful:', {
       username: user.username,
-      isAdmin: user.isAdmin
+      isAdmin: user.isAdmin,
+      hasToken: !!token
+    });
+    
+    res.status(201).json({
+      token,
+      user: {
+        _id: user._id,
+        username: user.username,
+        isAdmin: user.isAdmin
+      }
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ message: '注册失败' });
+    
+    if (error instanceof MongoError && error.code === 11000) {
+      res.status(400).json({ message: '用户名已存在' });
+    } else {
+      res.status(500).json({ 
+        message: '注册失败：' + (error instanceof Error ? error.message : '未知错误') 
+      });
+    }
   }
 };
 

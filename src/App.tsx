@@ -8,15 +8,27 @@ import Practice from './components/Practice';
 import AdminCodeManager from './components/AdminCodeManager';
 
 const App: React.FC = () => {
+  // 只添加基本的错误处理
   const [user, setUser] = useState(() => {
-    const userString = localStorage.getItem('user');
-    return userString ? JSON.parse(userString) : null;
+    try {
+      const userString = localStorage.getItem('user');
+      return userString ? JSON.parse(userString) : null;
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      return null;
+    }
   });
 
+  // 保持原有的 storage 事件监听，只添加错误处理
   useEffect(() => {
     const handleStorageChange = () => {
-      const userString = localStorage.getItem('user');
-      setUser(userString ? JSON.parse(userString) : null);
+      try {
+        const userString = localStorage.getItem('user');
+        setUser(userString ? JSON.parse(userString) : null);
+      } catch (error) {
+        console.error('Error handling storage change:', error);
+        setUser(null);
+      }
     };
 
     window.addEventListener('storage', handleStorageChange);

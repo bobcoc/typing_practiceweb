@@ -1,22 +1,75 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { TextField, Button, Typography, Paper, Grid } from '@mui/material';
+import { api } from '../api/apiClient';
+import { API_PATHS } from '../config';
+import message from 'antd/es/message';
+
+interface RegisterResponse {
+  token: string;
+  user: {
+    _id: string;
+    username: string;
+    isAdmin: boolean;
+  };
+}
 
 const Register: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleRegister = () => {
-    if (password !== confirmPassword) {
-      alert('密码不匹配');
+  const handleRegister = async () => {
+    if (!username || !password || !confirmPassword) {
+      message.error('请填写所有字段');
       return;
     }
-    // 模拟注册逻辑
-    const user = { username, isAdmin: false }; // 假设从服务器获取的用户信息
-    localStorage.setItem('user', JSON.stringify(user));
-    navigate('/'); // 确保导航到主页
+
+    if (password !== confirmPassword) {
+      message.error('两次输入的密码不匹配');
+      return;
+    }
+
+    if (username.length < 3 || username.length > 20) {
+      message.error('用户名长度应在3-20个字符之间');
+      return;
+    }
+
+    if (password.length < 6) {
+      message.error('密码长度至少6个字符');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // api.post 已经返回 data，不需要访问 .data 属性
+      const response = await api.post<RegisterResponse>(
+        `${API_PATHS.AUTH}/register`, 
+        {
+          username,
+          password
+        }
+      );
+
+      // 直接使用 response，因为它就是 RegisterResponse 类型
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('user', JSON.stringify(response.user));
+
+      message.success('注册成功');
+      navigate('/', { replace: true });
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Registration failed:', error);
+      if (error.response?.data?.message) {
+        message.error(error.response.data.message);
+      } else {
+        message.error('注册失败，请稍后重试');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -32,6 +85,7 @@ const Register: React.FC = () => {
             onChange={(e) => setUsername(e.target.value)}
             fullWidth
             margin="normal"
+            disabled={loading}
           />
           <TextField
             label="密码"
@@ -40,6 +94,7 @@ const Register: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
             fullWidth
             margin="normal"
+            disabled={loading}
           />
           <TextField
             label="确认密码"
@@ -48,6 +103,7 @@ const Register: React.FC = () => {
             onChange={(e) => setConfirmPassword(e.target.value)}
             fullWidth
             margin="normal"
+            disabled={loading}
           />
           <Button
             variant="contained"
@@ -55,8 +111,9 @@ const Register: React.FC = () => {
             fullWidth
             onClick={handleRegister}
             style={{ marginTop: 16 }}
+            disabled={loading}
           >
-            注册
+            {loading ? '注册中...' : '注册'}
           </Button>
           <Typography align="center" style={{ marginTop: 16 }}>
             已有账号？ <Link to="/login">登录</Link>
@@ -67,4 +124,4 @@ const Register: React.FC = () => {
   );
 };
 
-export default Register; 
+export default Register;

@@ -13,6 +13,35 @@ router.get('/', async (req, res) => {
   }
 });
 
+// 获取特定难度级别的代码示例
+router.get('/:level', async (req, res) => {
+  try {
+    const { level } = req.params;
+    // 验证难度级别是否有效
+    const validLevels = ['basic', 'intermediate', 'advanced'];
+    if (!validLevels.includes(level)) {
+      return res.status(400).json({ message: '无效的代码难度级别' });
+    }
+
+    // 查找匹配难度级别的代码示例
+    const example = await CodeExample.findOne({ level }).sort({ createdAt: -1 });
+    
+    if (!example) {
+      return res.status(404).json({ message: '未找到该难度级别的代码示例' });
+    }
+
+    // 返回代码示例内容
+    res.json({
+      content: example.content,
+      level: example.level,
+      title: example.title
+    });
+  } catch (error) {
+    console.error('获取代码示例错误:', error);
+    res.status(500).json({ message: '获取代码示例失败' });
+  }
+});
+
 // 创建新代码示例
 router.post('/', async (req, res) => {
   try {
@@ -48,4 +77,4 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-export default router; 
+export default router;

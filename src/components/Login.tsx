@@ -5,19 +5,17 @@ import Input from 'antd/es/input';
 import Button from 'antd/es/button';
 import Card from 'antd/es/card';
 import message from 'antd/es/message';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../api/apiClient';
 import { API_PATHS } from '../config';
 import { AxiosError } from 'axios';
 import type { ErrorResponse } from '../types/auth';
 
-// 登录表单值的接口
 interface LoginFormValues {
   username: string;
   password: string;
 }
 
-// 登录响应的接口
 interface LoginResponse {
   token: string;
   user: {
@@ -35,7 +33,6 @@ const Login: React.FC = () => {
     try {
       const response = await api.post<LoginResponse>(`${API_PATHS.AUTH}/login`, values);
       
-      // 保存认证信息
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
       
@@ -45,12 +42,10 @@ const Login: React.FC = () => {
       });
 
       message.success('登录成功'); 
-      navigate('/', { replace: true }); // 使用 replace 避免返回到登录页
-      // 强制刷新以更新导航栏状态
+      navigate('/', { replace: true });
       window.location.reload();
     } catch (error) {
       console.error('Login failed:', error);
-      // 正确的错误类型处理
       if (error instanceof AxiosError) {
         const errorMessage = (error.response?.data as ErrorResponse)?.message || '登录失败：用户名或密码错误';
         message.error(errorMessage);
@@ -113,6 +108,13 @@ const Login: React.FC = () => {
               登录
             </Button>
           </Form.Item>
+          
+          <div style={{ 
+            textAlign: 'center',
+            marginTop: '16px'
+          }}>
+            还没有账号？ <Link to="/register">立即注册</Link>
+          </div>
         </Form>
       </Card>
     </div>

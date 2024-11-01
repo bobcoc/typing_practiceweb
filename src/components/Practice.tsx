@@ -24,10 +24,12 @@ interface PracticeStats {
 }
 
 interface CodeExampleResponse {
+  title: string;
   content: string;
 }
 
 interface KeywordsResponse {
+  title: string;
   content: string;
 }
 
@@ -69,6 +71,7 @@ const Practice: React.FC = () => {
     });
   };
 
+  const [title, setTitle] = useState<string>('');
   const fetchContent = async () => {
     try {
       setLoading(true);
@@ -77,15 +80,17 @@ const Practice: React.FC = () => {
         : `${API_PATHS.CODE_EXAMPLES}/${level}`;
 
       const response = await api.get<KeywordsResponse | CodeExampleResponse>(endpoint);
-      
+      console.log('API response:', response);
       if (level === 'keyword') {
         const keywordArray = response.content
           .split('\n')
           .filter(k => k.trim() !== '');
         setContent(response.content);
+        setTitle(response.title);
         getRandomKeyword(keywordArray);
       } else {
         setContent(response.content);
+        setTitle(response.title);
       }
     } catch (error) {
       message.error('获取内容失败');
@@ -249,8 +254,9 @@ const Practice: React.FC = () => {
   }
 
   return (
-    <Card title={`${level === 'keyword' ? '关键字' : '代码'}打字练习`}>
+    <Card title={`${level === 'keyword' ? '关键字' : '代码'}打字练习: ${title}`}>
       {level === 'keyword' ? (
+        // 关键字练习的布局保持不变
         <div style={{ textAlign: 'center' }}>
           {renderStats()}
           <div style={{ margin: '20px 0', fontSize: '24px', fontFamily: 'monospace' }}>
@@ -264,40 +270,106 @@ const Practice: React.FC = () => {
             style={{ maxWidth: 300, marginBottom: 20 }}
             autoFocus
           />
+          <div style={{ 
+      textAlign: 'center', 
+      marginTop: 20,
+      marginBottom: 20
+    }}>
+      <Button type="primary" danger onClick={handleExit}>
+        结束练习
+      </Button>
+    </div>
         </div>
-      ) : (
-        <Row gutter={16}>
-          <Col xs={24} md={12}>
-            <pre style={{ 
-              background: '#f5f5f5', 
-              padding: 16, 
-              borderRadius: 4,
-              maxHeight: '70vh',
-              overflow: 'auto',
-              whiteSpace: 'pre-wrap',
-              wordWrap: 'break-word'
-            }}>
-              {content}
-            </pre>
-          </Col>
-          <Col xs={24} md={12}>
-            {renderStats()}
-            <Input.TextArea
-              value={userInput}
-              onChange={handleInputChange}
-              placeholder="在此输入代码"
-              style={{ height: '60vh' }}
-              autoFocus
+      ) : (// 代码练习模式的布局
+        <div style={{ 
+          maxWidth: 1200, 
+          margin: '0 auto',
+          padding: '20px 0',
+          display: 'flex',
+          flexDirection: 'column',
+          // 移除 minHeight 属性，让内容决定高度
+          // minHeight: 'calc(100vh - 250px)'
+        }}>
+          {/* 统计信息区域保持不变 */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 20,
+            gap: 40
+          }}>
+            <Progress
+              type="circle"
+              percent={Math.round(stats.accuracy)}
+              format={(percent?: number) => `正确率: ${percent || 0}%`}
+              width={120}
             />
-          </Col>
-        </Row>
+            <div>
+              <p style={{ margin: '5px 0' }}>总单词数: {stats.totalWords}</p>
+              <p style={{ margin: '5px 0' }}>正确单词数: {stats.correctWords}</p>
+              <p style={{ margin: '5px 0' }}>每分钟单词数: {Math.round(stats.wordsPerMinute)}</p>
+              <p style={{ margin: '5px 0' }}>练习时间: {Math.round(stats.duration)}秒</p>
+            </div>
+          </div>
+        
+          {/* 代码区域 */}
+          <Row gutter={16} style={{ justifyContent: 'center' }}>
+            <Col style={{ width: 600 }}>
+              <div style={{ 
+                height: 400,
+                background: '#f5f5f5', 
+                borderRadius: 4,
+                overflow: 'hidden',
+                marginBottom: 20  // 添加底部间距
+              }}>
+                <pre style={{ 
+                  height: '100%',
+                  margin: 0,
+                  padding: 16,
+                  whiteSpace: 'pre-wrap',
+                  wordWrap: 'break-word',
+                  fontSize: '14px',
+                  lineHeight: '1.5',
+                  fontFamily: 'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace',
+                  overflow: 'auto'
+                }}>
+                  {content.split('\n').map((line, index) => (
+                    <div key={index} style={{
+                      opacity: line.trim().startsWith('//') ? 0.5 : 1
+                    }}>
+                      {line}
+                    </div>
+                  ))}
+                </pre>
+              </div>
+            </Col>
+            <Col style={{ width: 600 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <Input.TextArea
+                  value={userInput}
+                  onChange={handleInputChange}
+                  placeholder="在此输入代码"
+                  style={{ 
+                    height: 400,
+                    fontSize: '14px',
+                    lineHeight: '1.5',
+                    fontFamily: 'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace',
+                    resize: 'none',
+                    padding: 16
+                  }}
+                  autoFocus
+                />
+                {/* 将按钮移到这里 */}
+                <div style={{ textAlign: 'center' }}>
+                  <Button type="primary" danger onClick={handleExit}>
+                    结束练习
+                  </Button>
+                </div>
+              </div>
+            </Col>
+          </Row>
+        </div>
       )}
-
-      <div style={{ textAlign: 'center', marginTop: 20 }}>
-        <Button type="primary" danger onClick={handleExit}>
-          结束练习
-        </Button>
-      </div>
 
       <Modal
         title="确认结束练习"
