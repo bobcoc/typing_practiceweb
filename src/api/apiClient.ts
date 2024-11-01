@@ -14,6 +14,14 @@ export class ApiError extends Error {
   }
 }
 
+// API响应数据接口
+interface ApiErrorResponse {
+  error?: string;
+  message?: string;
+  statusCode?: number;
+  [key: string]: any;
+}
+
 // API客户端配置
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -26,18 +34,20 @@ apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // 添加认证token
     const token = localStorage.getItem('token');
+    console.log('Request interceptor - token:', token ? 'present' : 'missing');
+    
     if (token) {
+      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // 添加时间戳防止缓存（可选）
-    if (config.method?.toLowerCase() === 'get') {
-      config.params = {
-        ...config.params,
-        _t: Date.now()
-      };
-    }
-
+    // 调试信息
+    console.log('Request config:', {
+      url: config.url,
+      method: config.method,
+      hasAuth: !!config.headers?.Authorization
+    });
+    
     return config;
   },
   (error: AxiosError) => {
@@ -49,10 +59,10 @@ apiClient.interceptors.request.use(
 // 响应拦截器
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    if (axios.isAxiosError(error)) {
-      const statusCode = error.response?.status;
-      const responseData = error.response?.data;
+  (error: AxiosError<ApiErrorResponse>) => {
+    if (axios.isAxiosError(error) && error.response) {
+      const statusCode = error.response.status;
+      const responseData = error.response.data as ApiErrorResponse;
 
       // 处理特定状态码
       switch (statusCode) {
@@ -75,7 +85,7 @@ apiClient.interceptors.response.use(
         default:
           return Promise.reject(
             new ApiError(
-              responseData?.message || '请求失败',
+              responseData?.error || responseData?.message || '请求失败',
               statusCode,
               responseData
             )
@@ -84,12 +94,14 @@ apiClient.interceptors.response.use(
     }
 
     // 处理网络错误
-    if (error.message === 'Network Error') {
+    const networkErrorMessage = error?.message;
+    if (typeof networkErrorMessage === 'string' && networkErrorMessage === 'Network Error') {
       return Promise.reject(new ApiError('网络连接失败，请检查网络设置'));
     }
 
     // 处理超时
-    if (error.code === 'ECONNABORTED') {
+    const errorCode = error?.code;
+    if (typeof errorCode === 'string' && errorCode === 'ECONNABORTED') {
       return Promise.reject(new ApiError('请求超时，请稍后重试'));
     }
 

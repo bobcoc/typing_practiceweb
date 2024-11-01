@@ -1,3 +1,4 @@
+// src/components/Practice.tsx
 import React, { useState, useEffect } from 'react';
 import { message } from 'antd';
 import Input from 'antd/lib/input';
@@ -8,10 +9,10 @@ import Row from 'antd/lib/row';
 import Col from 'antd/lib/col';
 import Button from 'antd/lib/button';
 import { useNavigate, useParams } from 'react-router-dom';
-import { API_BASE_URL, API_PATHS } from '../config';
+import { api, ApiError} from '../api/apiClient';
+import { API_PATHS } from '../config';
 import type { ChangeEvent, KeyboardEvent } from 'react';
 
-// 类型定义
 interface PracticeStats {
   totalWords: number;
   correctWords: number;
@@ -46,6 +47,7 @@ const Practice: React.FC = () => {
   });
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchContent();
@@ -69,29 +71,27 @@ const Practice: React.FC = () => {
 
   const fetchContent = async () => {
     try {
+      setLoading(true);
       const endpoint = level === 'keyword' 
         ? API_PATHS.KEYWORDS
         : `${API_PATHS.CODE_EXAMPLES}/${level}`;
-        
-      const response = await fetch(`${API_BASE_URL}${endpoint}`);
-      if (!response.ok) {
-        throw new Error('获取内容失败');
-      }
 
-      const data: KeywordsResponse | CodeExampleResponse = await response.json();
+      const response = await api.get<KeywordsResponse | CodeExampleResponse>(endpoint);
       
       if (level === 'keyword') {
-        const keywordArray = data.content
+        const keywordArray = response.content
           .split('\n')
           .filter(k => k.trim() !== '');
-        setContent(data.content);
+        setContent(response.content);
         getRandomKeyword(keywordArray);
       } else {
-        setContent(data.content);
+        setContent(response.content);
       }
     } catch (error) {
       message.error('获取内容失败');
       console.error('获取内容失败:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -155,36 +155,71 @@ const Practice: React.FC = () => {
   const handleExit = () => {
     setIsModalVisible(true);
   };
-
   const confirmExit = async () => {
     try {
+      // 调试：检查用户信息
+      const userStr = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+      console.log('Saving practice record:', {
+        hasUser: !!userStr,
+        hasToken: !!token,
+        userInfo: userStr ? JSON.parse(userStr) : null
+      });
+  
       const finalStats = {
         ...stats,
         endTime: new Date(),
       };
-
-      const response = await fetch(`${API_BASE_URL}${API_PATHS.PRACTICE_RECORDS}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: level,
-          stats: finalStats,
-        }),
+  
+      // 调试：打印请求数据
+      console.log('Practice record data:', {
+        type: level,
+        stats: finalStats,
+        endpoint: API_PATHS.PRACTICE_RECORDS
       });
-
-      if (!response.ok) {
-        throw new Error('保存记录失败');
-      }
-
+  
+      // 使用 apiClient 发送请求
+      const response = await api.post(API_PATHS.PRACTICE_RECORDS, {
+        type: level,
+        stats: finalStats,
+      });
+  
+      // 调试：打印响应
+      console.log('Save practice record response:', response);
+  
       message.success('练习记录已保存');
       navigate('/practice-history');
     } catch (error) {
-      message.error('保存记录失败');
-      console.error('保存记录失败:', error);
+      // 详细的错误日志
+      console.error('Save practice record error:', {
+        error,
+        isApiError: error instanceof ApiError,
+        statusCode: error instanceof ApiError ? error.statusCode : undefined,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        token: localStorage.getItem('token') ? 'present' : 'missing',
+        user: localStorage.getItem('user') ? 'present' : 'missing'
+      });
+  
+      if (error instanceof ApiError) {
+        if (error.statusCode === 401) {
+          console.log('Authentication error detected, user info:', {
+            token: localStorage.getItem('token'),
+            user: localStorage.getItem('user')
+          });
+          message.error('请重新登录');
+          // 保存当前路径
+          localStorage.setItem('redirectPath', window.location.pathname);
+          navigate('/login');
+        } else {
+          message.error(error.message || '保存记录失败');
+        }
+      } else {
+        console.error('Unexpected error:', error);
+        message.error('保存记录失败');
+      }
+    } finally {
+      setIsModalVisible(false);
     }
-    setIsModalVisible(false);
   };
 
   const renderStats = () => (
@@ -202,6 +237,16 @@ const Practice: React.FC = () => {
       </div>
     </div>
   );
+
+  if (loading) {
+    return (
+      <Card>
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          加载中...
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card title={`${level === 'keyword' ? '关键字' : '代码'}打字练习`}>

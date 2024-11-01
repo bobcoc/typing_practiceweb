@@ -1,45 +1,86 @@
-import React from 'react';
+// src/components/NavBar.tsx
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AppBar, Toolbar, Typography, Button } from '@mui/material';
+import Menu from 'antd/es/menu';
+import Layout from 'antd/es/layout';
+import message from 'antd/es/message';
 
-const Navbar: React.FC = () => {
-    const navigate = useNavigate();
-    const userString = localStorage.getItem('user');
-    const user = userString ? JSON.parse(userString) : null;
+const { Header } = Layout;
 
-    const handleLogout = () => {
-        localStorage.removeItem('user');
-        window.dispatchEvent(new Event('storage'));
-        navigate('/login', { replace: true });
-    };
+interface UserInfo {
+  username: string;
+  isAdmin?: boolean;
+}
 
-    return (
-        <AppBar position="static">
-            <Toolbar>
-                <Typography variant="h6" style={{ flexGrow: 1 }}>
-                    Type Practice
-                </Typography>
-                {user && (
-                    <>
-                        <Button color="inherit" component={Link} to="/">
-                            首页
-                        </Button>
-                        <Button color="inherit" component={Link} to="/practice/1">
-                            练习
-                        </Button>
-                        {user.isAdmin && (
-                            <Button color="inherit" component={Link} to="/admin/code-manager">
-                                管理代码示例
-                            </Button>
-                        )}
-                        <Button color="inherit" onClick={handleLogout}>
-                            注销
-                        </Button>
-                    </>
-                )}
-            </Toolbar>
-        </AppBar>
-    );
+const NavBar: React.FC = () => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<UserInfo | null>(null);
+
+  useEffect(() => {
+    // 从localStorage获取用户信息
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const userInfo = JSON.parse(userStr);
+        setUser(userInfo);
+      } catch (error) {
+        console.error('Failed to parse user info:', error);
+      }
+    }
+  }, []); // 在组件加载时读取用户信息
+
+  const handleLogout = () => {
+    // 清除本地存储的认证信息
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    message.success('已退出登录');
+    navigate('/login');
+  };
+
+  return (
+    <Header style={{ padding: 0 }}>
+      <Menu 
+        theme="dark" 
+        mode="horizontal" 
+        selectedKeys={[window.location.pathname]}
+      >
+        <Menu.Item key="/">
+          <Link to="/">打字练习</Link>
+        </Menu.Item>
+        
+        {user ? (
+          <>
+            <Menu.Item key="/practice-history">
+              <Link to="/practice-history">练习历史</Link>
+            </Menu.Item>
+            
+            <Menu.Item key="/leaderboard">
+              <Link to="/leaderboard">排行榜</Link>
+            </Menu.Item>
+            
+            {user.isAdmin && (
+              <Menu.Item key="/admin">
+                <Link to="/admin">管理后台</Link>
+              </Menu.Item>
+            )}
+            
+            <Menu.Item key="/profile" style={{ marginLeft: 'auto' }}>
+              <span>{user.username}</span>
+            </Menu.Item>
+            
+            <Menu.Item key="logout" onClick={handleLogout}>
+              退出登录
+            </Menu.Item>
+          </>
+        ) : (
+          <Menu.Item key="/login" style={{ marginLeft: 'auto' }}>
+            <Link to="/login">登录</Link>
+          </Menu.Item>
+        )}
+      </Menu>
+    </Header>
+  );
 };
 
-export default Navbar; 
+export default NavBar;

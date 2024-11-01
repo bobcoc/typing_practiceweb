@@ -25,7 +25,7 @@ for (const envVar of requiredEnvVars) {
 export const config: Config = {
   PORT: parseInt(process.env.PORT || '5001', 10),
   MONGODB_URI: process.env.MONGODB_URI!,
-  JWT_SECRET: process.env.JWT_SECRET!,
+  JWT_SECRET: process.env.JWT_SECRET || 'your_jwt_secret_key_here',
   NODE_ENV: (process.env.NODE_ENV as Config['NODE_ENV']) || 'development',
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:3000',
 };
@@ -46,10 +46,10 @@ export const DB_CONFIG = {
 // API 路径配置
 export const API_PATHS = {
   AUTH: '/api/auth',
-  USERS: '/api/users',
-  PRACTICE_RECORDS: '/api/practice-records',
   KEYWORDS: '/api/keywords',
   CODE_EXAMPLES: '/api/code-examples',
+  PRACTICE_TYPES: '/api/practice-types', // 添加这行
+  PRACTICE_RECORDS: '/api/practice-records',
   LEADERBOARD: '/api/leaderboard',
 } as const;
 
