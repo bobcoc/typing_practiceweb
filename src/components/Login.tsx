@@ -1,18 +1,10 @@
 // src/components/Login.tsx
-import React from 'react';
-import Form from 'antd/es/form';
-import Input from 'antd/es/input';
-import Button from 'antd/es/button';
-import Card from 'antd/es/card';
-import message from 'antd/es/message';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { TextField, Button, Typography, Paper, Grid } from '@mui/material';
+import message from 'antd/es/message';
 import { api, ApiError } from '../api/apiClient';
 import { API_PATHS } from '../config';
-
-interface LoginFormValues {
-  username: string;
-  password: string;
-}
 
 interface LoginResponse {
   token: string;
@@ -24,121 +16,100 @@ interface LoginResponse {
 }
 
 const Login: React.FC = () => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const [form] = Form.useForm();
 
-  const handleLogin = async (values: LoginFormValues) => {
+  const handleLogin = async () => {
+    if (!username || !password) {
+      message.error('请填写所有字段');
+      return;
+    }
+
+    if (username.length < 3 || username.length > 20) {
+      message.error('用户名长度应在3-20个字符之间');
+      return;
+    }
+
+    if (password.length < 6) {
+      message.error('密码长度至少6个字符');
+      return;
+    }
+
+    setLoading(true);
     try {
-      const response = await api.post<LoginResponse>(`${API_PATHS.AUTH}/login`, values);
+      const response = await api.post<LoginResponse>(`${API_PATHS.AUTH}/login`, {
+        username,
+        password
+      });
+      
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
-      // 触发用户登录事件
-      window.dispatchEvent(new Event('user-login'));  // 添加这一行
-      message.success('登录成功'); 
+      window.dispatchEvent(new Event('user-login'));
+      
+      message.success('登录成功');
       navigate('/', { replace: true });
-    } catch (error: any) { // 明确指定 error 类型为 any
-      // 首先尝试处理 ApiError
+    } catch (error: any) {
       if (error instanceof ApiError) {
         let errorMessage = error.message;
         
         if (error.response?.message === 'User not found') {
           errorMessage = '用户不存在';
-          form.setFields([
-            {
-              name: 'username',
-              errors: ['用户不存在']
-            }
-          ]);
         } else if (error.response?.message === 'Password mismatch') {
           errorMessage = '密码错误';
-          form.setFields([
-            {
-              name: 'password',
-              value: '',
-              errors: ['密码错误']
-            }
-          ]);
-        } else {
-          form.setFields([
-            {
-              name: 'password',
-              value: '',
-              errors: [errorMessage]
-            }
-          ]);
         }
-  
+        
         message.error(errorMessage);
       } else {
-        // 处理其他类型的错误
         const errorMessage = error?.message || '登录失败，请稍后重试';
         message.error(errorMessage);
-        form.setFields([
-          {
-            name: 'password',
-            value: '',
-            errors: ['系统错误，请稍后重试']
-          }
-        ]);
       }
+    } finally {
+      setLoading(false);
     }
   };
+
   return (
-    <div style={{ 
-      maxWidth: 400, 
-      margin: '40px auto', 
-      padding: '0 20px' 
-    }}>
-      <Card title="用户登录" bordered={false}>
-        <Form
-          form={form}
-          name="login"
-          onFinish={handleLogin}
-          layout="vertical"
-          requiredMark={false}
-        >
-          <Form.Item
-            name="username"
+    <Grid container justifyContent="center" style={{ marginTop: '10%' }}>
+      <Grid item xs={10} sm={6} md={4}>
+        <Paper style={{ padding: 20 }}>
+          <Typography variant="h5" align="center" gutterBottom>
+            登录
+          </Typography>
+          <TextField
             label="用户名"
-            rules={[
-              { required: true, message: '请输入用户名' },
-              { min: 3, message: '用户名至少3个字符' },
-              { max: 20, message: '用户名最多20个字符' }
-            ]}
-          >
-            <Input placeholder="请输入用户名" />
-          </Form.Item>
-
-          <Form.Item
-            name="password"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            fullWidth
+            margin="normal"
+            disabled={loading}
+          />
+          <TextField
             label="密码"
-            rules={[
-              { required: true, message: '请输入密码' },
-              { min: 6, message: '密码至少6个字符' }
-            ]}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            fullWidth
+            margin="normal"
+            disabled={loading}
+          />
+          <Button
+            variant="contained"
+            color="primary"
+            fullWidth
+            onClick={handleLogin}
+            style={{ marginTop: 16 }}
+            disabled={loading}
           >
-            <Input.Password placeholder="请输入密码" />
-          </Form.Item>
-
-          <Form.Item>
-            <Button 
-              type="primary" 
-              htmlType="submit" 
-              block
-            >
-              登录
-            </Button>
-          </Form.Item>
-          
-          <div style={{ 
-            textAlign: 'center',
-            marginTop: '16px'
-          }}>
+            {loading ? '登录中...' : '登录'}
+          </Button>
+          <Typography align="center" style={{ marginTop: 16 }}>
             还没有账号？ <Link to="/register">立即注册</Link>
-          </div>
-        </Form>
-      </Card>
-    </div>
+          </Typography>
+        </Paper>
+      </Grid>
+    </Grid>
   );
 };
 
