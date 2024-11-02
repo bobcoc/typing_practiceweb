@@ -14,7 +14,7 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   useEffect(() => {
     const handleAuthError = () => {
-      navigate('/login');
+      navigate('/login', { replace: true });
     };
 
     // 订阅认证错误事件
@@ -41,28 +41,27 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    // 处理存储变更和用户登录事件
-    const handleStorageChange = () => {
+    // 统一处理所有用户状态变化
+    const handleUserStateChange = () => {
       try {
         const userString = localStorage.getItem('user');
         setUser(userString ? JSON.parse(userString) : null);
       } catch (error) {
-        console.error('Error handling storage change:', error);
+        console.error('Error handling user state change:', error);
         setUser(null);
       }
     };
 
-    // 添加用户登录事件监听
-    const handleUserLogin = () => {
-      handleStorageChange();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('user-login', handleUserLogin);  // 新增这一行
+    // 监听所有相关事件
+    window.addEventListener('storage', handleUserStateChange);
+    window.addEventListener('user-login', handleUserStateChange);
+    window.addEventListener('user-logout', handleUserStateChange);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('user-login', handleUserLogin);  // 新增这一行
+      // 清理所有事件监听
+      window.removeEventListener('storage', handleUserStateChange);
+      window.removeEventListener('user-login', handleUserStateChange);
+      window.removeEventListener('user-logout', handleUserStateChange);
     };
   }, []);
 
@@ -78,13 +77,13 @@ const App: React.FC = () => {
               {user.isAdmin && (
                 <Route path="/admin/code-manager" element={<AdminCodeManager />} />
               )}
-              <Route path="*" element={<Navigate to="/" />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </>
           ) : (
             <>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="*" element={<Navigate to="/login" />} />
+              <Route path="*" element={<Navigate to="/login" replace />} />
             </>
           )}
         </Routes>

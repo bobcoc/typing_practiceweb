@@ -18,23 +18,44 @@ const NavBar: React.FC = () => {
   const [user, setUser] = useState<UserInfo | null>(null);
 
   useEffect(() => {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const userInfo = JSON.parse(userStr);
-        setUser(userInfo);
-      } catch (error) {
-        console.error('Failed to parse user info:', error);
+    // 统一处理用户状态更新
+    const updateUserState = () => {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const userInfo = JSON.parse(userStr);
+          setUser(userInfo);
+        } catch (error) {
+          console.error('Failed to parse user info:', error);
+          setUser(null);
+        }
+      } else {
+        setUser(null);
       }
-    }
+    };
+
+    // 初始化用户状态
+    updateUserState();
+
+    // 监听所有用户状态变化事件
+    window.addEventListener('storage', updateUserState);
+    window.addEventListener('user-login', updateUserState);
+    window.addEventListener('user-logout', updateUserState);
+
+    return () => {
+      window.removeEventListener('storage', updateUserState);
+      window.removeEventListener('user-login', updateUserState);
+      window.removeEventListener('user-logout', updateUserState);
+    };
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    setUser(null);
+    // 触发登出事件
+    window.dispatchEvent(new Event('user-logout'));
     message.success('已退出登录');
-    navigate('/login');
+    navigate('/login', { replace: true });
   };
 
   // 使用 MenuProps['items'] 作为类型
