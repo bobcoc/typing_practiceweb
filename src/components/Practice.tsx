@@ -91,7 +91,7 @@ const Practice: React.FC = () => {
           .split('\n')
           .filter(k => k.trim() !== '');
         setContent(response.content);
-        setTitle(response.title);
+        //setTitle(response.title);
         getRandomKeyword(keywordArray);
       } else {
         // 分离注释和代码内容
@@ -102,7 +102,7 @@ const Practice: React.FC = () => {
         setCodeComment(commentLine);
         setCodeContent(codeLines.join('\n'));
         setContent(codeLines.join('\n')); // 用于比对的内容不包含注释
-        setTitle(response.title);
+        setTitle(level === 'keyword'?'':':' + response.title);
       }
     } catch (error) {
       message.error('获取内容失败');
@@ -398,7 +398,7 @@ if (e.key === '}') {
   }
 
   return (
-    <Card title={`${level === 'keyword' ? '关键字' : '代码'}打字练习: ${title}`}>
+    <Card title={`${level === 'keyword' ? '关键字' : '代码'}打字练习 ${title}`}>
       {level === 'keyword' ? (
         // 关键字练习的布局保持不变
         <div style={{ textAlign: 'center' }}>
