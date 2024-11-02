@@ -6,10 +6,8 @@ import Button from 'antd/es/button';
 import Card from 'antd/es/card';
 import message from 'antd/es/message';
 import { useNavigate, Link } from 'react-router-dom';
-import { api } from '../api/apiClient';
+import { api, ApiError } from '../api/apiClient';
 import { API_PATHS } from '../config';
-import { AxiosError } from 'axios';
-import type { ErrorResponse } from '../types/auth';
 
 interface LoginFormValues {
   username: string;
@@ -32,36 +30,59 @@ const Login: React.FC = () => {
   const handleLogin = async (values: LoginFormValues) => {
     try {
       const response = await api.post<LoginResponse>(`${API_PATHS.AUTH}/login`, values);
-      
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
-      
-      console.log('Login successful:', {
-        username: response.user.username,
-        hasToken: !!response.token
-      });
-
+      // 触发用户登录事件
+      window.dispatchEvent(new Event('user-login'));  // 添加这一行
       message.success('登录成功'); 
       navigate('/', { replace: true });
-      window.location.reload();
-    } catch (error) {
-      console.error('Login failed:', error);
-      if (error instanceof AxiosError) {
-        const errorMessage = (error.response?.data as ErrorResponse)?.message || '登录失败：用户名或密码错误';
+    } catch (error: any) { // 明确指定 error 类型为 any
+      // 首先尝试处理 ApiError
+      if (error instanceof ApiError) {
+        let errorMessage = error.message;
+        
+        if (error.response?.message === 'User not found') {
+          errorMessage = '用户不存在';
+          form.setFields([
+            {
+              name: 'username',
+              errors: ['用户不存在']
+            }
+          ]);
+        } else if (error.response?.message === 'Password mismatch') {
+          errorMessage = '密码错误';
+          form.setFields([
+            {
+              name: 'password',
+              value: '',
+              errors: ['密码错误']
+            }
+          ]);
+        } else {
+          form.setFields([
+            {
+              name: 'password',
+              value: '',
+              errors: [errorMessage]
+            }
+          ]);
+        }
+  
         message.error(errorMessage);
       } else {
-        message.error('登录失败：网络错误');
+        // 处理其他类型的错误
+        const errorMessage = error?.message || '登录失败，请稍后重试';
+        message.error(errorMessage);
+        form.setFields([
+          {
+            name: 'password',
+            value: '',
+            errors: ['系统错误，请稍后重试']
+          }
+        ]);
       }
-
-      form.setFields([
-        {
-          name: 'password',
-          errors: ['密码错误']
-        }
-      ]);
     }
   };
-
   return (
     <div style={{ 
       maxWidth: 400, 

@@ -4,9 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "concurrently \"npm run server\" \"npm run client\"",
+"start": "concurrently \"npm run server\" \"npm run client\"",
     "client": "cross-env PORT=3001 react-scripts start",
     "server": "ts-node --project server/tsconfig.json server/server.ts",
+    "debug:client": "cross-env PORT=3001 react-scripts start",
+    "debug:server": "cd server && node --inspect=5858 -r ts-node/register server.ts",
+    "debug": "concurrently \"npm run debug:server\" \"npm run debug:client\"",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

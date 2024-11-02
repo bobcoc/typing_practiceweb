@@ -23,13 +23,13 @@ const loginHandler: RouteHandler = async (req, res) => {
     
     if (!user) {
       console.log('User not found');
-      res.status(401).json({ message: '用户名或密码错误' });
+      res.status(401).json({ message: '用户名不存在' });
       return;
     }
 
     if (user.password !== password) {
       console.log('Password mismatch');
-      res.status(401).json({ message: '用户名或密码错误' });
+      res.status(401).json({ message: '密码错误' });
       return;
     }
 

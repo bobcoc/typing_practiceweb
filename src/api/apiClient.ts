@@ -11,6 +11,7 @@ export class ApiError extends Error {
   ) {
     super(message);
     this.name = 'ApiError';
+    Object.setPrototypeOf(this, ApiError.prototype);
   }
 }
 
@@ -55,7 +56,13 @@ apiClient.interceptors.request.use(
     return Promise.reject(new ApiError('请求配置错误'));
   }
 );
-
+// 创建一个自定义事件用于处理认证失败
+export const authEvents = {
+  onAuthError: new Set<() => void>(),
+  emitAuthError() {
+    this.onAuthError.forEach(handler => handler());
+  }
+};
 // 响应拦截器
 apiClient.interceptors.response.use(
   (response) => response,
@@ -70,8 +77,16 @@ apiClient.interceptors.response.use(
           // 未认证，清除token并重定向到登录页
           localStorage.removeItem('token');
           localStorage.removeItem('user');
-          window.location.href = '/login';
-          return Promise.reject(new ApiError('请先登录', statusCode, responseData));
+          authEvents.emitAuthError();
+           // 使用后端返回的具体错误信息
+           return Promise.reject(
+            new ApiError(
+              responseData?.message || '认证失败', // 使用后端返回的消息
+              statusCode,
+              responseData
+            )
+          );
+
 
         case 403:
           return Promise.reject(new ApiError('没有权限访问', statusCode, responseData));
@@ -116,9 +131,30 @@ export const api = {
   get: <T>(url: string, config = {}) => 
     apiClient.get<T>(url, config).then(response => response.data),
     
-  post: <T>(url: string, data = {}, config = {}) =>
-    apiClient.post<T>(url, data, config).then(response => response.data),
-    
+  post: async <T>(url: string, data = {}, config = {}) => {
+    try {
+      console.log('API request:', { url, data }); // 调试日志
+      const response = await apiClient.post<T>(url, data, config);
+      console.log('API response:', response); // 调试日志
+      return response.data;
+    } catch (error: any) {
+      console.log('API error caught:', error); // 调试日志
+      
+      if (axios.isAxiosError(error)) {
+        const statusCode = error.response?.status;
+        const responseData = error.response?.data;
+        
+        throw new ApiError(
+          responseData?.message || error.message,
+          statusCode,
+          responseData
+        );
+      }
+      
+      // 重新抛出其他类型的错误
+      throw error;
+    }
+  },
   put: <T>(url: string, data = {}, config = {}) =>
     apiClient.put<T>(url, data, config).then(response => response.data),
     
