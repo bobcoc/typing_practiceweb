@@ -10,6 +10,8 @@ const AdminUserManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -65,7 +67,25 @@ const AdminUserManager: React.FC = () => {
     user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  // 添加删除处理函数
+  const handleDeleteClick = (user: User) => {
+    setUserToDelete(user);
+    setIsDeleteModalOpen(true);
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return;
+
+    try {
+      await adminApi.deleteUser(userToDelete._id);
+      setIsDeleteModalOpen(false);
+      setUserToDelete(null);
+      await fetchUsers();  // 刷新用户列表
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '删除用户失败');
+      console.error('Error deleting user:', err);
+    }
+  };
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -171,7 +191,46 @@ const AdminUserManager: React.FC = () => {
                       >
                         编辑
                       </button>
+                      <button
+                        onClick={() => handleDeleteClick(user)}
+                        className="text-red-600 hover:text-red-900 transition-colors"
+                      >
+                        删除
+                      </button>
                     </td>
+                    {isDeleteModalOpen && userToDelete && (
+                      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+                          <div className="px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-medium text-gray-900">确认删除</h3>
+                          </div>
+                          <div className="p-6">
+                            <p className="text-gray-700">
+                              确定要删除用户 "{userToDelete.username}" 吗？此操作无法撤销。
+                            </p>
+                            <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 space-y-3 space-y-reverse sm:space-y-0">
+                              <button
+                                type="button"
+                                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                onClick={() => {
+                                  setIsDeleteModalOpen(false);
+                                  setUserToDelete(null);
+                                }}
+                              >
+                                取消
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                onClick={handleDeleteConfirm}
+                              >
+                                删除
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </tr>
                 ))}
               </tbody>
