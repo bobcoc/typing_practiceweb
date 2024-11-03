@@ -8,6 +8,7 @@ import authRouter from './routes/auth';
 import keywordsRouter from './routes/keywords';
 import practiceRecordsRouter from './routes/practiceRecords';
 import leaderboardRouter from './routes/leaderboard';
+import adminRoutes from './routes/admin';
 // 加载环境变量
 dotenv.config();
 
@@ -35,6 +36,13 @@ app.use('/api/auth', authRouter);
 app.use('/api/keywords', keywordsRouter);
 app.use('/api/practice-records', practiceRecordsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
+app.use('/api/admin', adminRoutes);
+
+// 错误处理中间件
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error(err.stack);
+  res.status(500).send('Something broke!');
+});
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

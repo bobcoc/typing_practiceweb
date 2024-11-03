@@ -7,7 +7,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import Practice from './components/Practice';
 import AdminCodeManager from './components/AdminCodeManager';
-
+import AdminDashboard from './components/AdminDashboard';
 // 创建一个包装组件来处理认证
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
@@ -75,7 +75,10 @@ const App: React.FC = () => {
               <Route path="/" element={<Home />} />
               <Route path="/practice/:level" element={<Practice />} />
               {user.isAdmin && (
-                <Route path="/admin/code-manager" element={<AdminCodeManager />} />
+                <>
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/code-manager" element={<AdminCodeManager />} />
+                </>
               )}
               <Route path="*" element={<Navigate to="/" replace />} />
             </>
