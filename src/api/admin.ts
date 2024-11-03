@@ -9,7 +9,9 @@ export interface User {
   createdAt: string;
   status?: string;
 }
-
+export interface UserUpdateData extends Partial<User> {
+  password?: string;  // 添加可选的密码字段
+}
 export const adminApi = {
   getUsers: async (): Promise<User[]> => {
     const response = await apiClient.get('/api/admin/users');
