@@ -10,7 +10,7 @@ type RouteHandler = (
   req: Request,
   res: Response,
   next: NextFunction
-) => Promise<void>;
+)  => Promise<void | any>;  // 允许任何返回值
 
 // 登录处理函数
 const loginHandler: RouteHandler = async (req, res) => {
@@ -38,6 +38,7 @@ const loginHandler: RouteHandler = async (req, res) => {
       {
         _id: user._id,
         username: user.username,
+        email: user.email,
         isAdmin: user.isAdmin
       },
       config.JWT_SECRET,
@@ -62,6 +63,7 @@ const loginHandler: RouteHandler = async (req, res) => {
       user: {
         _id: user._id,
         username: user.username,
+        email: user.email,
         isAdmin: user.isAdmin
       }
     });
@@ -74,9 +76,23 @@ const loginHandler: RouteHandler = async (req, res) => {
 // 注册处理函数
 const registerHandler: RouteHandler = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, email } = req.body;
     
-    console.log('Registration attempt:', { username });
+    console.log('Registration attempt:', { username, email });
+    
+    // 检查用户名是否存在
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(400).json({ message: '用户名已存在' });
+    }
+
+    // 如果提供了邮箱，检查邮箱是否已存在
+    if (email) {
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) {
+        return res.status(400).json({ message: '邮箱已被使用' });
+      }
+    }
     
     const userCount = await User.countDocuments();
     const isAdmin = userCount === 0;
@@ -84,6 +100,7 @@ const registerHandler: RouteHandler = async (req, res) => {
     const user = new User({
       username,
       password,
+      email: email || undefined,  // 如果没有提供邮箱，则设为 undefined
       isAdmin
     });
     
@@ -93,6 +110,7 @@ const registerHandler: RouteHandler = async (req, res) => {
       {
         _id: user._id,
         username: user.username,
+        email: user.email,
         isAdmin: user.isAdmin
       },
       config.JWT_SECRET,
@@ -101,6 +119,7 @@ const registerHandler: RouteHandler = async (req, res) => {
 
     console.log('Registration successful:', {
       username: user.username,
+      email: user.email,
       isAdmin: user.isAdmin,
       hasToken: !!token
     });
@@ -110,6 +129,7 @@ const registerHandler: RouteHandler = async (req, res) => {
       user: {
         _id: user._id,
         username: user.username,
+        email: user.email,
         isAdmin: user.isAdmin
       }
     });
@@ -117,7 +137,7 @@ const registerHandler: RouteHandler = async (req, res) => {
     console.error('Registration error:', error);
     
     if (error instanceof MongoError && error.code === 11000) {
-      res.status(400).json({ message: '用户名已存在' });
+      res.status(400).json({ message: '用户名或邮箱已存在' });
     } else {
       res.status(500).json({ 
         message: '注册失败：' + (error instanceof Error ? error.message : '未知错误') 

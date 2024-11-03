@@ -4,6 +4,7 @@ import { TextField, Button, Typography, Paper, Grid } from '@mui/material';
 import { api } from '../api/apiClient';
 import { API_PATHS } from '../config';
 import message from 'antd/es/message';
+import { RegisterFormValues, LoginResponse } from '../types/auth';
 
 interface RegisterResponse {
   token: string;
@@ -15,45 +16,58 @@ interface RegisterResponse {
 }
 
 const Register: React.FC = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [formData, setFormData] = useState<RegisterFormValues>({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
   const handleRegister = async () => {
-    if (!username || !password || !confirmPassword) {
-      message.error('请填写所有字段');
+    if (!formData.username || !formData.password || !formData.confirmPassword) {
+      message.error('请填写必填字段');
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       message.error('两次输入的密码不匹配');
       return;
     }
 
-    if (username.length < 3 || username.length > 20) {
+    if (formData.username.length < 3 || formData.username.length > 20) {
       message.error('用户名长度应在3-20个字符之间');
       return;
     }
 
-    if (password.length < 6) {
+    if (formData.password.length < 6) {
       message.error('密码长度至少6个字符');
+      return;
+    }
+
+    if (formData.email && !formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      message.error('请输入有效的邮箱地址');
       return;
     }
 
     setLoading(true);
     try {
-      // api.post 已经返回 data，不需要访问 .data 属性
-      const response = await api.post<RegisterResponse>(
+      // 构造发送的数据，排除 confirmPassword
+      const { confirmPassword, ...registerData } = formData;
+      
+      const response = await api.post<LoginResponse>(
         `${API_PATHS.AUTH}/register`, 
-        {
-          username,
-          password
-        }
+        registerData
       );
 
-      // 直接使用 response，因为它就是 RegisterResponse 类型
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
 
@@ -81,28 +95,44 @@ const Register: React.FC = () => {
           </Typography>
           <TextField
             label="用户名"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            name="username"
+            value={formData.username}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            required
+            disabled={loading}
+          />
+          <TextField
+            label="邮箱（选填）"
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleChange}
             fullWidth
             margin="normal"
             disabled={loading}
           />
           <TextField
             label="密码"
+            name="password"
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={formData.password}
+            onChange={handleChange}
             fullWidth
             margin="normal"
+            required
             disabled={loading}
           />
           <TextField
             label="确认密码"
+            name="confirmPassword"
             type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            value={formData.confirmPassword}
+            onChange={handleChange}
             fullWidth
             margin="normal"
+            required
             disabled={loading}
           />
           <Button
