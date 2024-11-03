@@ -21,7 +21,12 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async () => {
+  const handleLogin = async (e?: React.FormEvent) => {
+    // 如果是表单提交，阻止默认行为
+    if (e) {
+      e.preventDefault();
+    }
+
     if (!username || !password) {
       message.error('请填写所有字段');
       return;
@@ -77,33 +82,37 @@ const Login: React.FC = () => {
           <Typography variant="h5" align="center" gutterBottom>
             登录
           </Typography>
-          <TextField
-            label="用户名"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            fullWidth
-            margin="normal"
-            disabled={loading}
-          />
-          <TextField
-            label="密码"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            fullWidth
-            margin="normal"
-            disabled={loading}
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            fullWidth
-            onClick={handleLogin}
-            style={{ marginTop: 16 }}
-            disabled={loading}
-          >
-            {loading ? '登录中...' : '登录'}
-          </Button>
+          <form onSubmit={handleLogin}>
+            <TextField
+              label="用户名"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              fullWidth
+              margin="normal"
+              disabled={loading}
+              autoComplete="username"
+            />
+            <TextField
+              label="密码"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              fullWidth
+              margin="normal"
+              disabled={loading}
+              autoComplete="current-password"
+            />
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              fullWidth
+              style={{ marginTop: 16 }}
+              disabled={loading}
+            >
+              {loading ? '登录中...' : '登录'}
+            </Button>
+          </form>
           <Typography align="center" style={{ marginTop: 16 }}>
             还没有账号？ <Link to="/register">立即注册</Link>
           </Typography>
