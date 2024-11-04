@@ -12,7 +12,7 @@ export interface LoginFormValues {
     user: {
       _id: string;
       username: string;
-      email?: string;
+      email: string;
       isAdmin: boolean;
     };
   }

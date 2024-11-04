@@ -18,22 +18,45 @@ router.get('/users', adminAuth, async (req, res) => {
 // 添加 PUT 路由用于更新用户
 router.put('/users/:id', adminAuth, async (req, res) => {
   try {
+    // 检查用户名是否已存在（排除当前用户）
+    const existingUser = await User.findOne({
+      username: req.body.username,
+      _id: { $ne: req.params.id }
+    });
+    
+    if (existingUser) {
+      return res.status(400).json({ message: '用户名已被使用' });
+    }
+
+    // 检查邮箱是否已存在（排除当前用户）
+    if (req.body.email) {
+      const existingEmail = await User.findOne({
+        email: req.body.email,
+        _id: { $ne: req.params.id }
+      });
+      
+      if (existingEmail) {
+        return res.status(400).json({ message: '邮箱已被使用' });
+      }
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true, select: '-password' }
     );
-    
+
     if (!user) {
       return res.status(404).json({ message: '用户不存在' });
     }
-    
+
     res.json(user);
   } catch (error) {
     console.error('Error updating user:', error);
     res.status(500).json({ message: '更新用户失败' });
   }
 });
+
 // 添加删除用户路由
 router.delete('/users/:id', adminAuth, async (req, res) => {
   try {

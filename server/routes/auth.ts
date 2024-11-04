@@ -79,20 +79,20 @@ const registerHandler: RouteHandler = async (req, res) => {
     const { username, password, email } = req.body;
     
     console.log('Registration attempt:', { username, email });
-    
+    if (!email) {
+      return res.status(400).json({ message: '邮箱是必填项' });
+    }
     // 检查用户名是否存在
     const existingUsername = await User.findOne({ username });
     if (existingUsername) {
       return res.status(400).json({ message: '用户名已存在' });
     }
 
-    // 如果提供了邮箱，检查邮箱是否已存在
-    if (email) {
+
       const existingEmail = await User.findOne({ email });
       if (existingEmail) {
         return res.status(400).json({ message: '邮箱已被使用' });
       }
-    }
     
     const userCount = await User.countDocuments();
     const isAdmin = userCount === 0;
@@ -100,7 +100,7 @@ const registerHandler: RouteHandler = async (req, res) => {
     const user = new User({
       username,
       password,
-      email: email || undefined,  // 如果没有提供邮箱，则设为 undefined
+      email,
       isAdmin
     });
     

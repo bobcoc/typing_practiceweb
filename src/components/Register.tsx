@@ -33,7 +33,7 @@ const Register: React.FC = () => {
   };
 
   const handleRegister = async () => {
-    if (!formData.username || !formData.password || !formData.confirmPassword) {
+    if (!formData.username || !formData.password || !formData.confirmPassword|| !formData.email) {
       message.error('请填写必填字段');
       return;
     }
@@ -53,7 +53,7 @@ const Register: React.FC = () => {
       return;
     }
 
-    if (formData.email && !formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+    if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       message.error('请输入有效的邮箱地址');
       return;
     }
@@ -104,13 +104,14 @@ const Register: React.FC = () => {
             disabled={loading}
           />
           <TextField
-            label="邮箱（选填）"
+            label="邮箱"
             name="email"
             type="email"
             value={formData.email}
             onChange={handleChange}
             fullWidth
             margin="normal"
+            required
             disabled={loading}
           />
           <TextField

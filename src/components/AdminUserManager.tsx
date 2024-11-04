@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminApi, User, UserUpdateData } from '../api/admin';
-
+import { AxiosError } from 'axios';
 const AdminUserManager: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -12,9 +12,40 @@ const AdminUserManager: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  // 新增一个状态用于存储后端错误
+  const [backendError, setBackendError] = useState<string | null>(null);
+  const validateEmail = (email: string): string | null => {
+    if (!email) {
+      return '邮箱是必填项';
+    }
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      return '请输入有效的邮箱地址';
+    }
+    return null;
+  };
+
+  const validateUsername = (username: string): string | null => {
+    if (!username) {
+      return '用户名是必填项';
+    }
+    if (username.length < 3 || username.length > 20) {
+      return '用户名长度应在3-20个字符之间';
+    }
+    return null;
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    if (backendError) {
+      const timer = setTimeout(() => {
+        setBackendError(null);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [backendError]);
 
   const fetchUsers = async () => {
     try {
@@ -39,6 +70,30 @@ const AdminUserManager: React.FC = () => {
     e.preventDefault();
     if (!selectedUser) return;
 
+    // 清除之前的后端错误
+    setBackendError(null);
+
+    // 前端验证
+    if (!selectedUser.username) {
+      setError('用户名是必填项');
+      return;
+    }
+
+    if (selectedUser.username.length < 3 || selectedUser.username.length > 20) {
+      setError('用户名长度应在3-20个字符之间');
+      return;
+    }
+
+    if (!selectedUser.email) {
+      setError('邮箱是必填项');
+      return;
+    }
+
+    if (!selectedUser.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      setError('请输入有效的邮箱地址');
+      return;
+    }
+
     try {
       const updateData: UserUpdateData = {
         username: selectedUser.username,
@@ -46,7 +101,6 @@ const AdminUserManager: React.FC = () => {
         isAdmin: selectedUser.isAdmin,
       };
 
-      // 只有当输入了新密码时才包含密码字段
       if (newPassword.trim()) {
         updateData.password = newPassword;
       }
@@ -54,20 +108,23 @@ const AdminUserManager: React.FC = () => {
       await adminApi.updateUser(selectedUser._id, updateData);
       setIsEditing(false);
       setSelectedUser(null);
-      setNewPassword(''); // 重置密码字段
+      setNewPassword('');
       await fetchUsers();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '更新用户失败');
+    } catch (err: unknown) {
+      if (err instanceof AxiosError && err.response?.data?.message) {
+        // 设置后端错误
+        setBackendError(err.response.data.message);
+      } else {
+        setBackendError(err instanceof Error ? err.message : '更新用户失败');
+      }
       console.error('Error updating user:', err);
     }
   };
-
-
   const filteredUsers = users.filter(user =>
     user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  // 添加删除处理函数
+
   const handleDeleteClick = (user: User) => {
     setUserToDelete(user);
     setIsDeleteModalOpen(true);
@@ -80,12 +137,13 @@ const AdminUserManager: React.FC = () => {
       await adminApi.deleteUser(userToDelete._id);
       setIsDeleteModalOpen(false);
       setUserToDelete(null);
-      await fetchUsers();  // 刷新用户列表
+      await fetchUsers();
     } catch (err) {
       setError(err instanceof Error ? err.message : '删除用户失败');
       console.error('Error deleting user:', err);
     }
   };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -93,22 +151,6 @@ const AdminUserManager: React.FC = () => {
       </div>
     );
   }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-red-50 p-4 rounded-lg shadow-sm">
-          <div className="flex items-center">
-            <svg className="w-5 h-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-            <h3 className="font-medium text-red-800">{error}</h3>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto">
@@ -187,7 +229,7 @@ const AdminUserManager: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <button
                         onClick={() => handleEdit(user)}
-                        className="text-blue-600 hover:text-blue-900 transition-colors"
+                        className="text-blue-600 hover:text-blue-900 transition-colors mr-3"
                       >
                         编辑
                       </button>
@@ -198,39 +240,6 @@ const AdminUserManager: React.FC = () => {
                         删除
                       </button>
                     </td>
-                    {isDeleteModalOpen && userToDelete && (
-                      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-                          <div className="px-6 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">确认删除</h3>
-                          </div>
-                          <div className="p-6">
-                            <p className="text-gray-700">
-                              确定要删除用户 "{userToDelete.username}" 吗？此操作无法撤销。
-                            </p>
-                            <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 space-y-3 space-y-reverse sm:space-y-0">
-                              <button
-                                type="button"
-                                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                onClick={() => {
-                                  setIsDeleteModalOpen(false);
-                                  setUserToDelete(null);
-                                }}
-                              >
-                                取消
-                              </button>
-                              <button
-                                type="button"
-                                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                                onClick={handleDeleteConfirm}
-                              >
-                                删除
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </tr>
                 ))}
               </tbody>
@@ -266,34 +275,79 @@ const AdminUserManager: React.FC = () => {
               <h3 className="text-lg font-medium text-gray-900">编辑用户</h3>
             </div>
             <form onSubmit={handleUpdate} className="p-6">
+              {/* 添加错误提示区域 */}
+              {backendError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <span>{backendError}</span>
+                  </div>
+                </div>
+              )}
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    用户名
+                    用户名 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${validateUsername(selectedUser.username) ? 'border-red-500' : 'border-gray-300'
+                      }`}
                     value={selectedUser.username}
-                    onChange={(e) => setSelectedUser({
-                      ...selectedUser,
-                      username: e.target.value
-                    })}
+                    onChange={(e) => {
+                      const newUsername = e.target.value;
+                      setSelectedUser({
+                        ...selectedUser,
+                        username: newUsername
+                      });
+                      const usernameError = validateUsername(newUsername);
+                      if (usernameError) {
+                        setError(usernameError);
+                      } else if (error && error.includes('用户名')) {
+                        setError(null);
+                      }
+                    }}
+                    required
+                    placeholder="请输入用户名"
                   />
+                  {validateUsername(selectedUser.username) && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {validateUsername(selectedUser.username)}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    邮箱
+                    邮箱 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${validateEmail(selectedUser.email) ? 'border-red-500' : 'border-gray-300'
+                      }`}
                     value={selectedUser.email}
-                    onChange={(e) => setSelectedUser({
-                      ...selectedUser,
-                      email: e.target.value
-                    })}
+                    onChange={(e) => {
+                      const newEmail = e.target.value;
+                      setSelectedUser({
+                        ...selectedUser,
+                        email: newEmail
+                      });
+                      const emailError = validateEmail(newEmail);
+                      if (emailError) {
+                        setError(emailError);
+                      } else {
+                        setError(null);
+                      }
+                    }}
+                    required
+                    placeholder="请输入邮箱地址"
                   />
+                  {validateEmail(selectedUser.email) && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {validateEmail(selectedUser.email)}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">新密码</label>
@@ -356,6 +410,41 @@ const AdminUserManager: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 删除确认模态框 */}
+      {isDeleteModalOpen && userToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">确认删除</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700">
+                确定要删除用户 "{userToDelete.username}" 吗？此操作无法撤销。
+              </p>
+              <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3 space-y-3 space-y-reverse sm:space-y-0">
+                <button
+                  type="button"
+                  className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  onClick={() => {
+                    setIsDeleteModalOpen(false);
+                    setUserToDelete(null);
+                  }}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  onClick={handleDeleteConfirm}
+                >
+                  删除
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
