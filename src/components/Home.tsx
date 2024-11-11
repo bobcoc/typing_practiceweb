@@ -109,62 +109,62 @@ const Home: React.FC = () => {
         ))}
       </Grid>
 
-      {/* 添加统计信息区域 */}
-      <Box sx={{ mt: 6, mb: 4 }}>
-        <Typography variant="h5" gutterBottom>
-          练习统计
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  今日练习时长
-                </Typography>
-                <Typography variant="h4">
-                  0 分钟
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  完成练习数
-                </Typography>
-                <Typography variant="h4">
-                  0
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  平均正确率
-                </Typography>
-                <Typography variant="h4">
-                  0%
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  连续练习天数
-                </Typography>
-                <Typography variant="h4">
-                  0 天
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      </Box>
+{/* 统计信息区域 */}
+<Box sx={{ mt: 6, mb: 4 }}>
+  <Typography variant="h5" gutterBottom>
+    练习统计
+  </Typography>
+  <Grid container spacing={3}>
+    <Grid item xs={12} sm={6} md={3}>
+      <Card>
+        <CardContent>
+          <Typography color="textSecondary" gutterBottom>
+            今日练习时长
+          </Typography>
+          <Typography variant="h4">
+            0 分钟
+          </Typography>
+        </CardContent>
+      </Card>
+    </Grid>
+    <Grid item xs={12} sm={6} md={3}>
+      <Card>
+        <CardContent>
+          <Typography color="textSecondary" gutterBottom>
+            完成练习数
+          </Typography>
+          <Typography variant="h4">
+            0
+          </Typography>
+        </CardContent>
+      </Card>
+    </Grid>
+    <Grid item xs={12} sm={6} md={3}>
+      <Card>
+        <CardContent>
+          <Typography color="textSecondary" gutterBottom>
+            平均正确率
+          </Typography>
+          <Typography variant="h4">
+            0%
+          </Typography>
+        </CardContent>
+      </Card>
+    </Grid>
+    <Grid item xs={12} sm={6} md={3}>
+      <Card>
+        <CardContent>
+          <Typography color="textSecondary" gutterBottom>
+            练习单词总数
+          </Typography>
+          <Typography variant="h4">
+            0
+          </Typography>
+        </CardContent>
+      </Card>
+    </Grid>
+  </Grid>
+</Box>
     </Container>
   );
 };
