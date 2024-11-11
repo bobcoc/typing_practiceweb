@@ -8,6 +8,7 @@ import Register from './components/Register';
 import Practice from './components/Practice';
 import AdminCodeManager from './components/AdminCodeManager';
 import AdminDashboard from './components/AdminDashboard';
+import Footer from './components/Footer';
 // 创建一个包装组件来处理认证
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
@@ -90,6 +91,7 @@ const App: React.FC = () => {
             </>
           )}
         </Routes>
+        <Footer />
       </AuthWrapper>
     </Router>
   );
