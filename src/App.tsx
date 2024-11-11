@@ -9,6 +9,7 @@ import Practice from './components/Practice';
 import AdminCodeManager from './components/AdminCodeManager';
 import AdminDashboard from './components/AdminDashboard';
 import Footer from './components/Footer';
+import PracticeHistory from './components/PracticeHistory';
 // 创建一个包装组件来处理认证
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
@@ -75,6 +76,7 @@ const App: React.FC = () => {
             <>
               <Route path="/" element={<Home />} />
               <Route path="/practice/:level" element={<Practice />} />
+              <Route path="/practice-history" element={<PracticeHistory />} />
               {user.isAdmin && (
                 <>
                   <Route path="/admin" element={<AdminDashboard />} />
