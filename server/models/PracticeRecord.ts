@@ -22,7 +22,21 @@ export interface IPracticeRecord extends Document {
   createdAt: Date;                 // 记录创建时间
   updatedAt: Date;                 // 记录更新时间
 }
-
+// 排行榜聚合结果接口
+export interface ILeaderboardRecord {
+  _id: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
+  username: string;
+  type: string;
+  stats: {
+    totalWords: number;
+    accuracy: number;
+    wordsPerMinute: number;
+    duration: number;
+    endTime: Date;
+  };
+  score: number;
+}
 // 创建 Schema
 const practiceRecordSchema = new Schema<IPracticeRecord>({
   userId: {
@@ -72,6 +86,70 @@ const practiceRecordSchema = new Schema<IPracticeRecord>({
 }, {
   timestamps: true  // 自动添加 createdAt 和 updatedAt
 });
+practiceRecordSchema.statics.getLeaderboard = function(
+  type: string,
+  skipCount: number,
+  pageSize: number
+): mongoose.Aggregate<ILeaderboardRecord[]> {
+  return this.aggregate([
+    { $match: { type } },
+    {
+      $group: {
+        _id: '$userId',
+        username: { $first: '$username' },
+        totalDuration: { $sum: '$stats.duration' },
+        avgAccuracy: { $avg: '$stats.accuracy' },
+        totalWords: { $sum: '$stats.totalWords' },
+        avgSpeed: { $avg: '$stats.wordsPerMinute' },
+        lastPractice: { $max: '$stats.endTime' },
+        originalRecord: { $first: '$$ROOT' }
+      }
+    },
+    {
+      $addFields: {
+        score: {
+          $add: [
+            { $multiply: [{ $divide: ['$avgAccuracy', 100] }, 40] },
+            { $multiply: [{ $divide: ['$avgSpeed', 100] }, 30] },
+            { $multiply: [{ $divide: ['$totalWords', 1000] }, 20] },
+            { $multiply: [{ $divide: ['$totalDuration', 3600] }, 10] }
+          ]
+        }
+      }
+    },
+    { $sort: { score: -1 } },
+    { $skip: skipCount },
+    { $limit: pageSize },
+    {
+      $project: {
+        _id: '$originalRecord._id',
+        userId: '$_id',
+        username: 1,
+        type: '$originalRecord.type',
+        stats: {
+          totalWords: '$totalWords',
+          accuracy: '$avgAccuracy',
+          wordsPerMinute: '$avgSpeed',
+          duration: '$totalDuration',
+          endTime: '$lastPractice'
+        },
+        score: 1
+      }
+    }
+  ]);
+};
+
+// 扩展模型的静态方法类型
+interface PracticeRecordModel extends mongoose.Model<IPracticeRecord> {
+  getLeaderboard(
+    type: string,
+    skipCount: number,
+    pageSize: number
+  ): mongoose.Aggregate<ILeaderboardRecord[]>;
+}
 
 // 创建并导出模型
-export const PracticeRecord = mongoose.model<IPracticeRecord>('PracticeRecord', practiceRecordSchema);
+export const PracticeRecord = mongoose.model<IPracticeRecord, PracticeRecordModel>(
+  'PracticeRecord',
+  practiceRecordSchema
+);

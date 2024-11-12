@@ -1,3 +1,4 @@
+// src/components/Leaderboard.tsx
 import React, { useState, useEffect } from 'react';
 import { 
   Table, 
@@ -13,7 +14,10 @@ import {
   Tabs,
   Tab,
   Chip,
-  CircularProgress
+  CircularProgress,
+  FormControl,
+  Select,
+  MenuItem
 } from '@mui/material';
 import { API_BASE_URL, API_PATHS } from '../config';
 import type { ChipProps } from '@mui/material/Chip';
@@ -21,17 +25,15 @@ import type { SxProps, Theme } from '@mui/material/styles';
 
 // 类型定义
 interface PracticeRecord {
-  _id: string;
+  userId: string;
   username: string;
-  type: 'keyword' | 'basic' | 'intermediate' | 'advanced';
   stats: {
     totalWords: number;
-    correctWords: number;
     accuracy: number;
     wordsPerMinute: number;
     duration: number;
-    startTime: string;
-    endTime: string;
+    practiceCount: number;
+    lastPractice: string;
   };
 }
 
@@ -40,6 +42,8 @@ interface LeaderboardResponse {
   total: number;
   currentPage: number;
   totalPages: number;
+  sortField: string;
+  sortLabel: string;
 }
 
 interface PracticeType {
@@ -52,6 +56,13 @@ const practiceTypes: PracticeType[] = [
   { value: 'basic', label: '基础算法' },
   { value: 'intermediate', label: '中级算法' },
   { value: 'advanced', label: '高级算法' }
+];
+
+const sortOptions = [
+  { value: 'totalWords', label: '总单词数' },
+  { value: 'accuracy', label: '平均正确率' },
+  { value: 'duration', label: '练习总时长' },
+  { value: 'speed', label: '平均速度' }
 ];
 
 // 排名徽章配置
@@ -72,17 +83,18 @@ const Leaderboard: React.FC = () => {
   const [practiceType, setPracticeType] = useState<PracticeType['value']>('keyword');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState('totalWords');
 
   useEffect(() => {
     fetchLeaderboard();
-  }, [page, practiceType]);
+  }, [page, practiceType, sortBy]);
 
   const fetchLeaderboard = async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await fetch(
-        `${API_BASE_URL}${API_PATHS.LEADERBOARD}/${practiceType}?page=${page}`
+        `${API_BASE_URL}${API_PATHS.LEADERBOARD}/${practiceType}?page=${page}&sortBy=${sortBy}`
       );
       
       if (!response.ok) {
@@ -110,8 +122,12 @@ const Leaderboard: React.FC = () => {
   };
 
   const formatDuration = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
     const remainingSeconds = Math.round(seconds % 60);
+    if (hours > 0) {
+      return `${hours}小时${minutes}分${remainingSeconds}秒`;
+    }
     return `${minutes}分${remainingSeconds}秒`;
   };
 
@@ -155,23 +171,43 @@ const Leaderboard: React.FC = () => {
         </Tabs>
       </Box>
 
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <FormControl variant="outlined" size="small">
+          <Select
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              setPage(1);
+            }}
+            sx={{ minWidth: 150 }}
+          >
+            {sortOptions.map(option => (
+              <MenuItem key={option.value} value={option.value}>
+                按{option.label}排序
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+
       <TableContainer component={Paper} sx={{ mb: 3 }}>
         <Table>
           <TableHead>
             <TableRow>
               <TableCell align="center">排名</TableCell>
               <TableCell>用户名</TableCell>
+              <TableCell align="center">练习次数</TableCell>
               <TableCell align="center">正确率</TableCell>
-              <TableCell align="center">单词数</TableCell>
-              <TableCell align="center">速度(词/分钟)</TableCell>
-              <TableCell align="center">练习时长</TableCell>
-              <TableCell align="center">完成时间</TableCell>
+              <TableCell align="center">单词总数</TableCell>
+              <TableCell align="center">平均速度(词/分钟)</TableCell>
+              <TableCell align="center">练习总时长</TableCell>
+              <TableCell align="center">最近练习时间</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {records.map((record, index) => (
               <TableRow 
-                key={record._id}
+                key={record.userId}
                 sx={index < 3 ? { backgroundColor: 'rgba(0, 0, 0, 0.02)' } : {}}
               >
                 <TableCell align="center">
@@ -186,6 +222,7 @@ const Leaderboard: React.FC = () => {
                   )}
                 </TableCell>
                 <TableCell>{record.username}</TableCell>
+                <TableCell align="center">{record.stats.practiceCount}</TableCell>
                 <TableCell align="center">
                   <Chip
                     label={`${record.stats.accuracy.toFixed(1)}%`}
@@ -193,16 +230,11 @@ const Leaderboard: React.FC = () => {
                     size="small"
                   />
                 </TableCell>
-                <TableCell align="center">
-                  {record.stats.totalWords}
-                  <Typography variant="caption" color="textSecondary" display="block">
-                    正确: {record.stats.correctWords}
-                  </Typography>
-                </TableCell>
+                <TableCell align="center">{record.stats.totalWords}</TableCell>
                 <TableCell align="center">{Math.round(record.stats.wordsPerMinute)}</TableCell>
                 <TableCell align="center">{formatDuration(record.stats.duration)}</TableCell>
                 <TableCell align="center">
-                  {new Date(record.stats.endTime).toLocaleString()}
+                  {new Date(record.stats.lastPractice).toLocaleString()}
                 </TableCell>
               </TableRow>
             ))}

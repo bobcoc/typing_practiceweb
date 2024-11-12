@@ -1,60 +1,88 @@
 // server/routes/leaderboard.ts
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { PracticeRecord } from '../models/PracticeRecord';
 import { auth } from '../middleware/auth';
+
+// 定义排序字段类型
+type SortField = 'totalWords' | 'accuracy' | 'duration' | 'speed';
+
+// 排序字段映射
+const sortFieldMapping = {
+  totalWords: { field: '$totalWords', label: '总单词数' },
+  accuracy: { field: '$avgAccuracy', label: '平均正确率' },
+  duration: { field: '$totalDuration', label: '练习总时长' },
+  speed: { field: '$avgSpeed', label: '平均速度' }
+};
 
 const router = express.Router();
 
 // 获取排行榜数据
-router.get('/:type', async (req, res) => {
+router.get('/:type', async (req: Request, res: Response) => {
   try {
     const { type } = req.params;
-    const {
-      page = '1',
+    const { 
+      page = '1', 
       limit = '10',
-      timeRange,
-      userId,
-      minAccuracy,
+      sortBy = 'totalWords' // 默认按总单词数排序
     } = req.query;
 
     const pageNum = parseInt(page as string);
     const pageSize = parseInt(limit as string);
+    const skipCount = (pageNum - 1) * pageSize;
+    const sortField = sortBy as SortField;
 
-    // 构建查询条件
-    const query: any = { type };
-
-    // 添加时间范围过滤
-    if (timeRange) {
-      const [start, end] = (timeRange as string).split(',');
-      query.createdAt = {
-        $gte: new Date(start),
-        $lte: new Date(end),
-      };
+    if (!Object.keys(sortFieldMapping).includes(sortField)) {
+      return res.status(400).json({ error: '无效的排序字段' });
     }
 
-    // 添加用户过滤
-    if (userId) {
-      query.userId = userId;
-    }
+    // 聚合查询
+    const records = await PracticeRecord.aggregate([
+      { $match: { type } },
+      {
+        $group: {
+          _id: '$userId',
+          username: { $first: '$username' },
+          totalWords: { $sum: '$stats.totalWords' },
+          avgAccuracy: { $avg: '$stats.accuracy' },
+          totalDuration: { $sum: '$stats.duration' },
+          avgSpeed: { $avg: '$stats.wordsPerMinute' },
+          lastPractice: { $max: '$stats.endTime' },
+          practiceCount: { $sum: 1 }
+        }
+      },
+      { 
+        $sort: { 
+          [sortFieldMapping[sortField].field.substring(1)]: -1 
+        } 
+      },
+      { $skip: skipCount },
+      { $limit: pageSize },
+      {
+        $project: {
+          userId: '$_id',
+          username: 1,
+          stats: {
+            totalWords: '$totalWords',
+            accuracy: '$avgAccuracy',
+            duration: '$totalDuration',
+            wordsPerMinute: '$avgSpeed',
+            practiceCount: '$practiceCount',
+            lastPractice: '$lastPractice'
+          }
+        }
+      }
+    ]);
 
-    // 添加正确率过滤
-    if (minAccuracy) {
-      query['stats.accuracy'] = { $gte: parseFloat(minAccuracy as string) };
-    }
-
-    const records = await PracticeRecord
-      .find(query)
-      .sort({ 'stats.accuracy': -1, 'stats.totalWords': -1 })
-      .skip((pageNum - 1) * pageSize)
-      .limit(pageSize);
-
-    const total = await PracticeRecord.countDocuments(query);
+    // 获取总用户数
+    const totalUsers = await PracticeRecord.distinct('userId', { type });
 
     res.json({
       records,
-      total,
+      total: totalUsers.length,
       currentPage: pageNum,
-      totalPages: Math.ceil(total / pageSize),
+      totalPages: Math.ceil(totalUsers.length / pageSize),
+      sortField,
+      sortLabel: sortFieldMapping[sortField].label
     });
   } catch (error) {
     console.error('获取排行榜失败:', error);
@@ -62,63 +90,54 @@ router.get('/:type', async (req, res) => {
   }
 });
 
-// 获取用户在排行榜中的排名
-router.get('/:type/my-rank', auth, async (req, res) => {
+// 获取用户排名
+router.get('/:type/my-rank', auth, async (req: Request, res: Response) => {
   try {
     const { type } = req.params;
-    const userId = req.user?._id;
+    const { sortBy = 'totalWords' } = req.query;
+    const sortField = sortBy as SortField;
 
-    // 获取用户最好的记录
-    const userBestRecord = await PracticeRecord
-      .findOne({ type, userId })
-      .sort({ 'stats.accuracy': -1, 'stats.totalWords': -1 });
-
-    if (!userBestRecord) {
-      return res.json({ rank: null });
+    if (!req.user?._id) {
+      return res.status(401).json({ error: '未登录' });
     }
 
-    // 计算排名
-    const betterRecordsCount = await PracticeRecord.countDocuments({
-      type,
-      $or: [
-        { 'stats.accuracy': { $gt: userBestRecord.stats.accuracy } },
-        {
-          'stats.accuracy': userBestRecord.stats.accuracy,
-          'stats.totalWords': { $gt: userBestRecord.stats.totalWords },
-        },
-      ],
-    });
+    if (!Object.keys(sortFieldMapping).includes(sortField)) {
+      return res.status(400).json({ error: '无效的排序字段' });
+    }
 
-    res.json({
-      rank: betterRecordsCount + 1,
-      record: userBestRecord,
-    });
-  } catch (error) {
-    res.status(500).json({ error: '获取排名失败' });
-  }
-});
-
-// 获取统计数据
-router.get('/:type/stats', async (req, res) => {
-  try {
-    const { type } = req.params;
-    
-    const stats = await PracticeRecord.aggregate([
+    // 获取所有用户的排序后记录
+    const allRecords = await PracticeRecord.aggregate([
       { $match: { type } },
       {
         $group: {
-          _id: null,
-          averageAccuracy: { $avg: '$stats.accuracy' },
-          averageWPM: { $avg: '$stats.wordsPerMinute' },
-          totalParticipants: { $addToSet: '$userId' },
-          totalAttempts: { $sum: 1 },
-        },
+          _id: '$userId',
+          totalWords: { $sum: '$stats.totalWords' },
+          avgAccuracy: { $avg: '$stats.accuracy' },
+          totalDuration: { $sum: '$stats.duration' },
+          avgSpeed: { $avg: '$stats.wordsPerMinute' }
+        }
       },
+      { 
+        $sort: { 
+          [sortFieldMapping[sortField].field.substring(1)]: -1 
+        } 
+      }
     ]);
 
-    res.json(stats[0] || {});
+    // 找到用户的排名
+    const userRank = allRecords.findIndex(record => 
+      record._id.toString() === req.user!._id
+    ) + 1;
+
+    res.json({
+      rank: userRank > 0 ? userRank : null,
+      totalParticipants: allRecords.length,
+      sortField,
+      sortLabel: sortFieldMapping[sortField].label
+    });
   } catch (error) {
-    res.status(500).json({ error: '获取统计数据失败' });
+    console.error('获取排名失败:', error);
+    res.status(500).json({ error: '获取排名失败' });
   }
 });
 

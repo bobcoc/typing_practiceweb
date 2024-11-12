@@ -64,6 +64,10 @@ const NavBar: React.FC = () => {
       {
         key: '/',
         label: <Link to="/">打字练习</Link>,
+      },
+      {
+        key: '/leaderboard',
+        label: <Link to="/leaderboard">排行榜</Link>,
       }
     ];
 
@@ -71,10 +75,6 @@ const NavBar: React.FC = () => {
       {
         key: '/practice-history',
         label: <Link to="/practice-history">练习历史</Link>,
-      },
-      {
-        key: '/leaderboard',
-        label: <Link to="/leaderboard">排行榜</Link>,
       },
       ...(user.isAdmin ? [{
         key: '/admin',

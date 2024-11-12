@@ -10,6 +10,8 @@ import AdminCodeManager from './components/AdminCodeManager';
 import AdminDashboard from './components/AdminDashboard';
 import Footer from './components/Footer';
 import PracticeHistory from './components/PracticeHistory';
+import Leaderboard from './components/Leaderboard';
+
 // 创建一个包装组件来处理认证
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
@@ -72,9 +74,15 @@ const App: React.FC = () => {
       <AuthWrapper>
         <Navbar />
         <Routes>
+          {/* 公共路由 - 不需要登录就能访问 */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/" element={<Home />} />
+
+          {/* 需要登录的路由 */}
           {user ? (
             <>
-              <Route path="/" element={<Home />} />
               <Route path="/practice/:level" element={<Practice />} />
               <Route path="/practice-history" element={<PracticeHistory />} />
               {user.isAdmin && (
@@ -83,15 +91,18 @@ const App: React.FC = () => {
                   <Route path="/admin/code-manager" element={<AdminCodeManager />} />
                 </>
               )}
-              <Route path="*" element={<Navigate to="/" replace />} />
             </>
           ) : (
+            // 访问需要登录的页面时重定向到登录页
             <>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="*" element={<Navigate to="/login" replace />} />
+              <Route path="/practice/*" element={<Navigate to="/login" replace />} />
+              <Route path="/practice-history" element={<Navigate to="/login" replace />} />
+              <Route path="/admin/*" element={<Navigate to="/login" replace />} />
             </>
           )}
+          
+          {/* 处理未匹配的路径 */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Footer />
       </AuthWrapper>
