@@ -34,7 +34,7 @@ Ensure you have the following installed:
 
    ```bash
    git clone https://github.com/bobcoc/typing_practiceweb.git
-   cd your-repository
+   cd typing_practiceweb
    ```
 
 2. Install server dependencies:
