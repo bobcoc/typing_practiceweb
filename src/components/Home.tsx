@@ -27,6 +27,7 @@ interface Statistics {
   todayPracticeTime: number;
   accuracyTrend: number[];
   lastPracticeDate: string | null;
+  avgSpeed: number;
 }
 
 
@@ -38,7 +39,8 @@ const Home: React.FC = () => {
     avgAccuracy: 0,
     todayPracticeTime: 0,
     accuracyTrend: [],
-    lastPracticeDate: null
+    lastPracticeDate: null,
+    avgSpeed: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -101,12 +103,12 @@ const Home: React.FC = () => {
       <Typography variant="subtitle1" color="textSecondary" paragraph>
         请选择一个练习等级开始。
       </Typography>
-      
+
       <Grid container spacing={4} sx={{ mt: 2 }}>
         {practiceTypes.map((type) => (
           <Grid item xs={12} sm={6} md={3} key={type.level}>
-            <Card 
-              sx={{ 
+            <Card
+              sx={{
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
@@ -137,8 +139,8 @@ const Home: React.FC = () => {
                 </Typography>
               </CardContent>
               <CardActions>
-                <Button 
-                  size="small" 
+                <Button
+                  size="small"
                   color="primary"
                   onClick={() => navigate(`/practice/${type.level}`)}
                   fullWidth
@@ -153,104 +155,60 @@ const Home: React.FC = () => {
 
       {/* 统计信息区域 */}
       <Box sx={{ mt: 6, mb: 4 }}>
-        <Typography variant="h5" gutterBottom>
-          练习统计
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ 
-              bgcolor: 'background.paper',
-              transition: 'transform 0.2s',
-              '&:hover': {
-                transform: 'scale(1.02)',
-                boxShadow: 2
-              }
-            }}>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  今日练习时长
-                </Typography>
-                <Typography variant="h4" sx={{ color: '#4CAF50' }}>
-                  {loading ? (
-                    <Skeleton variant="text" width={100} />
-                  ) : (
-                    `${stats.todayPracticeTime} 分钟`
-                  )}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ 
-              bgcolor: 'background.paper',
-              transition: 'transform 0.2s',
-              '&:hover': {
-                transform: 'scale(1.02)',
-                boxShadow: 2
-              }
-            }}>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  完成练习数
-                </Typography>
-                <Typography variant="h4" sx={{ color: '#2196F3' }}>
-                  {loading ? (
-                    <Skeleton variant="text" width={100} />
-                  ) : (
-                    stats.practiceCount
-                  )}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ 
-              bgcolor: 'background.paper',
-              transition: 'transform 0.2s',
-              '&:hover': {
-                transform: 'scale(1.02)',
-                boxShadow: 2
-              }
-            }}>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  平均正确率
-                </Typography>
-                <Typography variant="h4" sx={{ color: '#FF9800' }}>
-                  {loading ? (
-                    <Skeleton variant="text" width={100} />
-                  ) : (
-                    `${stats.avgAccuracy.toFixed(1)}%`
-                  )}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ 
-              bgcolor: 'background.paper',
-              transition: 'transform 0.2s',
-              '&:hover': {
-                transform: 'scale(1.02)',
-                boxShadow: 2
-              }
-            }}>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  练习单词总数
-                </Typography>
-                <Typography variant="h4" sx={{ color: '#F44336' }}>
-                  {loading ? (
-                    <Skeleton variant="text" width={100} />
-                  ) : (
-                    stats.totalWords
-                  )}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      </Box>
+  <Typography variant="h5" gutterBottom>
+    练习统计
+  </Typography>
+  <Grid container spacing={3}>
+    {[
+      {
+        title: '今日练习时长',
+        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.todayPracticeTime} 分钟`,
+        color: '#4CAF50'
+      },
+      {
+        title: '完成练习数',
+        value: loading ? <Skeleton variant="text" width={100} /> : stats.practiceCount,
+        color: '#2196F3'
+      },
+      {
+        title: '平均正确率',
+        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.avgAccuracy.toFixed(1)}%`,
+        color: '#FF9800'
+      },
+      {
+        title: '练习单词总数',
+        value: loading ? <Skeleton variant="text" width={100} /> : stats.totalWords,
+        color: '#F44336'
+      },
+      {
+        title: '平均速度',
+        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.avgSpeed} WPM`,
+        color: '#9C27B0'
+      }
+    ].map((item, index) => (
+      <Grid item xs={12} sm={6} md style={{ flex: 1 }} key={index}>
+        <Card sx={{ 
+          height: '100%',
+          bgcolor: 'background.paper',
+          transition: 'transform 0.2s',
+          '&:hover': {
+            transform: 'scale(1.02)',
+            boxShadow: 2
+          }
+        }}>
+          <CardContent>
+            <Typography color="textSecondary" gutterBottom>
+              {item.title}
+            </Typography>
+            <Typography variant="h4" sx={{ color: item.color }}>
+              {item.value}
+            </Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+    ))}
+  </Grid>
+</Box>
     </Container>
   );
 };

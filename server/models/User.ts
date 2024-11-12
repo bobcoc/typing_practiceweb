@@ -9,8 +9,8 @@ export interface UserStats {
   accuracyHistory: number[];    // 正确率历史记录
   todayPracticeTime: number;    // 今日练习时长（秒）
   lastPracticeDate: Date;       // 最后练习日期
+  totalSpeed: number;           // 累计速度，用于计算平均值
 }
-
 
 // 扩展用户接口，包含统计信息
 export interface IUser extends Document {
@@ -24,7 +24,7 @@ export interface IUser extends Document {
 
   // 方法
   resetTodayPracticeTime(): Promise<void>;
-  updatePracticeStats(data: { words: number; accuracy: number; duration: number }): Promise<void>;
+  updatePracticeStats(data: { words: number; accuracy: number; duration: number; speed: number }): Promise<void>;
   getAccuracyTrend(limit?: number): number[];
 }
 
@@ -78,9 +78,18 @@ const userStatsSchema = new mongoose.Schema({
   },
   lastPracticeDate: { 
     type: Date, 
-    default: () => new Date()  // 修改这里
+    default: () => new Date()
+  },
+  totalSpeed: { 
+    type: Number, 
+    default: 0,
+    min: 0,
+    validate: {
+      validator: Number.isFinite,
+      message: '速度必须是有效数字'
+    }
   }
-}, { _id: false });  // 不为stats创建独立的_id
+}, { _id: false });
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -114,6 +123,7 @@ const userSchema = new mongoose.Schema({
       totalPracticeCount: 0,
       totalWords: 0,
       totalAccuracy: 0,
+      totalSpeed: 0,
       accuracyHistory: [],
       todayPracticeTime: 0,
       lastPracticeDate: new Date()
@@ -123,13 +133,14 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// 添加 pre save 中间件，确保 stats 字段存在
+// 中间件
 userSchema.pre('save', function (next) {
   if (!this.stats) {
     this.stats = {
       totalPracticeCount: 0,
       totalWords: 0,
       totalAccuracy: 0,
+      totalSpeed: 0,
       accuracyHistory: [],
       todayPracticeTime: 0,
       lastPracticeDate: new Date()
@@ -138,7 +149,6 @@ userSchema.pre('save', function (next) {
   next();
 });
 
-// 添加 pre findOneAndUpdate 中间件，确保更新时 stats 字段存在
 userSchema.pre('findOneAndUpdate', function (next) {
   const update = this.getUpdate() as any;
   if (update && !update.stats) {
@@ -146,6 +156,7 @@ userSchema.pre('findOneAndUpdate', function (next) {
       totalPracticeCount: 0,
       totalWords: 0,
       totalAccuracy: 0,
+      totalSpeed: 0,
       accuracyHistory: [],
       todayPracticeTime: 0,
       lastPracticeDate: new Date()
@@ -154,59 +165,62 @@ userSchema.pre('findOneAndUpdate', function (next) {
   next();
 });
 
-// 添加虚拟属性：平均正确率
+// 虚拟属性
 userSchema.virtual('averageAccuracy').get(function (this: IUser) {
   if (this.stats.totalPracticeCount === 0) return 0;
   return this.stats.totalAccuracy / this.stats.totalPracticeCount;
 });
 
-// 添加方法：重置今日练习时间
+userSchema.virtual('averageSpeed').get(function(this: IUser) {
+  if (this.stats.totalPracticeCount === 0) return 0;
+  return this.stats.totalSpeed / this.stats.totalPracticeCount;
+});
+
+// 方法
 userSchema.methods.resetTodayPracticeTime = async function (this: IUser) {
   this.stats.todayPracticeTime = 0;
   await this.save();
 };
 
-// 添加方法：更新练习统计
 userSchema.methods.updatePracticeStats = async function (this: IUser, {
   words,
   accuracy,
-  duration
+  duration,
+  speed
 }: {
   words: number;
   accuracy: number;
   duration: number;
+  speed: number;
 }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // 如果是新的一天，重置今日练习时长
   if (!this.stats.lastPracticeDate || this.stats.lastPracticeDate < today) {
     this.stats.todayPracticeTime = 0;
   }
 
-  // 更新统计信息
   this.stats.totalPracticeCount += 1;
   this.stats.totalWords += words;
   this.stats.totalAccuracy += accuracy;
   this.stats.accuracyHistory.push(accuracy);
   this.stats.todayPracticeTime += Math.round(duration);
   this.stats.lastPracticeDate = new Date();
+  this.stats.totalSpeed += speed;
 
-  // 保存更新
   await this.save();
 };
 
-// 添加方法：获取正确率趋势
 userSchema.methods.getAccuracyTrend = function (this: IUser, limit = 10): number[] {
   return this.stats.accuracyHistory.slice(-limit);
 };
 
-// 添加索引
+// 索引
 userSchema.index({ username: 1 }, { unique: true });
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ 'stats.lastPracticeDate': 1 });
 
-// 添加错误处理中间件
+// 错误处理
 userSchema.post('save', function (error: any, doc: any, next: any) {
   if (error.name === 'MongoError' || error.name === 'MongoServerError') {
     if (error.code === 11000) {
@@ -219,4 +233,5 @@ userSchema.post('save', function (error: any, doc: any, next: any) {
   }
 });
 
+// 创建模型并导出
 export const User = mongoose.model<IUser>('User', userSchema);

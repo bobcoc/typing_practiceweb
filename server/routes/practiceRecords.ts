@@ -1,10 +1,9 @@
 // server/routes/practiceRecords.ts
 import express, { Request, Response } from 'express';
 import { PracticeRecord } from '../models/PracticeRecord';
-import { User } from '../models/User';
 import { auth } from '../middleware/auth';
 import { Types, Error as MongooseError, startSession } from 'mongoose';
-
+import { User, type IUser, type UserStats } from '../models/User.js'; 
 const router = express.Router();
 
 // 验证练习记录数据
@@ -94,6 +93,7 @@ router.post('/', auth, async (req: Request, res: Response) => {
         totalPracticeCount: 0,
         totalWords: 0,
         totalAccuracy: 0,
+        totalSpeed: 0, 
         accuracyHistory: [],
         todayPracticeTime: 0,
         lastPracticeDate: new Date()
@@ -102,7 +102,8 @@ router.post('/', auth, async (req: Request, res: Response) => {
     await user.updatePracticeStats({
       words: stats.totalWords,
       accuracy: stats.accuracy,
-      duration: stats.duration
+      duration: stats.duration,
+      speed: stats.wordsPerMinute
     });
 
     console.log('Practice record and user stats updated successfully');
@@ -158,12 +159,14 @@ router.get('/statistics', auth, async (req: Request, res: Response) => {
 
     // 获取统计数据
     const avgAccuracy = user.get('averageAccuracy');
+    const avgSpeed = user.get('averageSpeed'); 
     const recentAccuracyTrend = user.getAccuracyTrend(10);
 
     res.json({
       practiceCount: user.stats.totalPracticeCount || 0,
       totalWords: user.stats.totalWords || 0,
       avgAccuracy: Math.round(avgAccuracy * 100) / 100,
+      avgSpeed: Math.round(avgSpeed * 10) / 10,
       todayPracticeTime: Math.round((user.stats.todayPracticeTime || 0) / 60), // 转换为分钟
       accuracyTrend: recentAccuracyTrend,
       lastPracticeDate: user.stats.lastPracticeDate
