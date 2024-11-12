@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -8,7 +8,8 @@ import {
   CardActions,
   Typography,
   Button,
-  Box
+  Box,
+  Skeleton
 } from '@mui/material';
 import {
   Code as CodeIcon,
@@ -16,9 +17,50 @@ import {
   School as SchoolIcon,
   Psychology as PsychologyIcon
 } from '@mui/icons-material';
+import { api } from '../api/apiClient';
+
+// 统计数据类型
+interface Statistics {
+  practiceCount: number;
+  totalWords: number;
+  avgAccuracy: number;
+  todayPracticeTime: number;
+  accuracyTrend: number[];
+  lastPracticeDate: string | null;
+}
+
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
+  const [stats, setStats] = useState<Statistics>({
+    practiceCount: 0,
+    totalWords: 0,
+    avgAccuracy: 0,
+    todayPracticeTime: 0,
+    accuracyTrend: [],
+    lastPracticeDate: null
+  });
+  const [loading, setLoading] = useState(true);
+
+  // 获取统计数据
+  const fetchStatistics = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/api/practice-records/statistics');
+      if (response) {
+        setStats(response as Statistics);
+      }
+    } catch (error) {
+      console.error('获取统计数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 组件加载时获取数据
+  useEffect(() => {
+    fetchStatistics();
+  }, []);
 
   const practiceTypes = [
     {
@@ -109,64 +151,108 @@ const Home: React.FC = () => {
         ))}
       </Grid>
 
-{/* 统计信息区域 */}
-<Box sx={{ mt: 6, mb: 4 }}>
-  <Typography variant="h5" gutterBottom>
-    练习统计
-  </Typography>
-  <Grid container spacing={3}>
-    <Grid item xs={12} sm={6} md={3}>
-      <Card>
-        <CardContent>
-          <Typography color="textSecondary" gutterBottom>
-            今日练习时长
-          </Typography>
-          <Typography variant="h4">
-            0 分钟
-          </Typography>
-        </CardContent>
-      </Card>
-    </Grid>
-    <Grid item xs={12} sm={6} md={3}>
-      <Card>
-        <CardContent>
-          <Typography color="textSecondary" gutterBottom>
-            完成练习数
-          </Typography>
-          <Typography variant="h4">
-            0
-          </Typography>
-        </CardContent>
-      </Card>
-    </Grid>
-    <Grid item xs={12} sm={6} md={3}>
-      <Card>
-        <CardContent>
-          <Typography color="textSecondary" gutterBottom>
-            平均正确率
-          </Typography>
-          <Typography variant="h4">
-            0%
-          </Typography>
-        </CardContent>
-      </Card>
-    </Grid>
-    <Grid item xs={12} sm={6} md={3}>
-      <Card>
-        <CardContent>
-          <Typography color="textSecondary" gutterBottom>
-            练习单词总数
-          </Typography>
-          <Typography variant="h4">
-            0
-          </Typography>
-        </CardContent>
-      </Card>
-    </Grid>
-  </Grid>
-</Box>
+      {/* 统计信息区域 */}
+      <Box sx={{ mt: 6, mb: 4 }}>
+        <Typography variant="h5" gutterBottom>
+          练习统计
+        </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ 
+              bgcolor: 'background.paper',
+              transition: 'transform 0.2s',
+              '&:hover': {
+                transform: 'scale(1.02)',
+                boxShadow: 2
+              }
+            }}>
+              <CardContent>
+                <Typography color="textSecondary" gutterBottom>
+                  今日练习时长
+                </Typography>
+                <Typography variant="h4" sx={{ color: '#4CAF50' }}>
+                  {loading ? (
+                    <Skeleton variant="text" width={100} />
+                  ) : (
+                    `${stats.todayPracticeTime} 分钟`
+                  )}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ 
+              bgcolor: 'background.paper',
+              transition: 'transform 0.2s',
+              '&:hover': {
+                transform: 'scale(1.02)',
+                boxShadow: 2
+              }
+            }}>
+              <CardContent>
+                <Typography color="textSecondary" gutterBottom>
+                  完成练习数
+                </Typography>
+                <Typography variant="h4" sx={{ color: '#2196F3' }}>
+                  {loading ? (
+                    <Skeleton variant="text" width={100} />
+                  ) : (
+                    stats.practiceCount
+                  )}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ 
+              bgcolor: 'background.paper',
+              transition: 'transform 0.2s',
+              '&:hover': {
+                transform: 'scale(1.02)',
+                boxShadow: 2
+              }
+            }}>
+              <CardContent>
+                <Typography color="textSecondary" gutterBottom>
+                  平均正确率
+                </Typography>
+                <Typography variant="h4" sx={{ color: '#FF9800' }}>
+                  {loading ? (
+                    <Skeleton variant="text" width={100} />
+                  ) : (
+                    `${stats.avgAccuracy.toFixed(1)}%`
+                  )}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ 
+              bgcolor: 'background.paper',
+              transition: 'transform 0.2s',
+              '&:hover': {
+                transform: 'scale(1.02)',
+                boxShadow: 2
+              }
+            }}>
+              <CardContent>
+                <Typography color="textSecondary" gutterBottom>
+                  练习单词总数
+                </Typography>
+                <Typography variant="h4" sx={{ color: '#F44336' }}>
+                  {loading ? (
+                    <Skeleton variant="text" width={100} />
+                  ) : (
+                    stats.totalWords
+                  )}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Box>
     </Container>
   );
 };
 
-export default Home; 
+export default Home;
