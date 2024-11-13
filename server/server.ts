@@ -2,13 +2,13 @@ import dotenv from 'dotenv';
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import practiceTypesRouter from './routes/practiceTypes.js';
-import codeExamplesRouter from './routes/codeExamples.js';
-import authRouter from './routes/auth.js';
-import keywordsRouter from './routes/keywords.js';
-import practiceRecordsRouter from './routes/practiceRecords.js';
-import leaderboardRouter from './routes/leaderboard.js';
-import adminRoutes from './routes/admin.js';
+import practiceTypesRouter from './routes/practiceTypes';
+import codeExamplesRouter from './routes/codeExamples';
+import authRouter from './routes/auth';
+import keywordsRouter from './routes/keywords';
+import practiceRecordsRouter from './routes/practiceRecords';
+import leaderboardRouter from './routes/leaderboard';
+import adminRoutes from './routes/admin';
 
 // 加载环境变量
 dotenv.config();

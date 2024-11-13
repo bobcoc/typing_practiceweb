@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken'; 
 import { config } from '../config'; 
 import { MongoError } from 'mongodb'; 
-import { User, type IUser, type UserStats } from '../models/User.js'; 
+import { User, type IUser, type UserStats } from '../models/User'; 
 const router = express.Router();
 
 // 定义路由处理函数类型

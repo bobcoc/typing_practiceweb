@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { adminApi, CodeExample, PracticeLevel } from '../api/admin';
 import {
   Container,
   Paper,
@@ -21,7 +22,6 @@ import {
   SelectChangeEvent,
   FormHelperText,
 } from '@mui/material';
-import { CodeExample, PracticeLevel } from '../types';
 
 interface EditingExample {
   _id?: string;
@@ -51,8 +51,7 @@ const AdminCodeManager: React.FC = () => {
 
   const fetchCodeExamples = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/code-examples');
-      const data = await response.json();
+      const data = await adminApi.getCodeExamples();
       setCodeExamples(data);
     } catch (error) {
       console.error('Error fetching code examples:', error);
@@ -110,7 +109,7 @@ const AdminCodeManager: React.FC = () => {
         processedContent = editingExample.content.trim();
       }
 
-      const dataToSave: Omit<CodeExample, '_id'> = {
+      const dataToSave = {
         title: editingExample.title || '',
         content: processedContent,
         level: editingExample.level,
@@ -118,19 +117,11 @@ const AdminCodeManager: React.FC = () => {
         difficulty: editingExample.difficulty || 1
       };
 
-      const url = isEditing && editingExample._id
-        ? `http://localhost:5001/api/code-examples/${editingExample._id}`
-        : 'http://localhost:5001/api/code-examples';
-      
-      const method = isEditing ? 'PUT' : 'POST';
-      
-      await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dataToSave),
-      });
+      if (isEditing && editingExample._id) {
+        await adminApi.updateCodeExample(editingExample._id, dataToSave);
+      } else {
+        await adminApi.createCodeExample(dataToSave);
+      }
 
       handleClose();
       fetchCodeExamples();
@@ -142,9 +133,7 @@ const AdminCodeManager: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (window.confirm('确定要删除这个代码示例吗？')) {
       try {
-        await fetch(`http://localhost:5001/api/code-examples/${id}`, {
-          method: 'DELETE',
-        });
+        await adminApi.deleteCodeExample(id);
         fetchCodeExamples();
       } catch (error) {
         console.error('Error deleting code example:', error);

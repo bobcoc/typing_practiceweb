@@ -3,7 +3,7 @@ import express, { Request, Response } from 'express';
 import { PracticeRecord } from '../models/PracticeRecord';
 import { auth } from '../middleware/auth';
 import { Types, Error as MongooseError, startSession } from 'mongoose';
-import { User, type IUser, type UserStats } from '../models/User.js'; 
+import { User, type IUser, type UserStats } from '../models/User'; 
 const router = express.Router();
 
 // 验证练习记录数据
