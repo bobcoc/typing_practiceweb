@@ -27,6 +27,7 @@ import type { SxProps, Theme } from '@mui/material/styles';
 interface PracticeRecord {
   userId: string;
   username: string;
+  fullname: string;
   stats: {
     totalWords: number;
     accuracy: number;
@@ -195,7 +196,7 @@ const Leaderboard: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell align="center">排名</TableCell>
-              <TableCell>用户名</TableCell>
+              <TableCell>姓名</TableCell>
               <TableCell align="center">练习次数</TableCell>
               <TableCell align="center">正确率</TableCell>
               <TableCell align="center">单词总数</TableCell>
@@ -221,7 +222,7 @@ const Leaderboard: React.FC = () => {
                     />
                   )}
                 </TableCell>
-                <TableCell>{record.username}</TableCell>
+                <TableCell>{record.fullname || record.username}</TableCell>
                 <TableCell align="center">{record.stats.practiceCount}</TableCell>
                 <TableCell align="center">
                   <Chip

@@ -17,6 +17,7 @@ interface IPracticeStats {
 export interface IPracticeRecord extends Document {
   userId: mongoose.Types.ObjectId;  // 用户ID
   username: string;                 // 用户名
+  fullname: string;// 姓名
   type: 'keyword' | 'basic' | 'intermediate' | 'advanced';  // 练习类型
   stats: IPracticeStats;           // 练习统计数据
   createdAt: Date;                 // 记录创建时间
@@ -27,6 +28,7 @@ export interface ILeaderboardRecord {
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
   username: string;
+  fullname: string; 
   type: string;
   stats: {
     totalWords: number;
@@ -45,6 +47,10 @@ const practiceRecordSchema = new Schema<IPracticeRecord>({
     required: true
   },
   username: {
+    type: String,
+    required: true
+  }, 
+   fullname: {                       // 姓名
     type: String,
     required: true
   },
@@ -97,6 +103,7 @@ practiceRecordSchema.statics.getLeaderboard = function(
       $group: {
         _id: '$userId',
         username: { $first: '$username' },
+        fullname: { $first: '$fullname' }, 
         totalDuration: { $sum: '$stats.duration' },
         avgAccuracy: { $avg: '$stats.accuracy' },
         totalWords: { $sum: '$stats.totalWords' },
@@ -125,6 +132,7 @@ practiceRecordSchema.statics.getLeaderboard = function(
         _id: '$originalRecord._id',
         userId: '$_id',
         username: 1,
+        fullname: 1, 
         type: '$originalRecord.type',
         stats: {
           totalWords: '$totalWords',

@@ -7,6 +7,7 @@ import { config } from '../config';
 interface UserPayload {
   _id: string;
   username: string;
+  fullname: string;
   iat?: number;
   exp?: number;
   isAdmin?: boolean;

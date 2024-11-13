@@ -42,6 +42,7 @@ router.get('/:type', async (req: Request, res: Response) => {
         $group: {
           _id: '$userId',
           username: { $first: '$username' },
+          fullname: { $first: '$fullname' },
           totalWords: { $sum: '$stats.totalWords' },
           avgAccuracy: { $avg: '$stats.accuracy' },
           totalDuration: { $sum: '$stats.duration' },
@@ -61,6 +62,7 @@ router.get('/:type', async (req: Request, res: Response) => {
         $project: {
           userId: '$_id',
           username: 1,
+          fullname: 1,
           stats: {
             totalWords: '$totalWords',
             accuracy: '$avgAccuracy',

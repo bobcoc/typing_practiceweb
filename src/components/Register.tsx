@@ -11,6 +11,7 @@ interface RegisterResponse {
   user: {
     _id: string;
     username: string;
+    fullname: string;
     isAdmin: boolean;
   };
 }

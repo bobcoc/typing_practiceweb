@@ -70,6 +70,7 @@ router.post('/', auth, async (req: Request, res: Response) => {
     const record = new PracticeRecord({
       userId: new Types.ObjectId(req.user._id),
       username: req.user.username,
+      fullname: req.user.fullname,
       type,
       stats: {
         ...stats,
