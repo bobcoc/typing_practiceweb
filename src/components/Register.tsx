@@ -19,6 +19,7 @@ const Register: React.FC = () => {
   const [formData, setFormData] = useState<RegisterFormValues>({
     username: '',
     email: '',
+    fullname: '',
     password: '',
     confirmPassword: ''
   });
@@ -33,7 +34,7 @@ const Register: React.FC = () => {
   };
 
   const handleRegister = async () => {
-    if (!formData.username || !formData.password || !formData.confirmPassword|| !formData.email) {
+    if (!formData.username || !formData.password || !formData.confirmPassword|| !formData.email|| !formData.fullname) {
       message.error('请填写必填字段');
       return;
     }
@@ -55,6 +56,10 @@ const Register: React.FC = () => {
 
     if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       message.error('请输入有效的邮箱地址');
+      return;
+    }
+    if (formData.fullname.length < 2 || formData.fullname.length > 50) { // 新增验证
+      message.error('姓名长度应在2-50个字符之间');
       return;
     }
 
@@ -103,6 +108,16 @@ const Register: React.FC = () => {
             required
             disabled={loading}
           />
+          <TextField
+          label="姓名"
+          name="fullname"
+          value={formData.fullname}
+          onChange={handleChange}
+          fullWidth
+          margin="normal"
+          required
+          disabled={loading}
+        />
           <TextField
             label="邮箱"
             name="email"

@@ -193,6 +193,9 @@ const AdminUserManager: React.FC = () => {
                     用户名
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+      姓名
+    </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     邮箱
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -211,6 +214,9 @@ const AdminUserManager: React.FC = () => {
                   <tr key={user._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{user.username}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{user.fullname}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">{user.email}</div>
@@ -318,6 +324,22 @@ const AdminUserManager: React.FC = () => {
                     </p>
                   )}
                 </div>
+                <div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    姓名 <span className="text-red-500">*</span>
+  </label>
+  <input
+    type="text"
+    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+    value={selectedUser.fullname}
+    onChange={(e) => setSelectedUser({
+      ...selectedUser,
+      fullname: e.target.value
+    })}
+    required
+    placeholder="请输入姓名"
+  />
+</div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     邮箱 <span className="text-red-500">*</span>

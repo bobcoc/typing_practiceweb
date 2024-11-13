@@ -63,6 +63,7 @@ const loginHandler: RouteHandler = async (req, res) => {
       user: {
         _id: user._id,
         username: user.username,
+        fullname:user.fullname,
         email: user.email,
         isAdmin: user.isAdmin
       }
@@ -76,9 +77,9 @@ const loginHandler: RouteHandler = async (req, res) => {
 // 注册处理函数
 const registerHandler: RouteHandler = async (req, res) => {
   try {
-    const { username, password, email } = req.body;
+    const { username, password, email,fullname } = req.body;
     
-    console.log('Registration attempt:', { username, email });
+    console.log('Registration attempt:', { username, email,fullname });
     if (!email) {
       return res.status(400).json({ message: '邮箱是必填项' });
     }
@@ -100,7 +101,7 @@ const registerHandler: RouteHandler = async (req, res) => {
     const user = new User({
       username,
       password,
-      email,
+      email,fullname ,
       isAdmin
     });
     

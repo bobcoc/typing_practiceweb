@@ -11,6 +11,8 @@ interface LoginResponse {
   user: {
     _id: string;
     username: string;
+    fullname: string;
+    email: string;
     isAdmin: boolean;
   };
 }

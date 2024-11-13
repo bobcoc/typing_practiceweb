@@ -17,6 +17,7 @@ export interface IUser extends Document {
   username: string;
   password: string;
   email: string;
+  fullname: string;
   isAdmin: boolean;
   stats: UserStats;
   createdAt: Date;
@@ -99,6 +100,13 @@ const userSchema = new mongoose.Schema({
     trim: true,
     minlength: [3, '用户名至少需要3个字符'],
     maxlength: [20, '用户名最多20个字符']
+  },
+  fullname: {
+    type: String,
+    required: [true, '姓名是必需的'],
+    trim: true,
+    minlength: [2, '姓名至少需要2个字符'],
+    maxlength: [50, '姓名最多50个字符']
   },
   password: {
     type: String,

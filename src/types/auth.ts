@@ -5,6 +5,7 @@ export interface LoginFormValues {
   }
   export interface RegisterFormValues extends LoginFormValues {
     email?: string;
+    fullname: string;
     confirmPassword: string;
   }
   export interface LoginResponse {
@@ -13,6 +14,7 @@ export interface LoginFormValues {
       _id: string;
       username: string;
       email: string;
+      fullname: string;
       isAdmin: boolean;
     };
   }

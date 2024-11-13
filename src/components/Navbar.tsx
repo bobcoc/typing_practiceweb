@@ -10,6 +10,7 @@ const { Header } = Layout;
 
 interface UserInfo {
   username: string;
+  fullname: string;
   isAdmin?: boolean;
 }
 
@@ -82,7 +83,7 @@ const NavBar: React.FC = () => {
       }] : []),
       {
         key: '/profile',
-        label: user.username,
+        label: user.fullname || user.username, // 优先显示姓名，如果没有则显示用户名
         style: { marginLeft: 'auto' },
       },
       {
