@@ -32,7 +32,6 @@ interface KeywordsResponse {
   title: string;
   content: string;
 }
-
 const Practice: React.FC = () => {
   const navigate = useNavigate();
   const { level } = useParams<{ level: string }>();
@@ -40,6 +39,9 @@ const Practice: React.FC = () => {
   const [currentKeyword, setCurrentKeyword] = useState<string>('');
   const [userInput, setUserInput] = useState<string>('');
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 添加实际按键计数器状态
+  const [actualKeyCount, setActualKeyCount] = useState<number>(0);
 
   const [stats, setStats] = useState<PracticeStats>({
     totalWords: 0,
@@ -90,7 +92,6 @@ const Practice: React.FC = () => {
       return { ...prev, duration, wordsPerMinute };
     });
   };
-
   const fetchContent = async () => {
     try {
       setLoading(true);
@@ -144,11 +145,21 @@ const Practice: React.FC = () => {
     setUserInput(e.target.value);
   };
 
+  // 修改后的关键字提交函数，包含作弊检测
   const handleKeywordSubmit = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
+      // 检查是否作弊
+      if (userInput.length > actualKeyCount + 3) { // 允许少许误差
+        message.error('检测到异常输入行为，请重新输入');
+        setUserInput('');
+        setActualKeyCount(0);
+        return;
+      }
+
       const isCorrect = userInput.trim() === currentKeyword;
       updateKeywordStats(isCorrect);
       setUserInput('');
+      setActualKeyCount(0); // 重置计数器
       getRandomKeyword(content.split('\n').filter(k => k.trim() !== ''));
     }
   };
@@ -231,7 +242,16 @@ const Practice: React.FC = () => {
     setIsModalVisible(true);
   };
 
+  // 修改后的确认退出函数，包含作弊检测
   const confirmExit = async () => {
+    // 只在代码练习模式下检查
+    if (level !== 'keyword' && userInput.length > actualKeyCount + 20) {
+      message.error('检测到异常输入行为，练习记录将不被保存');
+      setIsModalVisible(false);
+      navigate('/practice-history');
+      return;
+    }
+
     try {
       const userStr = localStorage.getItem('user');
       const token = localStorage.getItem('token');
@@ -307,8 +327,8 @@ const Practice: React.FC = () => {
       </div>
     </div>
   );
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  // 修改后的键盘事件处理函数，包含按键计数
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     // 阻止复制粘贴快捷键
     if (e.ctrlKey || e.metaKey) {
       switch (e.key.toLowerCase()) {
@@ -321,67 +341,94 @@ const Practice: React.FC = () => {
       }
     }
 
-    // 处理 Tab 键
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const start = e.currentTarget.selectionStart;
-      const end = e.currentTarget.selectionEnd;
-      const value = e.currentTarget.value;
-      
-      const newValue = value.substring(0, start) + '    ' + value.substring(end);
-      setUserInput(newValue);
-      
-      if (textAreaRef.current) {
-        textAreaRef.current.value = newValue;
-        textAreaRef.current.selectionStart = textAreaRef.current.selectionEnd = start + 2;
+    // 计数有效的键盘输入
+    if (!e.ctrlKey && !e.metaKey) {
+      if (e.key.length === 1) { // 普通字符输入
+        setActualKeyCount(prev => prev + 1);
+      } else if (e.key === 'Backspace' || e.key === 'Delete') {
+        setActualKeyCount(prev => Math.max(0, prev - 1));
       }
     }
-
-    // 处理回车键
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const start = e.currentTarget.selectionStart;
-      const value = e.currentTarget.value;
-      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-      const currentLine = value.slice(lineStart, start);
-      
-      const indentMatch = currentLine.match(/^\s*/);
-      const indent = indentMatch ? indentMatch[0] : '';
-      
-      const needsExtraIndent = value.slice(Math.max(0, start - 1), start) === '{';
-      const extraIndent = needsExtraIndent ? '    ' : '';
-      
-      const newValue = value.substring(0, start) + '\n' + indent + extraIndent + value.substring(start);
-      setUserInput(newValue);
-      
-      const newPosition = start + 1 + indent.length + extraIndent.length;
-      if (textAreaRef.current) {
-        textAreaRef.current.value = newValue;
-        textAreaRef.current.selectionStart = textAreaRef.current.selectionEnd = newPosition;
+    if (level === 'keyword' && e.key === 'Enter') {
+      // 检查是否作弊
+      if (userInput.length > actualKeyCount + 3) { // 允许少许误差
+        message.error('检测到异常输入行为，请重新输入');
+        setUserInput('');
+        setActualKeyCount(0);
+        return;
       }
+  
+      const isCorrect = userInput.trim() === currentKeyword;
+      updateKeywordStats(isCorrect);
+      setUserInput('');
+      setActualKeyCount(0); // 重置计数器
+      getRandomKeyword(content.split('\n').filter(k => k.trim() !== ''));
+      return;
     }
 
-    // 处理右大括号 }
-    if (e.key === '}') {
-      const start = e.currentTarget.selectionStart;
-      const value = e.currentTarget.value;
-      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-      const currentLine = value.slice(lineStart, start);
-      
-      if (/^\s*$/.test(currentLine)) {
+    if (e.currentTarget instanceof HTMLTextAreaElement) {
+      // 处理 Tab 键
+      if (e.key === 'Tab') {
         e.preventDefault();
-        const newIndent = currentLine.slice(0, Math.max(0, currentLine.length - 4));
-        const newValue = value.substring(0, lineStart) + newIndent + '}' + value.substring(start);
+        const start = e.currentTarget.selectionStart;
+        const end = e.currentTarget.selectionEnd;
+        const value = e.currentTarget.value;
+        
+        const newValue = value.substring(0, start) + '    ' + value.substring(end);
         setUserInput(newValue);
         
         if (textAreaRef.current) {
           textAreaRef.current.value = newValue;
-          textAreaRef.current.selectionStart = textAreaRef.current.selectionEnd = lineStart + newIndent.length + 1;
+          textAreaRef.current.selectionStart = textAreaRef.current.selectionEnd = start + 2;
+        }
+      }
+
+      // 处理回车键
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        setActualKeyCount(prev => prev + 1); // 回车键也计数
+        const start = e.currentTarget.selectionStart;
+        const value = e.currentTarget.value;
+        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+        const currentLine = value.slice(lineStart, start);
+        
+        const indentMatch = currentLine.match(/^\s*/);
+        const indent = indentMatch ? indentMatch[0] : '';
+        
+        const needsExtraIndent = value.slice(Math.max(0, start - 1), start) === '{';
+        const extraIndent = needsExtraIndent ? '    ' : '';
+        
+        const newValue = value.substring(0, start) + '\n' + indent + extraIndent + value.substring(start);
+        setUserInput(newValue);
+        
+        const newPosition = start + 1 + indent.length + extraIndent.length;
+        if (textAreaRef.current) {
+          textAreaRef.current.value = newValue;
+          textAreaRef.current.selectionStart = textAreaRef.current.selectionEnd = newPosition;
+        }
+      }
+
+      // 处理右大括号 }
+      if (e.key === '}') {
+        const start = e.currentTarget.selectionStart;
+        const value = e.currentTarget.value;
+        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+        const currentLine = value.slice(lineStart, start);
+        
+        if (/^\s*$/.test(currentLine)) {
+          e.preventDefault();
+          const newIndent = currentLine.slice(0, Math.max(0, currentLine.length - 4));
+          const newValue = value.substring(0, lineStart) + newIndent + '}' + value.substring(start);
+          setUserInput(newValue);
+          
+          if (textAreaRef.current) {
+            textAreaRef.current.value = newValue;
+            textAreaRef.current.selectionStart = textAreaRef.current.selectionEnd = lineStart + newIndent.length + 1;
+          }
         }
       }
     }
   };
-
   if (loading) {
     return (
       <Card>
@@ -403,7 +450,7 @@ const Practice: React.FC = () => {
           <Input
             value={userInput}
             onChange={handleKeywordInputChange}
-            onKeyPress={handleKeywordSubmit}
+            onKeyDown={handleKeyDown} // 修改：使用 handleKeyDown 替换 onKeyPress
             onPaste={handlePaste}
             onCopy={handleCopy}
             onContextMenu={preventContextMenu}
