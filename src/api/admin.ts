@@ -23,12 +23,23 @@ export interface CodeExample {
 export interface UserUpdateData extends Partial<User> {
   password?: string;  // 添加可选的密码字段
 }
+export interface CreateUserData {
+  username: string;
+  email: string;
+  fullname: string;
+  password: string;
+  isAdmin?: boolean;
+}
+
 export const adminApi = {
   getUsers: async (): Promise<User[]> => {
     const response = await apiClient.get('/api/admin/users');
     return response.data;
   },
-
+  createUser: async (userData: CreateUserData): Promise<User> => {
+    const response = await apiClient.post('/api/admin/users', userData);
+    return response.data;
+  },
   updateUser: async (userId: string, userData: Partial<User>): Promise<User> => {
     const response = await apiClient.put(`/api/admin/users/${userId}`, userData);
     return response.data;

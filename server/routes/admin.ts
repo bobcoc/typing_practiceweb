@@ -2,7 +2,7 @@
 import express from 'express';
 import { adminAuth } from '../middleware/auth';
 import { User } from '../models/User';
-
+import bcrypt from 'bcrypt';
 const router = express.Router();
 
 router.get('/users', adminAuth, async (req, res) => {
@@ -56,7 +56,46 @@ router.put('/users/:id', adminAuth, async (req, res) => {
     res.status(500).json({ message: '更新用户失败' });
   }
 });
+router.post('/users', adminAuth, async (req, res) => {
+  try {
+    const { username, email, password, fullname, isAdmin } = req.body;
+    // 验证必填字段
+    if (!username || !email || !password || !fullname) {
+      return res.status(400).json({ message: '请填写所有必填字段' });
+    }
 
+    // 检查用户名是否已存在
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ message: '用户名已被使用' });
+    }
+
+    // 检查邮箱是否已存在
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
+      return res.status(400).json({ message: '邮箱已被使用' });
+    }
+
+    // 创建新用户
+
+    const newUser = new User({
+      username,
+      email,
+      password: password,
+      fullname,
+      isAdmin: isAdmin || false
+    });
+
+    await newUser.save();
+
+    // 返回用户信息（不包含密码）
+    const userResponse = await User.findById(newUser._id).select('-password');
+    res.status(201).json(userResponse);
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ message: '创建用户失败' });
+  }
+});
 // 添加删除用户路由
 router.delete('/users/:id', adminAuth, async (req, res) => {
   try {

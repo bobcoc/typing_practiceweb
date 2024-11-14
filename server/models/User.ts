@@ -1,6 +1,7 @@
 // server/models/User.ts
 import mongoose, { Document } from 'mongoose';
 import bcrypt from 'bcrypt';
+import { log } from 'console';
 // 用户统计信息接口
 export interface UserStats {
   totalPracticeCount: number;   // 练习总次数
@@ -177,9 +178,37 @@ userSchema.pre('save', async function(next) {
 });
 userSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
   try {
-    return await bcrypt.compare(candidatePassword, this.password);
+    const result = await bcrypt.compare(candidatePassword, this.password);
+    
+
+    // 添加详细的调试信息
+    console.log('Password Comparison Details:', {
+      input: candidatePassword,
+      storedHash: this.password,
+      result: result
+    });
+    
+    const password = String(202410121);
+    const rounds = 10;
+  
+    // 生成盐值和hash
+    const salt1 = await bcrypt.genSalt(rounds);
+    const hash1 = await bcrypt.hash(password, salt1);
+    
+    const salt2 = await bcrypt.genSalt(rounds);
+    const hash2 = await bcrypt.hash(password, salt2);
+  
+    console.log('Test results:', {
+      password,
+      hash1,
+      hash2,
+      compareResult1: await bcrypt.compare('202410121', hash1),
+      compareResult2: await bcrypt.compare(password, hash2)
+    });
+    return result;
   } catch (error) {
-    throw new Error('密码比较失败');
+    console.error('Password comparison error:', error);
+    throw error;
   }
 };
 userSchema.pre('findOneAndUpdate', function (next) {
@@ -197,7 +226,30 @@ userSchema.pre('findOneAndUpdate', function (next) {
   }
   next();
 });
+async function handlePasswordUpdate(this: any, next: Function) {
+  const update = this.getUpdate() as any;
+  
+  if (update && (update.password || (update.$set && update.$set.password))) {
+    try {
+      const salt = await bcrypt.genSalt(10);
+      
+      if (update.password) {
+        update.password = await bcrypt.hash(update.password, salt);
+      } else if (update.$set && update.$set.password) {
+        update.$set.password = await bcrypt.hash(update.$set.password, salt);
+      }
+      
+      next();
+    } catch (error) {
+      next(error as Error);
+    }
+  } else {
+    next();
+  }
+}
 
+// 为每个操作添加中间件，使用相同的处理函数
+userSchema.pre('findOneAndUpdate', handlePasswordUpdate);
 // 虚拟属性
 userSchema.virtual('averageAccuracy').get(function (this: IUser) {
   if (this.stats.totalPracticeCount === 0) return 0;
