@@ -18,15 +18,27 @@ interface ImportResult {
   };
 }
 
+const ExcelFormatTooltip: React.FC = () => (
+  <div className="absolute bottom-full mb-2 w-64 bg-gray-800 text-white text-sm rounded p-2 shadow-lg">
+    <p className="font-medium mb-1">Excel文件格式要求：</p>
+    <ul className="list-disc list-inside text-xs space-y-1">
+      <li>必填列：username, email, password, fullname</li>
+      <li>可选列：isAdmin (true/false)</li>
+      <li>username：3-20个字符</li>
+      <li>email：有效的邮箱格式</li>
+    </ul>
+  </div>
+);
+
 const ImportReport: React.FC<{
   result: ImportResult;
   onClose: () => void;
 }> = ({ result, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
         <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-lg font-medium text-gray-900">导入报告</h3>
+          <h3 className="text-lg font-medium text-gray-900">导入结果</h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-500"
@@ -37,59 +49,65 @@ const ImportReport: React.FC<{
           </button>
         </div>
         
-        <div className="p-6 overflow-y-auto">
-          <div className="flex gap-4 mb-6">
-            <div className="flex-1 bg-green-50 p-4 rounded-lg">
-              <div className="text-green-800 font-medium">成功导入</div>
-              <div className="text-2xl font-bold text-green-600">{result.success.count}</div>
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="text-green-800 font-medium">导入成功</div>
+              <div className="text-3xl font-bold text-green-600">{result.success.count}</div>
             </div>
-            <div className="flex-1 bg-red-50 p-4 rounded-lg">
+            <div className="bg-red-50 p-4 rounded-lg">
               <div className="text-red-800 font-medium">导入失败</div>
-              <div className="text-2xl font-bold text-red-600">{result.failed.count}</div>
+              <div className="text-3xl font-bold text-red-600">{result.failed.count}</div>
             </div>
           </div>
 
-          {result.failed.count > 0 && (
-            <div className="mt-4">
-              <h4 className="text-lg font-medium text-gray-900 mb-3">失败详情</h4>
-              <div className="border rounded-lg divide-y">
-                {result.failed.details.map((item, index) => (
-                  <div key={index} className="p-3 hover:bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <span className="text-gray-500 text-sm">第 {item.row} 行</span>
-                        <span className="mx-2 text-gray-300">|</span>
-                        <span className="font-medium">{item.username}</span>
-                      </div>
-                      <span className="text-red-600 text-sm">{item.reason}</span>
-                    </div>
-                  </div>
-                ))}
+          {result.success.count > 0 && (
+            <div className="mt-6">
+              <h4 className="text-lg font-medium text-gray-900 mb-3">成功导入的用户</h4>
+              <div className="bg-gray-50 rounded-lg p-4 max-h-[200px] overflow-y-auto">
+                <div className="flex flex-wrap gap-2">
+                  {result.success.users.map((username, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2.5 py-0.5 rounded-md text-sm bg-green-100 text-green-800"
+                    >
+                      {username}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
-          {result.success.count > 0 && (
-            <div className="mt-4">
-              <h4 className="text-lg font-medium text-gray-900 mb-3">成功导入的用户</h4>
-              <div className="flex flex-wrap gap-2">
-                {result.success.users.map((username, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm bg-green-100 text-green-800"
-                  >
-                    {username}
-                  </span>
-                ))}
+          {result.failed.count > 0 && (
+            <div className="mt-6">
+              <h4 className="text-lg font-medium text-gray-900 mb-3">失败详情</h4>
+              <div className="bg-white shadow rounded-lg overflow-hidden">
+                <div className="max-h-[200px] overflow-y-auto">
+                  {result.failed.details.map((item, index) => (
+                    <div 
+                      key={index} 
+                      className="px-4 py-3 border-b last:border-b-0 hover:bg-gray-50"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-gray-500 text-sm">行 {item.row}</span>
+                          <span className="font-medium">{item.username}</span>
+                        </div>
+                        <span className="text-red-600 text-sm">{item.reason}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+        <div className="px-6 py-4 border-t border-gray-200">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700"
+            className="w-full px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             关闭
           </button>
@@ -98,6 +116,23 @@ const ImportReport: React.FC<{
     </div>
   );
 };
+const ImportProgress: React.FC<{ progress: number }> = ({ progress }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+      <div className="text-center mb-4">
+        <h3 className="text-xl font-medium text-gray-900 mb-2">正在导入用户</h3>
+        <p className="text-sm text-gray-500">请勿关闭窗口</p>
+      </div>
+      <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+        <div 
+          className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-in-out"
+          style={{ width: `${progress}%` }}
+        ></div>
+      </div>
+      <p className="text-right text-sm text-gray-600 font-medium">{progress}%</p>
+    </div>
+  </div>
+);
 
 const AdminUserManager: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -117,6 +152,7 @@ const AdminUserManager: React.FC = () => {
   const [importProgress, setImportProgress] = useState(0);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [showImportReport, setShowImportReport] = useState(false);
+  const [showFormatTooltip, setShowFormatTooltip] = useState(false);
 
   const validateEmail = (email: string): string | null => {
     if (!email) {
@@ -164,7 +200,6 @@ const AdminUserManager: React.FC = () => {
       setLoading(false);
     }
   };
-
   const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -191,7 +226,12 @@ const AdminUserManager: React.FC = () => {
 
           for (let i = 0; i < jsonData.length; i++) {
             const row = jsonData[i] as any;
-            
+            // 更新进度
+            const progress = Math.round(((i + 1) / totalRows) * 100);
+            console.log('Import progress:', progress);
+            setImportProgress(progress);
+            await new Promise(resolve => setTimeout(resolve, 100));
+
             if (!row.username || !row.email || !row.password || !row.fullname) {
               importResult.failed.details.push({
                 row: i + 2,
@@ -239,8 +279,6 @@ const AdminUserManager: React.FC = () => {
               });
               importResult.failed.count++;
             }
-
-            setImportProgress(Math.round(((i + 1) / totalRows) * 100));
           }
 
           setImportResult(importResult);
@@ -248,16 +286,18 @@ const AdminUserManager: React.FC = () => {
           await fetchUsers();
         } catch (err) {
           console.error('Excel处理错误:', err);
+        } finally {
+          setImporting(false);
         }
       };
 
       reader.readAsArrayBuffer(file);
     } catch (err) {
       console.error('文件读取错误:', err);
-    } finally {
       setImporting(false);
-      event.target.value = '';
     }
+    
+    event.target.value = '';
   };
 
   const handleEdit = (user: User) => {
@@ -328,126 +368,152 @@ const AdminUserManager: React.FC = () => {
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.fullname.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800">用户管理</h2>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative">
-            <input
-              type="file"
-              id="excel-upload"
-              className="hidden"
-              accept=".xlsx,.xls"
-              onChange={handleExcelImport}
-            />
-            <label
-              htmlFor="excel-upload"
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 cursor-pointer"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              导入Excel
-            </label>
-          </div>
-          <div className="relative w-full sm:w-64">
-            <input
-              type="text"
-              placeholder="搜索用户..."
-              className="w-full h-9 pl-8 pr-4 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <svg
-              className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+    <>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h2 className="text-xl font-semibold text-gray-800">用户管理</h2>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative">
+              <input
+                type="file"
+                id="excel-upload"
+                className="hidden"
+                accept=".xlsx,.xls"
+                onChange={handleExcelImport}
               />
-            </svg>
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="excel-upload"
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 cursor-pointer"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  导入Excel
+                </label>
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-gray-600"
+                  onMouseEnter={() => setShowFormatTooltip(true)}
+                  onMouseLeave={() => setShowFormatTooltip(false)}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+              </div>
+              {showFormatTooltip && <ExcelFormatTooltip />}
+            </div>
+            <div className="relative w-full sm:w-64">
+              <input
+                type="text"
+                placeholder="搜索用户..."
+                className="w-full h-9 pl-8 pr-4 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <svg
+                className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
           </div>
         </div>
+
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          </div>
+        ) : error ? (
+          <div className="text-red-500 text-center">{error}</div>
+        ) : (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    用户名
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    邮箱
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    姓名
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    角色
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredUsers.map((user) => (
+                  <tr key={user._id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{user.username}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{user.email}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{user.fullname}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        user.isAdmin
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {user.isAdmin ? '管理员' : '普通用户'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleEdit(user)}
+                        className="text-indigo-600 hover:text-indigo-900 mr-4"
+                      >
+                        编辑
+                      </button>
+                      <button
+                        onClick={() => {
+                          setUserToDelete(user);
+                          setIsDeleteModalOpen(true);
+                        }}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        删除
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
-      ) : error ? (
-        <div className="text-red-500 text-center">{error}</div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  用户名
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  邮箱
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  姓名
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  角色
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  操作
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map((user) => (
-                <tr key={user._id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{user.username}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{user.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{user.fullname}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      user.isAdmin
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {user.isAdmin ? '管理员' : '普通用户'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => handleEdit(user)}
-                      className="text-indigo-600 hover:text-indigo-900 mr-4"
-                    >
-                      编辑
-                    </button>
-                    <button
-                      onClick={() => {
-                        setUserToDelete(user);
-                        setIsDeleteModalOpen(true);
-                      }}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      删除
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* 在最外层渲染模态框 */}
+      {importing && (
+        <ImportProgress progress={importProgress} />
+      )}
+
+      {showImportReport && importResult && (
+        <ImportReport
+          result={importResult}
+          onClose={() => setShowImportReport(false)}
+        />
       )}
 
       {/* 编辑用户模态框 */}
@@ -597,40 +663,13 @@ const AdminUserManager: React.FC = () => {
         </div>
       )}
 
-      {/* 导入进度模态框 */}
-      {importing && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-            <div className="text-center">
-              <div className="mb-4">正在导入用户数据</div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div 
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                  style={{ width: `${importProgress}%` }}
-                ></div>
-              </div>
-              <div className="mt-2 text-sm text-gray-600">{importProgress}%</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 导入报告模态框 */}
-      {showImportReport && importResult && (
-        <ImportReport
-          result={importResult}
-          onClose={() => setShowImportReport(false)}
-        />
-      )}
-
-      {/* 错误提示 */}
       {backendError && (
         <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
           <strong className="font-bold">错误：</strong>
           <span className="block sm:inline">{backendError}</span>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
