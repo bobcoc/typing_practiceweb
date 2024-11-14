@@ -146,7 +146,8 @@ const AdminUserManager: React.FC = () => {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [backendError, setBackendError] = useState<string | null>(null);
-  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10); 
   // 导入相关状态
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
@@ -351,9 +352,9 @@ const AdminUserManager: React.FC = () => {
 
     try {
       await adminApi.deleteUser(userToDelete._id);
+      setUsers(prevUsers => prevUsers.filter(user => user._id !== userToDelete._id));
       setIsDeleteModalOpen(false);
       setUserToDelete(null);
-      await fetchUsers();
     } catch (err) {
       if (err instanceof AxiosError) {
         setBackendError(err.response?.data?.message || '删除失败');
@@ -363,11 +364,118 @@ const AdminUserManager: React.FC = () => {
     }
   };
 
+  // 计算分页数据
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const filteredUsers = users.filter(user =>
     user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.fullname.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  const currentUsers = filteredUsers.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+
+  // 分页处理函数
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+
+  // 分页控制组件
+  const Pagination: React.FC = () => {
+    // 计算要显示的页码范围
+    const getPageRange = () => {
+      const range = [];
+      const showPages = 5; // 显示的页码数量
+      const sidePages = Math.floor(showPages / 2);
+      
+      let start = currentPage - sidePages;
+      let end = currentPage + sidePages;
+      
+      if (start < 1) {
+        start = 1;
+        end = Math.min(showPages, totalPages);
+      }
+      
+      if (end > totalPages) {
+        end = totalPages;
+        start = Math.max(1, totalPages - showPages + 1);
+      }
+      
+      for (let i = start; i <= end; i++) {
+        range.push(i);
+      }
+      return range;
+    };
+  
+    return (
+      <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+        <div className="flex-1 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-700">
+              显示第 <span className="font-medium">{indexOfFirstItem + 1}</span> 到{' '}
+              <span className="font-medium">
+                {Math.min(indexOfLastItem, filteredUsers.length)}
+              </span>{' '}
+              条，共{' '}
+              <span className="font-medium">{filteredUsers.length}</span> 条
+            </p>
+          </div>
+          <div>
+            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+              {/* 首页按钮 */}
+              <button
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+                className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                  currentPage === 1
+                    ? 'text-gray-300 cursor-not-allowed'
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                <span className="sr-only">首页</span>
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M15.707 15.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M9.707 15.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 111.414 1.414L5.414 10l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+              
+              {/* 页码按钮 */}
+              {getPageRange().map((pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium
+                    ${currentPage === pageNum
+                      ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                      : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                    }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+  
+              {/* 末页按钮 */}
+              <button
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                  currentPage === totalPages
+                    ? 'text-gray-300 cursor-not-allowed'
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                <span className="sr-only">末页</span>
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 15.707a1 1 0 001.414 0l5-5a1 1 0 000-1.414l-5-5a1 1 0 00-1.414 1.414L8.586 10l-4.293 4.293a1 1 0 000 1.414z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M10.293 15.707a1 1 0 001.414 0l5-5a1 1 0 000-1.414l-5-5a1 1 0 00-1.414 1.414L14.586 10l-4.293 4.293a1 1 0 000 1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </nav>
+          </div>
+        </div>
+      </div>
+    );
+  };
   return (
     <>
       <div className="container mx-auto px-4 py-8">
@@ -459,7 +567,7 @@ const AdminUserManager: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
+              {currentUsers.map((user) => (
                   <tr key={user._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{user.username}</div>
@@ -500,6 +608,7 @@ const AdminUserManager: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            {!loading && !error && filteredUsers.length > 0 && <Pagination />}
           </div>
         )}
       </div>
