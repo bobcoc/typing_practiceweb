@@ -22,6 +22,11 @@ interface ApiErrorResponse {
   statusCode?: number;
   [key: string]: any;
 }
+declare global {
+  interface Window {
+    localStorage: Storage;
+  }
+}
 
 // API客户端配置
 const apiClient = axios.create({
@@ -34,7 +39,7 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // 添加认证token
-    const token = localStorage.getItem('token');
+    const token = window.localStorage.getItem('token');
     console.log('Request interceptor - token:', token ? 'present' : 'missing');
     
     if (token) {
@@ -75,8 +80,8 @@ apiClient.interceptors.response.use(
       switch (statusCode) {
         case 401:
           // 未认证，清除token并重定向到登录页
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+          window.localStorage.removeItem('token');
+          window.localStorage.removeItem('user');
           authEvents.emitAuthError();
            // 使用后端返回的具体错误信息
            return Promise.reject(

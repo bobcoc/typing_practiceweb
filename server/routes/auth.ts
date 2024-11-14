@@ -26,12 +26,12 @@ const loginHandler: RouteHandler = async (req, res) => {
       res.status(401).json({ message: '用户名不存在' });
       return;
     }
-
-    if (user.password !== password) {
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
       console.log('Password mismatch');
-      res.status(401).json({ message: '密码错误' });
-      return;
+      return res.status(401).json({ message: '密码错误' });
     }
+
 
     // 生成 JWT token
     const token = jwt.sign(
@@ -64,7 +64,7 @@ const loginHandler: RouteHandler = async (req, res) => {
       user: {
         _id: user._id,
         username: user.username,
-        fullname:user.fullname,
+        fullname: user.fullname,
         email: user.email,
         isAdmin: user.isAdmin
       }

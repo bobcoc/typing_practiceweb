@@ -1,6 +1,6 @@
 // server/models/User.ts
 import mongoose, { Document } from 'mongoose';
-
+import bcrypt from 'bcrypt';
 // 用户统计信息接口
 export interface UserStats {
   totalPracticeCount: number;   // 练习总次数
@@ -27,6 +27,7 @@ export interface IUser extends Document {
   resetTodayPracticeTime(): Promise<void>;
   updatePracticeStats(data: { words: number; accuracy: number; duration: number; speed: number }): Promise<void>;
   getAccuracyTrend(limit?: number): number[];
+  comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
 const userStatsSchema = new mongoose.Schema({
@@ -156,7 +157,31 @@ userSchema.pre('save', function (next) {
   }
   next();
 });
+userSchema.pre('save', async function(next) {
+  const user = this;
+  
+  // 只有在密码被修改时才进行加密
+  if (!user.isModified('password')) {
+    return next();
+  }
 
+  try {
+    // 生成盐值并加密密码
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(user.password, salt);
+    user.password = hashedPassword;
+    next();
+  } catch (error) {
+    next(error as Error);
+  }
+});
+userSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    throw new Error('密码比较失败');
+  }
+};
 userSchema.pre('findOneAndUpdate', function (next) {
   const update = this.getUpdate() as any;
   if (update && !update.stats) {
