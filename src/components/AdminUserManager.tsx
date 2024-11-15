@@ -384,8 +384,8 @@ const AdminUserManager: React.FC = () => {
   const Pagination: React.FC = () => {
     // 计算要显示的页码范围
     const getPageRange = () => {
-      const range = [];
-      const showPages = 5; // 显示的页码数量
+      const range: number[] = [];
+      const showPages = 10; // 显示的页码数量
       const sidePages = Math.floor(showPages / 2);
       
       let start = currentPage - sidePages;
