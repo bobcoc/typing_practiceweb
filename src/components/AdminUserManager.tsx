@@ -48,7 +48,7 @@ const ImportReport: React.FC<{
             </svg>
           </button>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-green-50 p-4 rounded-lg">
@@ -85,8 +85,8 @@ const ImportReport: React.FC<{
               <div className="bg-white shadow rounded-lg overflow-hidden">
                 <div className="max-h-[200px] overflow-y-auto">
                   {result.failed.details.map((item, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="px-4 py-3 border-b last:border-b-0 hover:bg-gray-50"
                     >
                       <div className="flex items-center justify-between">
@@ -124,7 +124,7 @@ const ImportProgress: React.FC<{ progress: number }> = ({ progress }) => (
         <p className="text-sm text-gray-500">请勿关闭窗口</p>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
-        <div 
+        <div
           className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-in-out"
           style={{ width: `${progress}%` }}
         ></div>
@@ -147,7 +147,7 @@ const AdminUserManager: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [backendError, setBackendError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10); 
+  const [itemsPerPage] = useState(10);
   // 导入相关状态
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
@@ -272,7 +272,7 @@ const AdminUserManager: React.FC = () => {
               } else if (err instanceof Error) {
                 errorMessage = err.message;
               }
-              
+
               importResult.failed.details.push({
                 row: i + 2,
                 username: userData.username,
@@ -297,7 +297,7 @@ const AdminUserManager: React.FC = () => {
       console.error('文件读取错误:', err);
       setImporting(false);
     }
-    
+
     event.target.value = '';
   };
 
@@ -387,26 +387,26 @@ const AdminUserManager: React.FC = () => {
       const range: number[] = [];
       const showPages = 10; // 显示的页码数量
       const sidePages = Math.floor(showPages / 2);
-      
+
       let start = currentPage - sidePages;
       let end = currentPage + sidePages;
-      
+
       if (start < 1) {
         start = 1;
         end = Math.min(showPages, totalPages);
       }
-      
+
       if (end > totalPages) {
         end = totalPages;
         start = Math.max(1, totalPages - showPages + 1);
       }
-      
+
       for (let i = start; i <= end; i++) {
         range.push(i);
       }
       return range;
     };
-  
+
     return (
       <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
         <div className="flex-1 flex items-center justify-between">
@@ -426,11 +426,10 @@ const AdminUserManager: React.FC = () => {
               <button
                 onClick={() => handlePageChange(1)}
                 disabled={currentPage === 1}
-                className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                  currentPage === 1
+                className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${currentPage === 1
                     ? 'text-gray-300 cursor-not-allowed'
                     : 'text-gray-500 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <span className="sr-only">首页</span>
                 <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -438,7 +437,7 @@ const AdminUserManager: React.FC = () => {
                   <path fillRule="evenodd" d="M9.707 15.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 111.414 1.414L5.414 10l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
                 </svg>
               </button>
-              
+
               {/* 页码按钮 */}
               {getPageRange().map((pageNum) => (
                 <button
@@ -453,16 +452,15 @@ const AdminUserManager: React.FC = () => {
                   {pageNum}
                 </button>
               ))}
-  
+
               {/* 末页按钮 */}
               <button
                 onClick={() => handlePageChange(totalPages)}
                 disabled={currentPage === totalPages}
-                className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                  currentPage === totalPages
+                className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${currentPage === totalPages
                     ? 'text-gray-300 cursor-not-allowed'
                     : 'text-gray-500 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <span className="sr-only">末页</span>
                 <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -559,6 +557,9 @@ const AdminUserManager: React.FC = () => {
                     姓名
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    注册时间
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     角色
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -567,7 +568,7 @@ const AdminUserManager: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-              {currentUsers.map((user) => (
+                {currentUsers.map((user) => (
                   <tr key={user._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{user.username}</div>
@@ -579,11 +580,21 @@ const AdminUserManager: React.FC = () => {
                       <div className="text-sm text-gray-900">{user.fullname}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.isAdmin
+                      <div className="text-sm text-gray-500">
+                        {new Date(user.createdAt).toLocaleString('zh-CN', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.isAdmin
                           ? 'bg-green-100 text-green-800'
                           : 'bg-gray-100 text-gray-800'
-                      }`}>
+                        }`}>
                         {user.isAdmin ? '管理员' : '普通用户'}
                       </span>
                     </td>
