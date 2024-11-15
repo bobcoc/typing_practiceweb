@@ -244,6 +244,13 @@ const Practice: React.FC = () => {
 
   // 修改后的确认退出函数，包含作弊检测
   const confirmExit = async () => {
+    const accuracyThreshold = 90;
+    if (stats.accuracy < accuracyThreshold) {
+      message.warning(`因为你的准确率未达到${accuracyThreshold}%，所以本次练习不保存记录`);
+      setIsModalVisible(false);
+      navigate('/practice-history');
+      return;
+    }
     // 只在代码练习模式下检查
     if (level !== 'keyword' && userInput.length > actualKeyCount + 20) {
       message.error('检测到异常输入行为，练习记录将不被保存');

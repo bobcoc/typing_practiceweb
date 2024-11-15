@@ -209,7 +209,7 @@ const Leaderboard: React.FC = () => {
             {records.map((record, index) => (
               <TableRow 
                 key={record.userId}
-                sx={index < 3 ? { backgroundColor: 'rgba(0, 0, 0, 0.02)' } : {}}
+                sx={page === 1 &&index < 3 ? { backgroundColor: 'rgba(0, 0, 0, 0.02)' } : {}}
               >
                 <TableCell align="center">
                   {(page - 1) * 10 + index + 1}
