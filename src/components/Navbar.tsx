@@ -83,13 +83,19 @@ const NavBar: React.FC = () => {
       }] : []),
       {
         key: '/profile',
-        label: user.fullname || user.username, // 优先显示姓名，如果没有则显示用户名
+        label: user.fullname || user.username,
         style: { marginLeft: 'auto' },
-      },
-      {
-        key: 'logout',
-        label: '退出登录',
-        onClick: handleLogout,
+        children: [  // 添加子菜单
+          {
+            key: '/change-password',
+            label: <Link to="/change-password">修改密码</Link>,
+          },
+          {
+            key: 'logout',
+            label: '退出登录',
+            onClick: handleLogout,
+          }
+        ]
       }
     ] : [
       {
@@ -98,7 +104,7 @@ const NavBar: React.FC = () => {
         style: { marginLeft: 'auto' },
       }
     ];
-
+  
     return [...baseItems, ...authenticatedItems];
   };
 

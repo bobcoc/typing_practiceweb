@@ -3,6 +3,24 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config'; 
 import { MongoError } from 'mongodb'; 
 import { User, type IUser, type UserStats } from '../models/User'; 
+// 定义 JWT payload 的类型
+interface UserPayload {
+  _id: string;
+  username: string;
+  fullname: string;
+  email: string;
+  isAdmin: boolean;
+}
+
+// 扩展 Express 的 Request 类型
+declare global {
+  namespace Express {
+    interface Request {
+      user?: UserPayload;
+    }
+  }
+}
+
 const router = express.Router();
 
 // 定义路由处理函数类型
@@ -149,9 +167,69 @@ const registerHandler: RouteHandler = async (req, res) => {
     }
   }
 };
+// 中间件：验证 token
+const authMiddleware: RouteHandler = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ message: '未登录' });
+    }
+    
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, config.JWT_SECRET) as UserPayload;
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(401).json({ message: '登录已过期，请重新登录' });
+  }
+};
 
+// 修改密码处理函数
+const changePasswordHandler: RouteHandler = async (req, res) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ message: '未登录' });
+    }
+    
+    const { oldPassword, newPassword } = req.body;
+
+    // 参数验证
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: '请提供原密码和新密码' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: '新密码长度至少6个字符' });
+    }
+
+    // 查找用户
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: '用户不存在' });
+    }
+
+    // 验证原密码
+    const isPasswordValid = await user.comparePassword(oldPassword);
+    if (!isPasswordValid) {
+      console.log('Old password mismatch for user:', user.username);
+      return res.status(401).json({ message: '原密码错误' });
+    }
+
+    // 更新密码
+    user.password = newPassword;
+    await user.save();
+
+    console.log('Password changed successfully for user:', user.username);
+    res.json({ message: '密码修改成功' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ 
+      message: '修改密码失败：' + (error instanceof Error ? error.message : '未知错误') 
+    });
+  }
+};
 // 注册路由
 router.post('/login', loginHandler);
 router.post('/register', registerHandler);
-
+router.post('/change-password', authMiddleware, changePasswordHandler);
 export default router;

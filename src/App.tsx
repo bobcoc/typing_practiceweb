@@ -11,6 +11,7 @@ import AdminDashboard from './components/AdminDashboard';
 import Footer from './components/Footer';
 import PracticeHistory from './components/PracticeHistory';
 import Leaderboard from './components/Leaderboard';
+import ChangePassword from './components/ChangePassword';
 
 // 创建一个包装组件来处理认证
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -85,6 +86,7 @@ const App: React.FC = () => {
             <>
               <Route path="/practice/:level" element={<Practice />} />
               <Route path="/practice-history" element={<PracticeHistory />} />
+              <Route path="/change-password" element={<ChangePassword />} />
               {user.isAdmin && (
                 <>
                   <Route path="/admin" element={<AdminDashboard />} />
