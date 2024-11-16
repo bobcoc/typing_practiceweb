@@ -68,7 +68,7 @@ const verifyToken = (token: string): UserPayload => {
 /**
  * 认证中间件
  */
-export const auth: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+export const auth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // 获取并验证 Authorization header
     const authHeader = req.header('Authorization');
@@ -120,30 +120,7 @@ export const auth: RequestHandler = async (req: Request, res: Response, next: Ne
 
     next();
   } catch (error) {
-    if (error instanceof AuthError) {
-      console.debug('Auth error:', {
-        message: error.message,
-        statusCode: error.statusCode,
-        path: req.path
-      });
-      
-      return res.status(error.statusCode).json({
-        error: error.message,
-        code: 'AUTH_ERROR'
-      });
-    }
-
-    // 处理其他未预期的错误
-    console.error('认证中间件错误:', {
-      error,
-      path: req.path,
-      message: error instanceof Error ? error.message : '未知错误'
-    });
-    
-    res.status(500).json({
-      error: '服务器内部错误',
-      code: 'SERVER_ERROR'
-    });
+    next(error); 
   }
 };
 
