@@ -10,6 +10,7 @@ interface UserPayload {
   fullname: string;
   email: string;
   isAdmin: boolean;
+  exp?: number;
 }
 
 // 扩展 Express 的 Request 类型
@@ -72,7 +73,7 @@ const loginHandler: RouteHandler = async (req, res) => {
     });
 
     console.log('Login successful:', { 
-      username, 
+      username, fullname:user.fullname,
       isAdmin: user.isAdmin,
       hasToken: !!token 
     });

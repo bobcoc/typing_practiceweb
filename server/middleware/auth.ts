@@ -8,9 +8,9 @@ interface UserPayload {
   _id: string;
   username: string;
   fullname: string;
-  iat?: number;
+  email: string;
+  isAdmin: boolean;
   exp?: number;
-  isAdmin?: boolean;
 }
 
 // 扩展 Request 类型
@@ -68,15 +68,10 @@ const verifyToken = (token: string): UserPayload => {
 /**
  * 认证中间件
  */
-export const auth = async (req: Request, res: Response, next: NextFunction) => {
+export const auth: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // 获取并验证 Authorization header
     const authHeader = req.header('Authorization');
-    console.debug('Auth request:', {
-      path: req.path,
-      method: req.method,
-      authHeader: authHeader ? 'present' : 'missing'
-    });
 
     if (!authHeader) {
       throw new AuthError('未提供认证令牌');
