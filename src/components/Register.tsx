@@ -82,11 +82,13 @@ const Register: React.FC = () => {
       window.location.reload();
     } catch (error: any) {
       console.error('Registration failed:', error);
-      if (error.response?.data?.message) {
-        message.error(error.response.data.message);
-      } else {
-        message.error('注册失败，请稍后重试');
-      }
+      const errorMessage = error.response?.data?.error 
+        || error.response?.data?.message 
+        || error.response?.data
+        || error.message
+        || '注册失败，请稍后重试';
+        
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
