@@ -12,6 +12,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError} from '../api/apiClient';
 import { API_PATHS } from '../config';
 import type { ChangeEvent, KeyboardEvent, ClipboardEvent } from 'react';
+import VirtualKeyboard from './VirtualKeyboard';
 
 interface PracticeStats {
   totalWords: number;
@@ -57,6 +58,19 @@ const Practice: React.FC = () => {
   const [title, setTitle] = useState<string>('');
   const [codeComment, setCodeComment] = useState<string>('');
   const [codeContent, setCodeContent] = useState<string>('');
+
+  // 添加调试信息的状态
+  const [debugInfo, setDebugInfo] = useState<{
+    keyCount: number;
+    inputLength: number;
+    lastInputChange: string;
+    timestamp: number;
+  }>({
+    keyCount: 0,
+    inputLength: 0,
+    lastInputChange: '',
+    timestamp: Date.now()
+  });
 
   // 防止复制粘贴的事件处理函数
   const handlePaste = (e: ClipboardEvent) => {
@@ -135,9 +149,22 @@ const Practice: React.FC = () => {
   };
 
   const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    setUserInput(e.target.value);
+    const newValue = e.target.value;
+    const oldLength = userInput.length;
+    const newLength = newValue.length;
+    
+    console.log('输入变化:', {
+      oldLength,
+      newLength,
+      lengthDiff: newLength - oldLength,
+      actualKeyCount,
+      timeSinceLastInput: Date.now() - debugInfo.timestamp,
+      valueChanged: newValue.slice(Math.max(0, newValue.length - 10)) // 显示最后10个字符的变化
+    });
+
+    setUserInput(newValue);
     if (level !== 'keyword') {
-      updateStats(e.target.value);
+      updateStats(newValue);
     }
   };
 
@@ -180,69 +207,72 @@ const Practice: React.FC = () => {
   };
   const updateStats = (currentInput: string) => {
     const processCode = (code: string) => {
-      const keywordRules = {
-        mustHaveSpace: ['int', 'char', 'float', 'double', 'void', 'long', 'short', 'unsigned'],
-        canHaveSymbol: ['for', 'while', 'if', 'else', 'do']
-      };
-  
-      let processed = code;
-  
-      keywordRules.mustHaveSpace.forEach(keyword => {
-        const regex = new RegExp(`(${keyword})(\\s+)([a-zA-Z_])`, 'g');
-        processed = processed.replace(regex, `$1§$3`);
-      });
-  
-      keywordRules.canHaveSymbol.forEach(keyword => {
-        const regex = new RegExp(`(${keyword})(\\s*)([{(])`, 'g');
-        processed = processed.replace(regex, `$1$3`);
-      });
-  
-      processed = processed.replace(/\s+/g, '');
-      processed = processed.replace(/§/g, ' ');
-  
-      return processed;
+      // 1. 标准化代码，处理不影响语法的空格差异
+      let processed = code
+        // 移除所有多余空格，包括行首行尾
+        .replace(/^\s+|\s+$/gm, '')
+        // 将多个空格替换为单个空格
+        .replace(/\s+/g, ' ')
+        // 处理冒号周围的空格（构造函数初始化列表）
+        .replace(/\s*:\s*/g, ':')
+        // 处理等号周围的空格
+        .replace(/\s*=\s*/g, '=')
+        // 处理逗号后的空格
+        .replace(/,\s*/g, ',')
+        // 处理分号后的空格
+        .replace(/;\s*/g, ';')
+        // 处理括号周围的空格
+        .replace(/\s*\(\s*/g, '(')
+        .replace(/\s*\)\s*/g, ')')
+        .replace(/\s*{\s*/g, '{')
+        .replace(/\s*}\s*/g, '}')
+        // 处理运算符周围的空格
+        .replace(/\s*([+\-*/<>])\s*/g, '$1');
+
+      // 2. 分割成标记
+      return processed.split(/([{}()[\]*,;=<>])/g)
+        .filter(token => token.trim() !== '')
+        .map(token => token.trim());
     };
-  
-    const processedInput = processCode(currentInput);
-    const processedContent = processCode(content);
-  
-    const inputLines = processedInput.split('\n');
-    const contentLines = processedContent.split('\n');
-  
+
+    // 处理输入和目标代码
+    const inputTokens = processCode(currentInput);
+    const contentTokens = processCode(content);
+
+    // 只比较已输入的部分
+    const tokensToCompare = contentTokens.slice(0, inputTokens.length);
+
+    // 计算正确的标记数
     let correctCount = 0;
-    let totalCount = 0;
-  
-    inputLines.forEach((line, lineIndex) => {
-      if (contentLines[lineIndex]) {
-        const inputTokens = line.split(/([;,(){}=+\-*/<>]|\s+)/g).filter(Boolean);
-        const contentTokens = contentLines[lineIndex].split(/([;,(){}=+\-*/<>]|\s+)/g).filter(Boolean);
-  
-        inputTokens.forEach((token, tokenIndex) => {
-          if (contentTokens[tokenIndex]) {
-            const normalizedToken = token.trim();
-            const normalizedContent = contentTokens[tokenIndex].trim();
-            if (normalizedToken === normalizedContent) {
-              correctCount++;
-            }
-            totalCount++;
-          }
-        });
+    inputTokens.forEach((token, index) => {
+      if (index < tokensToCompare.length && token === tokensToCompare[index]) {
+        correctCount++;
       }
     });
-  
+
+    // 更新统计信息
     setStats(prev => ({
       ...prev,
-      totalWords: totalCount,
+      totalWords: inputTokens.length || 1,
       correctWords: correctCount,
-      accuracy: totalCount > 0 ? (correctCount / totalCount) * 100 : 0,
+      accuracy: (correctCount / (inputTokens.length || 1)) * 100,
     }));
+
+    // 调试输出
+    console.log('Code comparison:', {
+      input: inputTokens,
+      expected: tokensToCompare,
+      correctCount,
+      totalTokens: inputTokens.length,
+      accuracy: (correctCount / (inputTokens.length || 1)) * 100
+    });
   };
 
   const handleExit = () => {
     setIsModalVisible(true);
   };
 
-  // 修改后的确认退出函数，包含作弊检测
+  // 修改后的确认出含
   const confirmExit = async () => {
     const accuracyThreshold = 90;
     if (stats.accuracy < accuracyThreshold) {
@@ -251,12 +281,39 @@ const Practice: React.FC = () => {
       navigate('/practice-history');
       return;
     }
+
     // 只在代码练习模式下检查
-    if (level !== 'keyword' && userInput.length > actualKeyCount + 20) {
-      message.error('检测到异常输入行为，练习记录将不被保存');
-      setIsModalVisible(false);
-      navigate('/practice-history');
-      return;
+    if (level !== 'keyword') {
+      // 过滤掉空格、换行和缩进后计算实际长度
+      const actualContent = userInput.replace(/[\s\n]/g, '');
+      const inputLengthDiff = actualContent.length - actualKeyCount;
+
+      console.log('作弊检测:', {
+        filteredLength: actualContent.length,
+        actualKeyCount,
+        difference: inputLengthDiff
+      });
+
+      if (inputLengthDiff > 20) {
+        Modal.error({
+          title: '检测到异常输入行为',
+          content: (
+            <div>
+              <p>有效字符数: {actualContent.length}</p>
+              <p>实际按键次数: {actualKeyCount}</p>
+              <p>差异: {inputLengthDiff}</p>
+              <p>平均每键时间: {(stats.duration / actualKeyCount).toFixed(2)}秒</p>
+              <p>每分钟单词数: {Math.round(stats.wordsPerMinute)}</p>
+              <p style={{ color: 'red' }}>练习记录将不被保存</p>
+            </div>
+          ),
+          onOk: () => {
+            setIsModalVisible(false);
+            navigate('/practice-history');
+          }
+        });
+        return;
+      }
     }
 
     try {
@@ -334,20 +391,19 @@ const Practice: React.FC = () => {
       </div>
     </div>
   );
-  // 修改后的键盘事件处理函数，包含按键计数
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    // 阻止复制粘贴快捷键
-    if (e.ctrlKey || e.metaKey) {
-      switch (e.key.toLowerCase()) {
-        case 'c':
-        case 'v':
-        case 'x':
-          e.preventDefault();
-          message.warning('练习模式下不允许复制粘贴');
-          return;
-      }
-    }
+  // 修改状态定义
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [lastKey, setLastKey] = useState<string | null>(null);
 
+  // 恢复原来的 handleKeyDown 函数
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    // 设置当前按下的键（用于虚拟键盘显示）
+    const key = e.key === 'Shift' 
+      ? (e.location === 1 ? 'leftshift' : 'rightshift')
+      : e.key.toLowerCase();
+    
+    setActiveKey(key);
+    
     // 计数有效的键盘输入
     if (!e.ctrlKey && !e.metaKey) {
       if (e.key.length === 1) { // 普通字符输入
@@ -356,23 +412,8 @@ const Practice: React.FC = () => {
         setActualKeyCount(prev => Math.max(0, prev - 1));
       }
     }
-    if (level === 'keyword' && e.key === 'Enter') {
-      // 检查是否作弊
-      if (userInput.length > actualKeyCount + 3) { // 允许少许误差
-        message.error('检测到异常输入行为，请重新输入');
-        setUserInput('');
-        setActualKeyCount(0);
-        return;
-      }
-  
-      const isCorrect = userInput.trim() === currentKeyword;
-      updateKeywordStats(isCorrect);
-      setUserInput('');
-      setActualKeyCount(0); // 重置计数器
-      getRandomKeyword(content.split('\n').filter(k => k.trim() !== ''));
-      return;
-    }
 
+    // 处理特殊键
     if (e.currentTarget instanceof HTMLTextAreaElement) {
       // 处理 Tab 键
       if (e.key === 'Tab') {
@@ -380,20 +421,18 @@ const Practice: React.FC = () => {
         const start = e.currentTarget.selectionStart;
         const end = e.currentTarget.selectionEnd;
         const value = e.currentTarget.value;
-        
         const newValue = value.substring(0, start) + '    ' + value.substring(end);
         setUserInput(newValue);
         
         if (textAreaRef.current) {
           textAreaRef.current.value = newValue;
-          textAreaRef.current.selectionStart = textAreaRef.current.selectionEnd = start + 2;
+          textAreaRef.current.selectionStart = textAreaRef.current.selectionEnd = start + 4;
         }
       }
 
       // 处理回车键
       if (e.key === 'Enter') {
         e.preventDefault();
-        setActualKeyCount(prev => prev + 1); // 回车键也计数
         const start = e.currentTarget.selectionStart;
         const value = e.currentTarget.value;
         const lineStart = value.lastIndexOf('\n', start - 1) + 1;
@@ -436,6 +475,18 @@ const Practice: React.FC = () => {
       }
     }
   };
+
+  // 修改 handleKeyUp 函数
+  const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    // 保存最后释放的键
+    const key = e.key === 'Shift'
+      ? (e.location === 1 ? 'leftshift' : 'rightshift')
+      : e.key.toLowerCase();
+    
+    setLastKey(key);
+    setActiveKey(null);
+  };
+
   if (loading) {
     return (
       <Card>
@@ -458,6 +509,7 @@ const Practice: React.FC = () => {
             value={userInput}
             onChange={handleKeywordInputChange}
             onKeyDown={handleKeyDown} // 修改：使用 handleKeyDown 替换 onKeyPress
+            onKeyUp={handleKeyUp}
             onPaste={handlePaste}
             onCopy={handleCopy}
             onContextMenu={preventContextMenu}
@@ -555,6 +607,7 @@ const Practice: React.FC = () => {
                     value={userInput}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
+                    onKeyUp={handleKeyUp}
                     onPaste={handlePaste}
                     onCopy={handleCopy}
                     onContextMenu={preventContextMenu}
@@ -608,6 +661,12 @@ const Practice: React.FC = () => {
         <p>当前正确率: {Math.round(stats.accuracy)}%</p>
         <p>每分钟单词数: {Math.round(stats.wordsPerMinute)}</p>
       </Modal>
+      <div style={{ marginTop: 20 }}>
+        <VirtualKeyboard 
+          activeKey={activeKey} 
+          lastKey={lastKey}
+        />
+      </div>
     </Card>
   );
 };
