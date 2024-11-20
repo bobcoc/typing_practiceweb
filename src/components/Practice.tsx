@@ -40,6 +40,11 @@ const Practice: React.FC = () => {
   const [currentKeyword, setCurrentKeyword] = useState<string>('');
   const [userInput, setUserInput] = useState<string>('');
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const codePreviewRef = useRef<HTMLPreElement>(null);
+
+  // 将这两个状态定义移到组件开头
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [lastKey, setLastKey] = useState<string | null>(null);
 
   // 添加实际按键计数器状态
   const [actualKeyCount, setActualKeyCount] = useState<number>(0);
@@ -172,9 +177,17 @@ const Practice: React.FC = () => {
     setUserInput(e.target.value);
   };
 
-  // 修改后的关键字提交函数，包含作弊检测
-  const handleKeywordSubmit = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+  // 修改 handleKeyDown 函数
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    // 设置当前按下的键（用于虚拟键盘显示）
+    const key = e.key === 'Shift' 
+      ? (e.location === 1 ? 'leftshift' : 'rightshift')
+      : e.key.toLowerCase();
+    
+    setActiveKey(key);
+    
+    // 处理关键字模式的回车键
+    if (level === 'keyword' && e.key === 'Enter') {
       // 检查是否作弊
       if (userInput.length > actualKeyCount + 3) { // 允许少许误差
         message.error('检测到异常输入行为，请重新输入');
@@ -188,221 +201,8 @@ const Practice: React.FC = () => {
       setUserInput('');
       setActualKeyCount(0); // 重置计数器
       getRandomKeyword(content.split('\n').filter(k => k.trim() !== ''));
-    }
-  };
-
-  const updateKeywordStats = (isCorrect: boolean) => {
-    setStats(prev => ({
-      ...prev,
-      totalWords: prev.totalWords + 1,
-      correctWords: prev.correctWords + (isCorrect ? 1 : 0),
-      accuracy: ((prev.correctWords + (isCorrect ? 1 : 0)) / (prev.totalWords + 1)) * 100,
-    }));
-
-    if (isCorrect) {
-      message.success('正确!');
-    } else {
-      message.error(`错误! 正确答案是: ${currentKeyword}`);
-    }
-  };
-  const updateStats = (currentInput: string) => {
-    const processCode = (code: string) => {
-      // 1. 标准化代码，处理不影响语法的空格差异
-      let processed = code
-        // 移除所有多余空格，包括行首行尾
-        .replace(/^\s+|\s+$/gm, '')
-        // 将多个空格替换为单个空格
-        .replace(/\s+/g, ' ')
-        // 处理冒号周围的空格（构造函数初始化列表）
-        .replace(/\s*:\s*/g, ':')
-        // 处理等号周围的空格
-        .replace(/\s*=\s*/g, '=')
-        // 处理逗号后的空格
-        .replace(/,\s*/g, ',')
-        // 处理分号后的空格
-        .replace(/;\s*/g, ';')
-        // 处理括号周围的空格
-        .replace(/\s*\(\s*/g, '(')
-        .replace(/\s*\)\s*/g, ')')
-        .replace(/\s*{\s*/g, '{')
-        .replace(/\s*}\s*/g, '}')
-        // 处理运算符周围的空格
-        .replace(/\s*([+\-*/<>])\s*/g, '$1');
-
-      // 2. 分割成标记
-      return processed.split(/([{}()[\]*,;=<>])/g)
-        .filter(token => token.trim() !== '')
-        .map(token => token.trim());
-    };
-
-    // 处理输入和目标代码
-    const inputTokens = processCode(currentInput);
-    const contentTokens = processCode(content);
-
-    // 只比较已输入的部分
-    const tokensToCompare = contentTokens.slice(0, inputTokens.length);
-
-    // 计算正确的标记数
-    let correctCount = 0;
-    inputTokens.forEach((token, index) => {
-      if (index < tokensToCompare.length && token === tokensToCompare[index]) {
-        correctCount++;
-      }
-    });
-
-    // 更新统计信息
-    setStats(prev => ({
-      ...prev,
-      totalWords: inputTokens.length || 1,
-      correctWords: correctCount,
-      accuracy: (correctCount / (inputTokens.length || 1)) * 100,
-    }));
-
-    // 调试输出
-    console.log('Code comparison:', {
-      input: inputTokens,
-      expected: tokensToCompare,
-      correctCount,
-      totalTokens: inputTokens.length,
-      accuracy: (correctCount / (inputTokens.length || 1)) * 100
-    });
-  };
-
-  const handleExit = () => {
-    setIsModalVisible(true);
-  };
-
-  // 修改后的确认出含
-  const confirmExit = async () => {
-    const accuracyThreshold = 90;
-    if (stats.accuracy < accuracyThreshold) {
-      message.warning(`因为你的准确率未达到${accuracyThreshold}%，所以本次练习不保存记录`);
-      setIsModalVisible(false);
-      navigate('/practice-history');
       return;
     }
-
-    // 只在代码练习模式下检查
-    if (level !== 'keyword') {
-      // 过滤掉空格、换行和缩进后计算实际长度
-      const actualContent = userInput.replace(/[\s\n]/g, '');
-      const inputLengthDiff = actualContent.length - actualKeyCount;
-
-      console.log('作弊检测:', {
-        filteredLength: actualContent.length,
-        actualKeyCount,
-        difference: inputLengthDiff
-      });
-
-      if (inputLengthDiff > 20) {
-        Modal.error({
-          title: '检测到异常输入行为',
-          content: (
-            <div>
-              <p>有效字符数: {actualContent.length}</p>
-              <p>实际按键次数: {actualKeyCount}</p>
-              <p>差异: {inputLengthDiff}</p>
-              <p>平均每键时间: {(stats.duration / actualKeyCount).toFixed(2)}秒</p>
-              <p>每分钟单词数: {Math.round(stats.wordsPerMinute)}</p>
-              <p style={{ color: 'red' }}>练习记录将不被保存</p>
-            </div>
-          ),
-          onOk: () => {
-            setIsModalVisible(false);
-            navigate('/practice-history');
-          }
-        });
-        return;
-      }
-    }
-
-    try {
-      const userStr = localStorage.getItem('user');
-      const token = localStorage.getItem('token');
-      console.log('Saving practice record:', {
-        hasUser: !!userStr,
-        hasToken: !!token,
-        userInfo: userStr ? JSON.parse(userStr) : null
-      });
-  
-      const finalStats = {
-        ...stats,
-        endTime: new Date(),
-      };
-  
-      console.log('Practice record data:', {
-        type: level,
-        stats: finalStats,
-        endpoint: API_PATHS.PRACTICE_RECORDS
-      });
-  
-      const response = await api.post(API_PATHS.PRACTICE_RECORDS, {
-        type: level,
-        stats: finalStats,
-      });
-  
-      console.log('Save practice record response:', response);
-  
-      message.success('练习记录已保存');
-      navigate('/practice-history');
-    } catch (error) {
-      console.error('Save practice record error:', {
-        error,
-        isApiError: error instanceof ApiError,
-        statusCode: error instanceof ApiError ? error.statusCode : undefined,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        token: localStorage.getItem('token') ? 'present' : 'missing',
-        user: localStorage.getItem('user') ? 'present' : 'missing'
-      });
-  
-      if (error instanceof ApiError) {
-        if (error.statusCode === 401) {
-          console.log('Authentication error detected, user info:', {
-            token: localStorage.getItem('token'),
-            user: localStorage.getItem('user')
-          });
-          message.error('请重新登录');
-          localStorage.setItem('redirectPath', window.location.pathname);
-          navigate('/login');
-        } else {
-          message.error(error.message || '保存记录失败');
-        }
-      } else {
-        console.error('Unexpected error:', error);
-        message.error('保存记录失败');
-      }
-    } finally {
-      setIsModalVisible(false);
-    }
-  };
-
-  const renderStats = () => (
-    <div style={{ marginBottom: 20 }}>
-      <Progress
-        type="circle"
-        percent={Math.round(stats.accuracy)}
-        format={(percent?: number) => `正确率: ${percent || 0}%`}
-      />
-      <div style={{ marginTop: 10 }}>
-        <p>总单词数: {stats.totalWords}</p>
-        <p>正确单词数: {stats.correctWords}</p>
-        <p>每分钟单词数: {Math.round(stats.wordsPerMinute)}</p>
-        <p>练习时间: {Math.round(stats.duration)}秒</p>
-      </div>
-    </div>
-  );
-  // 修改状态定义
-  const [activeKey, setActiveKey] = useState<string | null>(null);
-  const [lastKey, setLastKey] = useState<string | null>(null);
-
-  // 恢复原来的 handleKeyDown 函数
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    // 设置当前按下的键（用于虚拟键盘显示）
-    const key = e.key === 'Shift' 
-      ? (e.location === 1 ? 'leftshift' : 'rightshift')
-      : e.key.toLowerCase();
-    
-    setActiveKey(key);
     
     // 计数有效的键盘输入
     if (!e.ctrlKey && !e.metaKey) {
@@ -413,8 +213,8 @@ const Practice: React.FC = () => {
       }
     }
 
-    // 处理特殊键
-    if (e.currentTarget instanceof HTMLTextAreaElement) {
+    // 处理代码模式的特殊键
+    if (level !== 'keyword' && e.currentTarget instanceof HTMLTextAreaElement) {
       // 处理 Tab 键
       if (e.key === 'Tab') {
         e.preventDefault();
@@ -486,6 +286,182 @@ const Practice: React.FC = () => {
     setLastKey(key);
     setActiveKey(null);
   };
+
+  const updateKeywordStats = (isCorrect: boolean) => {
+    setStats(prev => ({
+      ...prev,
+      totalWords: prev.totalWords + 1,
+      correctWords: prev.correctWords + (isCorrect ? 1 : 0),
+      accuracy: ((prev.correctWords + (isCorrect ? 1 : 0)) / (prev.totalWords + 1)) * 100,
+    }));
+
+    if (isCorrect) {
+      message.success('正确!');
+    } else {
+      message.error(`错误! 正确答案是: ${currentKeyword}`);
+    }
+  };
+  const updateStats = (currentInput: string) => {
+    const processCode = (code: string) => {
+      // 1. 标准化代码，处理不影响语法的空格差异
+      let processed = code
+        // 移除所有多余空格，包括行首行尾
+        .replace(/^\s+|\s+$/gm, '')
+        // 将多个空格替换为单个空格
+        .replace(/\s+/g, ' ')
+        // 处理冒周围的空格（构造函数初始化列表）
+        .replace(/\s*:\s*/g, ':')
+        // 处理等号周围的空格
+        .replace(/\s*=\s*/g, '=')
+        // 处理逗号后的空格
+        .replace(/,\s*/g, ',')
+        // 处理分号后的空格
+        .replace(/;\s*/g, ';')
+        // 处理括号周围的空格
+        .replace(/\s*\(\s*/g, '(')
+        .replace(/\s*\)\s*/g, ')')
+        .replace(/\s*{\s*/g, '{')
+        .replace(/\s*}\s*/g, '}')
+        // 处理运算符周围的空格
+        .replace(/\s*([+\-*/<>])\s*/g, '$1');
+
+      // 2. 分割成标记
+      return processed.split(/([{}()[\]*,;=<>])/g)
+        .filter(token => token.trim() !== '')
+        .map(token => token.trim());
+    };
+
+    // 处理输入和目标代码
+    const inputTokens = processCode(currentInput);
+    const contentTokens = processCode(content);
+
+    // 只比较已输入的部分
+    const tokensToCompare = contentTokens.slice(0, inputTokens.length);
+
+    // 计算正确的标记数
+    let correctCount = 0;
+    inputTokens.forEach((token, index) => {
+      if (index < tokensToCompare.length && token === tokensToCompare[index]) {
+        correctCount++;
+      }
+    });
+
+    // 更新统计信息
+    setStats(prev => ({
+      ...prev,
+      totalWords: inputTokens.length || 1,
+      correctWords: correctCount,
+      accuracy: (correctCount / (inputTokens.length || 1)) * 100,
+    }));
+
+    // 调试输出
+    console.log('Code comparison:', {
+      input: inputTokens,
+      expected: tokensToCompare,
+      correctCount,
+      totalTokens: inputTokens.length,
+      accuracy: (correctCount / (inputTokens.length || 1)) * 100
+    });
+  };
+
+  const handleExit = () => {
+    setIsModalVisible(true);
+  };
+
+  // 修改 confirmExit 函数，补全被截断的部分
+  const confirmExit = async () => {
+    try {
+      // 检查认证信息
+      const token = localStorage.getItem('token');
+      const userStr = localStorage.getItem('user');
+      
+      // 构造符合后端期望的数据格式
+      const finalStats = {
+        ...stats,
+        endTime: new Date(),
+        // 移除可能导致问题的新增字段
+        type: level,
+      };
+
+      // 简化发送的数据结构
+      const practiceData = {
+        type: level,
+        stats: {
+          totalWords: stats.totalWords,
+          correctWords: stats.correctWords,
+          accuracy: stats.accuracy,
+          wordsPerMinute: stats.wordsPerMinute,
+          startTime: stats.startTime,
+          endTime: new Date(),
+          duration: stats.duration
+        }
+      };
+
+      console.log('准备发送的数据:', practiceData);
+
+      const response = await api.post(API_PATHS.PRACTICE_RECORDS, practiceData);
+
+      console.log('保存成功:', response);
+      message.success('练习记录已保存');
+      navigate('/practice-history');
+
+    } catch (error) {
+      console.error('保存失败，错误详情:', {
+        error,
+        errorType: error.constructor.name,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        stats: {
+          accuracy: stats.accuracy,
+          duration: stats.duration,
+          totalWords: stats.totalWords,
+          correctWords: stats.correctWords,
+          startTime: stats.startTime.toISOString(),
+          level,
+          inputLength: userInput.length
+        },
+        auth: {
+          hasToken: !!localStorage.getItem('token'),
+          hasUser: !!localStorage.getItem('user'),
+          tokenExpired: false  // 如果有token解析功能可以添加过期检查
+        },
+        requestInfo: {
+          endpoint: API_PATHS.PRACTICE_RECORDS,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      if (error instanceof ApiError) {
+        message.error(`保存失败: ${error.message}`);
+        // 如果是认证错误，重定向到登录页
+        if (error.statusCode === 401) {
+          localStorage.setItem('redirectPath', window.location.pathname);
+          navigate('/login');
+          return;
+        }
+      } else {
+        message.error('保存失败，请稍后重试');
+      }
+    } finally {
+      setIsModalVisible(false);
+    }
+  };
+
+  const renderStats = () => (
+    <div style={{ marginBottom: 20 }}>
+      <Progress
+        type="circle"
+        percent={Math.round(stats.accuracy)}
+        format={(percent?: number) => `正确率: ${percent || 0}%`}
+      />
+      <div style={{ marginTop: 10 }}>
+        <p>总单词数: {stats.totalWords}</p>
+        <p>正确单词数: {stats.correctWords}</p>
+        <p>每分钟单词数: {Math.round(stats.wordsPerMinute)}</p>
+        <p>练习时间: {Math.round(stats.duration)}秒</p>
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
