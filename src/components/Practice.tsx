@@ -448,17 +448,25 @@ const Practice: React.FC = () => {
   };
 
   const renderStats = () => (
-    <div style={{ marginBottom: 20 }}>
+    <div style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 20,
+      gap: 40,
+      width: '100%'
+    }}>
       <Progress
         type="circle"
         percent={Math.round(stats.accuracy)}
         format={(percent?: number) => `正确率: ${percent || 0}%`}
+        width={120}
       />
-      <div style={{ marginTop: 10 }}>
-        <p>总单词数: {stats.totalWords}</p>
-        <p>正确单词数: {stats.correctWords}</p>
-        <p>每分钟单词数: {Math.round(stats.wordsPerMinute)}</p>
-        <p>练习时间: {Math.round(stats.duration)}秒</p>
+      <div>
+        <p style={{ margin: '5px 0' }}>总单词数: {stats.totalWords}</p>
+        <p style={{ margin: '5px 0' }}>正确单词数: {stats.correctWords}</p>
+        <p style={{ margin: '5px 0' }}>每分钟单词数: {Math.round(stats.wordsPerMinute)}</p>
+        <p style={{ margin: '5px 0' }}>练习时间: {Math.round(stats.duration)}秒</p>
       </div>
     </div>
   );
@@ -476,29 +484,25 @@ const Practice: React.FC = () => {
   return (
     <Card title={`${level === 'keyword' ? '关键字' : '代码'}打字练习 ${title}`}>
       {level === 'keyword' ? (
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: '1000px', margin: '0 auto' }}>
           {renderStats()}
           <div style={{ margin: '20px 0', fontSize: '24px', fontFamily: 'monospace' }}>
             {currentKeyword || '没有可用的关键字'}
           </div>
-          <Input
-            value={userInput}
-            onChange={handleKeywordInputChange}
-            onKeyDown={handleKeyDown} // 修改：使用 handleKeyDown 替换 onKeyPress
-            onKeyUp={handleKeyUp}
-            onPaste={handlePaste}
-            onCopy={handleCopy}
-            onContextMenu={preventContextMenu}
-            placeholder="输入关键字，按回车确认"
-            style={{ maxWidth: 300, marginBottom: 20 }}
-            autoFocus
-          />
-          <div style={{ 
-            textAlign: 'center', 
-            marginTop: 20,
-            marginBottom: 20
-          }}>
-            <Button type="primary" danger onClick={handleExit}>
+          <div style={{ display: 'flex', alignItems: 'center', width: '80%', maxWidth: '600px', marginBottom: 20 }}>
+            <Input
+              value={userInput}
+              onChange={handleKeywordInputChange}
+              onKeyDown={handleKeyDown}
+              onKeyUp={handleKeyUp}
+              onPaste={handlePaste}
+              onCopy={handleCopy}
+              onContextMenu={preventContextMenu}
+              placeholder="输入关键字，按回车确认"
+              style={{ flex: 1, marginRight: '10px' }}
+              autoFocus
+            />
+            <Button type="primary" danger onClick={handleExit} style={{ width: '120px' }}>
               结束练习
             </Button>
           </div>
