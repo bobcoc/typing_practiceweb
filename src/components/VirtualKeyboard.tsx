@@ -19,7 +19,7 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey })
     [
       { key: '`' }, { key: '1' }, { key: '2' }, { key: '3' }, { key: '4' }, 
       { key: '5' }, { key: '6' }, { key: '7' }, { key: '8' }, { key: '9' }, 
-      { key: '0' }, { key: '-' }, { key: '=' }, { key: 'BKS', width: 2 }
+      { key: '0' }, { key: '-' }, { key: '=' }, { key: 'BackSpace', width: 2 }
     ],
     [
       { key: 'Tab', width: 1.5 }, { key: 'q' }, { key: 'w' }, { key: 'e' }, { key: 'r' }, 
@@ -32,9 +32,9 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey })
       { key: ';' }, { key: '\'' }, { key: 'Enter', width: 2.5 }
     ],
     [
-      { key: 'shift', width: 2.25 }, { key: 'z' }, { key: 'x' }, { key: 'c' }, { key: 'v' }, 
+      { key: 'leftshift', width: 2.25 }, { key: 'z' }, { key: 'x' }, { key: 'c' }, { key: 'v' }, 
       { key: 'b' }, { key: 'n' }, { key: 'm' }, { key: ',' }, { key: '.' }, 
-      { key: '/' }, { key: 'shift', width: 2.75 }
+      { key: '/' }, { key: 'rightshift', width: 2.75 }
     ],
     [
       { key: 'Ctrl', width: 1.25 }, { key: 'Win', width: 1.25 }, { key: 'Alt', width: 1.25 }, 
@@ -58,7 +58,7 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey })
     'z': 'L-pinky', 'x': 'L-ring', 'c': 'L-middle', 'v': 'L-index',
     'b': 'L-index', 'n': 'R-index', 'm': 'R-index', ',': 'R-middle',
     '.': 'R-ring', '/': 'R-pinky',
-    'shift': 'L-pinky',
+    'leftshift': 'L-pinky',
     'rightshift': 'R-pinky',
   };
 
@@ -78,7 +78,7 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey })
       'shift': 'L-pinky',
       'caps': 'L-pinky',
       'tab': 'L-pinky',
-      'bks': 'R-ring',
+      'backspace': 'R-ring',
       'enter': 'R-pinky',
       'space': 'R-thumb',
     };
