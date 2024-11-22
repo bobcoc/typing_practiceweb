@@ -9,12 +9,39 @@ interface VirtualKeyboardProps {
 
 const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey }) => {
   // 定义键盘布局
-  const keyboardLayout = [
-    ['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'BKS'],
-    ['Tab', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\\'],
-    ['Caps', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', 'Enter'],
-    ['shift', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 'shift'],
-    ['Ctrl', 'Win', 'Alt', 'Space', 'Alt', 'Win', 'Menu', 'Ctrl']
+  interface KeyConfig {
+    key: string;
+    width?: number; // 宽度比例，1 表示标准键宽
+  }
+  
+  // 修改键盘布局定义
+  const keyboardLayout: KeyConfig[][] = [
+    [
+      { key: '`' }, { key: '1' }, { key: '2' }, { key: '3' }, { key: '4' }, 
+      { key: '5' }, { key: '6' }, { key: '7' }, { key: '8' }, { key: '9' }, 
+      { key: '0' }, { key: '-' }, { key: '=' }, { key: 'BKS', width: 2 }
+    ],
+    [
+      { key: 'Tab', width: 1.5 }, { key: 'q' }, { key: 'w' }, { key: 'e' }, { key: 'r' }, 
+      { key: 't' }, { key: 'y' }, { key: 'u' }, { key: 'i' }, { key: 'o' }, 
+      { key: 'p' }, { key: '[' }, { key: ']' }, { key: '\\', width: 1.5 }
+    ],
+    [
+      { key: 'Caps', width: 1.75 }, { key: 'a' }, { key: 's' }, { key: 'd' }, { key: 'f' }, 
+      { key: 'g' }, { key: 'h' }, { key: 'j' }, { key: 'k' }, { key: 'l' }, 
+      { key: ';' }, { key: '\'' }, { key: 'Enter', width: 2.5 }
+    ],
+    [
+      { key: 'shift', width: 2.25 }, { key: 'z' }, { key: 'x' }, { key: 'c' }, { key: 'v' }, 
+      { key: 'b' }, { key: 'n' }, { key: 'm' }, { key: ',' }, { key: '.' }, 
+      { key: '/' }, { key: 'shift', width: 2.75 }
+    ],
+    [
+      { key: 'Ctrl', width: 1.25 }, { key: 'Win', width: 1.25 }, { key: 'Alt', width: 1.25 }, 
+      { key: 'Space', width: 6.25 }, 
+      { key: 'Alt', width: 1.25 }, { key: 'Win', width: 1.25 }, { key: 'Menu', width: 1.25 }, 
+      { key: 'Ctrl', width: 1.25 }
+    ]
   ];
 
   // 定义手指分配
@@ -164,22 +191,23 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey })
   </div>
 </div>
       <div className="keyboard">
-        {keyboardLayout.map((row, rowIndex) => (
-          <div key={rowIndex} className="keyboard-row">
-            {row.map((key, keyIndex) => (
-              <div
-                key={keyIndex}
-                className={`key 
-                  ${isKeyActive(key) ? 'active' : ''} 
-                  ${key.length > 1 ? 'special-key' : ''} 
-                  ${getKeyClassName(key)}
-                  ${isShiftActive() ? 'shifted' : ''}`}
-              >
-                {renderKey(key)}
-              </div>
-            ))}
-          </div>
-        ))}
+      {keyboardLayout.map((row, rowIndex) => (
+  <div key={rowIndex} className="keyboard-row">
+    {row.map((keyConfig, keyIndex) => (
+      <div
+        key={keyIndex}
+        className={`key 
+          ${isKeyActive(keyConfig.key) ? 'active' : ''} 
+          ${keyConfig.key.length > 1 ? 'special-key' : ''} 
+          ${getKeyClassName(keyConfig.key)}
+          ${isShiftActive() ? 'shifted' : ''}`}
+        data-width={keyConfig.width || 1}
+      >
+        {renderKey(keyConfig.key)}
+      </div>
+    ))}
+  </div>
+))}
       </div>
     </div>
   );
