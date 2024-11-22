@@ -1,189 +1,238 @@
+/* VirtualKeyboard.css */
 .virtual-keyboard {
-  width: 100%;
-  max-width: 1000px;
-  margin: 20px auto;
-  font-family: 'Arial', sans-serif;
+  padding: 20px;
+  font-family: Arial, sans-serif;
 }
 
 .hands {
   display: flex;
   justify-content: center;
+  margin-bottom: 20px;
   gap: 40px;
-  margin-bottom: 30px;
-  padding: 10px;
+  align-items: center;
 }
 
 .hand {
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 10px;
 }
 
 .fingers {
   display: flex;
-  gap: 5px;
+  gap: 10px;
+}
+/* 左手特定样式 */
+.left-hand {
+  flex-direction: row;
 }
 
+/* 右手特定样式 */
+.right-hand {
+  flex-direction: row;
+}
+/* 手指样式 */
 .finger {
   width: 40px;
-  height: 50px;
-  border-radius: 20px 20px 8px 8px;
+  height: 40px;
+  border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: #666;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  transition: all 0.3s ease;
-  writing-mode: vertical-lr;
-  text-orientation: upright;
-  padding: 5px;
+  transition: all 0.2s ease;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+/* 手指颜色对应 */
+.finger.pinky {
+  background-color: #FFE6E6;
+  border-color: #FFB3B3;
+}
+
+.finger.ring {
+  background-color: #FFF5E6;
+  border-color: #FFE0B3;
+}
+
+.finger.middle {
+  background-color: #E6FFE6;
+  border-color: #B3FFB3;
+}
+
+.finger.index {
+  background-color: #E6F3FF;
+  border-color: #B3D9FF;
+}
+
+.finger.thumb {
+  background-color: #FFFFFF;
+  border-color: #CCCCCC;
+}
+
+/* 键位样式加强 */
+.key {
+  border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.pink-key {
+  background-color: #FFE6E6;
+  border-color: #FFB3B3;
+}
+
+.beige-key {
+  background-color: #FFF5E6;
+  border-color: #FFE0B3;
+}
+
+.green-key {
+  background-color: #E6FFE6;
+  border-color: #B3FFB3;
+}
+
+.blue-key {
+  background-color: #E6F3FF;
+  border-color: #B3D9FF;
+}
+
+.default-key {
+  background-color: #FFFFFF;
+  border-color: #CCCCCC;
+}
+
+/* 激活状态的样式调整 */
+.finger.active {
+  background-color: #2196F3;
+  border-color: #1976D2;
+  color: white;
+}
+
+.key.active {
+  background-color: #2196F3 !important;
+  border-color: #1976D2 !important;
+  color: white;
 }
 
 .finger.active {
-  transform: translateY(5px);
+  background-color: #2196F3;
   color: white;
-  box-shadow: 0 0 12px rgba(24,144,255,0.5);
-  z-index: 1;
 }
 
 .hand-label {
   font-size: 14px;
   color: #666;
-  margin-top: 5px;
+  writing-mode: vertical-lr;
+  text-orientation: upright;
+  padding: 5px;
 }
 
-.finger.pinky { 
-  border-color: #ff4d4f; 
-  background-color: rgba(255, 77, 79, 0.1);
-}
-.finger.ring { 
-  border-color: #ffa940; 
-  background-color: rgba(255, 169, 64, 0.1);
-}
-.finger.middle { 
-  border-color: #52c41a; 
-  background-color: rgba(82, 196, 26, 0.1);
-}
-.finger.index { 
-  border-color: #1890ff; 
-  background-color: rgba(24, 144, 255, 0.1);
-}
-.finger.thumb { 
-  border-color: #722ed1; 
-  background-color: rgba(114, 46, 209, 0.1);
-}
-
-.finger.active.pinky { background: rgba(255, 77, 79, 0.8); }
-.finger.active.ring { background: rgba(255, 169, 64, 0.8); }
-.finger.active.middle { background: rgba(82, 196, 26, 0.8); }
-.finger.active.index { background: rgba(24, 144, 255, 0.8); }
-.finger.active.thumb { background: rgba(114, 46, 209, 0.8); }
 
 .keyboard {
-  background: #f0f0f0;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  transform: perspective(500px) rotateX(10deg);
+  width: fit-content;
+  margin: 0 auto;
 }
 
 .keyboard-row {
   display: flex;
-  justify-content: center;
-  margin: 5px 0;
+  margin: 2px 0;
 }
 
 .key {
-  width: 40px;
+  position: relative;
+  min-width: 40px;
   height: 40px;
   margin: 2px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  box-shadow: 0 2px 2px rgba(0,0,0,0.1);
   cursor: default;
+  transition: all 0.2s ease;
   user-select: none;
-  transition: all 0.3s ease;
-  position: relative;
+}
+
+.key.special-key {
+  min-width: 60px;
 }
 
 .key.active {
-  transform: translateY(2px);
-  box-shadow: 0 0 8px rgba(24,144,255,0.5);
+  background-color: #2196F3 !important;
   color: white;
-  z-index: 1;
 }
 
-.key.L-pinky, .key.R-pinky { 
-  border-color: #ff4d4f; 
-  background-color: rgba(255, 77, 79, 0.1);
-}
-.key.L-ring, .key.R-ring { 
-  border-color: #ffa940; 
-  background-color: rgba(255, 169, 64, 0.1);
-}
-.key.L-middle, .key.R-middle { 
-  border-color: #52c41a; 
-  background-color: rgba(82, 196, 26, 0.1);
-}
-.key.L-index, .key.R-index { 
-  border-color: #1890ff; 
-  background-color: rgba(24, 144, 255, 0.1);
-}
-.key[data-finger*="thumb"] { 
-  border-color: #722ed1; 
-  background-color: rgba(114, 46, 209, 0.1);
+.pink-key {
+  background-color: #FFE6E6;
 }
 
-.special-key {
-  min-width: 60px;
-  padding: 0 10px;
-  background: #fafafa;
+.beige-key {
+  background-color: #FFF5E6;
 }
 
-.key.space {
-  width: 200px;
-  background: #fafafa;
+.green-key {
+  background-color: #E6FFE6;
 }
 
-.key.L-pinky.active, .key.R-pinky.active { background: rgba(255, 77, 79, 0.8); }
-.key.L-ring.active, .key.R-ring.active { background: rgba(255, 169, 64, 0.8); }
-.key.L-middle.active, .key.R-middle.active { background: rgba(82, 196, 26, 0.8); }
-.key.L-index.active, .key.R-index.active { background: rgba(24, 144, 255, 0.8); }
+.blue-key {
+  background-color: #E6F3FF;
+}
 
-.key .original-char {
+.default-key {
+  background-color: #FFFFFF;
+}
+
+.key-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.upper-char {
   position: absolute;
-  bottom: 3px;
-  right: 3px;
-  font-size: 10px;
-  color: #999;
-}
-
-.key.shifted .original-char {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.key.shifted:not(.active) {
-  background: #f5f5f5;
-}
-
-.key.shifted.active {
-  background: #1890ff;
-  color: white;
-}
-
-.key {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  font-size: 14px;
-  line-height: 1;
-}
-
-.special-key {
+  top: 4px;
+  left: 4px;
   font-size: 12px;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.lower-char {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.upper-char.active {
+  font-size: 16px;
+  opacity: 1;
+}
+
+.lower-char.active {
+  font-size: 16px;
+  opacity: 1;
+}
+
+.lower-char:not(.active) {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.key:not(.active) .upper-char,
+.key:not(.active) .lower-char {
+  color: #333;
+}
+
+.key.active .upper-char,
+.key.active .lower-char {
+  color: white;
+  opacity: 1;
+}
+
+.main-char {
+  font-size: 16px;
+}
+
+.special-key .main-char {
+  font-size: 14px;
 }
