@@ -58,8 +58,9 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey })
     'z': 'L-pinky', 'x': 'L-ring', 'c': 'L-middle', 'v': 'L-index',
     'b': 'L-index', 'n': 'R-index', 'm': 'R-index', ',': 'R-middle',
     '.': 'R-ring', '/': 'R-pinky',
-    'leftshift': 'L-pinky',
+    'leftshift': 'L-pinky', 
     'rightshift': 'R-pinky',
+    'space': 'R-thumb',
   };
 
   // 添加符号映射
@@ -95,10 +96,12 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey })
     if (activeKey !== null) {
       if (key === 'LeftShift') return activeKey === 'leftshift';
       if (key === 'RightShift') return activeKey === 'rightshift';
+      if (key === 'Space') return activeKey === ' ' || activeKey === 'space';
       return lowerKey === activeKey.toLowerCase();
     }
     if (key === 'LeftShift') return lastKey === 'leftshift';
     if (key === 'RightShift') return lastKey === 'rightshift';
+    if (key === 'Space') return lastKey === ' ' || lastKey === 'space'; 
     return lowerKey === lastKey?.toLowerCase();
   };
 
