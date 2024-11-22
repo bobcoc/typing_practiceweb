@@ -106,10 +106,18 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey })
   };
 
   const isFingerActive = (fingerType: string): boolean => {
-    if (activeKey !== null) {
-      return getFingerForKey(activeKey) === fingerType;
-    }
-    return lastKey !== null && getFingerForKey(lastKey) === fingerType;
+    if (!activeKey && !lastKey) return false;
+  
+  const currentKey = activeKey || lastKey;
+  if (!currentKey) return false;
+
+  // 特殊处理空格键
+  if (currentKey === ' ' || currentKey.toLowerCase() === 'space') {
+    return fingerType === 'R-thumb';
+  }
+
+  // 处理其他键
+  return getFingerForKey(currentKey) === fingerType;
   };
 
   const getKeyClassName = (key: string): string => {
