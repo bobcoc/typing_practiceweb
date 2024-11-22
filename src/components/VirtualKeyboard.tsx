@@ -18,7 +18,7 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey })
 
   // 定义手指分配
   const fingerMap: { [key: string]: string } = {
-    '`': 'L-ring', '1': 'L-pinky', '2': 'L-ring', '3': 'L-middle', '4': 'L-index',
+    '`': 'L-ring', '1': 'L-ring', '2': 'L-ring', '3': 'L-middle', '4': 'L-index',
     '5': 'L-index', '6': 'R-index', '7': 'R-index', '8': 'R-middle', '9': 'R-ring',
     '0': 'R-ring', '-': 'R-ring', '=': 'R-ring',
     'q': 'L-pinky', 'w': 'L-ring', 'e': 'L-middle', 'r': 'L-index',
