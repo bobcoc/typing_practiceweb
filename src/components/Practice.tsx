@@ -45,7 +45,8 @@ const Practice: React.FC = () => {
   // 将这两个状态定义移到组件开头
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [lastKey, setLastKey] = useState<string | null>(null);
-
+  const [shiftPressed, setShiftPressed] = useState(false);
+  
   // 添加实际按键计数器状态
   const [actualKeyCount, setActualKeyCount] = useState<number>(0);
 
@@ -179,6 +180,22 @@ const Practice: React.FC = () => {
 
   // 修改 handleKeyDown 函数
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+  // 处理 shift 状态
+  if (e.key === 'Shift') {
+    setShiftPressed(true);
+    const shiftKey = e.location === 1 ? 'leftshift' : 'rightshift';
+    setActiveKey(shiftKey);
+    setLastKey(shiftKey);
+  } else {
+    // 对于非 shift 键，同时更新 activeKey 和 lastKey
+    const key = e.key.toLowerCase();
+    setActiveKey(key);
+    // 如果当前按着 shift，保持 shift 的 lastKey，否则更新为当前键
+    if (!shiftPressed) {
+      setLastKey(key);
+    }
+  }
+
     // 设置当前按下的键（用于虚拟键盘显示）
     const key = e.key === 'Shift' 
       ? (e.location === 1 ? 'leftshift' : 'rightshift')
@@ -278,13 +295,22 @@ const Practice: React.FC = () => {
 
   // 修改 handleKeyUp 函数
   const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    // 保存最后释放的键
-    const key = e.key === 'Shift'
-      ? (e.location === 1 ? 'leftshift' : 'rightshift')
-      : e.key.toLowerCase();
-    
-    setLastKey(key);
-    setActiveKey(null);
+    if (e.key === 'Shift') {
+      setShiftPressed(false);
+      setActiveKey(null);
+      // 如果当前没有按其他键，清除 lastKey
+      if (!activeKey || activeKey === 'leftshift' || activeKey === 'rightshift') {
+        setLastKey(null);
+      }
+    } else {
+      const key = e.key.toLowerCase();
+      setActiveKey(null);
+      // 如果松开的不是 shift 键，更新 lastKey
+      // 如果此时没有按着 shift，就清除之前的 shift lastKey
+      if (!shiftPressed) {
+        setLastKey(key);
+      }
+    }
   };
 
   const updateKeywordStats = (isCorrect: boolean) => {
@@ -645,6 +671,7 @@ const Practice: React.FC = () => {
         <VirtualKeyboard 
           activeKey={activeKey} 
           lastKey={lastKey}
+          shiftPressed={shiftPressed}
         />
       </div>
     </Card>

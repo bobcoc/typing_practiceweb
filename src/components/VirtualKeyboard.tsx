@@ -5,9 +5,10 @@ import './VirtualKeyboard.css';
 interface VirtualKeyboardProps {
   activeKey: string | null;
   lastKey: string | null;
+  shiftPressed: boolean;
 }
 
-const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey }) => {
+const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey,shiftPressed }) => {
   // 定义键盘布局
   interface KeyConfig {
     key: string;
@@ -88,21 +89,62 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey })
   };
 
   const isShiftActive = (): boolean => {
-    return activeKey === 'leftshift' || activeKey === 'rightshift';
+    return shiftPressed;
   };
 
   const isKeyActive = (key: string): boolean => {
     const lowerKey = key.toLowerCase();
+  
+    // 对 shift 键的特殊处理
+    if (key === 'leftshift' || key === 'rightshift') {
+      // 当前正在按着这个 shift 键
+      if (activeKey === key) return true;
+      // 这个 shift 键是上一个按下的键，且当前没有按其他键
+      if (lastKey === key && !activeKey) return true;
+      // shift 状态被激活，且这是正确的那个 shift 键
+      if (shiftPressed && lastKey === key) return true;
+      return false;
+    }
+  
+    // 对其他键的处理
     if (activeKey !== null) {
-      if (key === 'LeftShift') return activeKey === 'leftshift';
-      if (key === 'RightShift') return activeKey === 'rightshift';
+      // 处理空格键
       if (key === 'Space') return activeKey === ' ' || activeKey === 'space';
+      
+      // 如果按住了 shift，检查是否是 shift 组合键
+      if (shiftPressed) {
+        const shiftSymbol = shiftSymbols[key];
+        // 如果是可以 shift 的符号键
+        if (shiftSymbol) {
+          return activeKey === shiftSymbol;
+        }
+        // 如果是字母键
+        if (key.match(/[a-z]/i)) {
+          return key.toLowerCase() === activeKey.toLowerCase();
+        }
+      }
+      
       return lowerKey === activeKey.toLowerCase();
     }
-    if (key === 'LeftShift') return lastKey === 'leftshift';
-    if (key === 'RightShift') return lastKey === 'rightshift';
-    if (key === 'Space') return lastKey === ' ' || lastKey === 'space'; 
-    return lowerKey === lastKey?.toLowerCase();
+  
+    // 处理上一个按键的情况
+    if (lastKey !== null) {
+      if (key === 'Space') return lastKey === ' ' || lastKey === 'space';
+      
+      if (shiftPressed) {
+        const shiftSymbol = shiftSymbols[key];
+        if (shiftSymbol) {
+          return lastKey === shiftSymbol;
+        }
+        if (key.match(/[a-z]/i)) {
+          return key.toLowerCase() === lastKey.toLowerCase();
+        }
+      }
+      
+      return lowerKey === lastKey.toLowerCase();
+    }
+  
+    return false;
   };
 
   const isFingerActive = (fingerType: string): boolean => {
@@ -148,15 +190,33 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey })
     return colorClass;
   };
 
+  const getDisplayKey = (key: string): string => {
+  // 对特殊键不做处理
+  if (key.length > 1) return key;
+  
+  // 如果 shift 被按下，显示相应的 shift 状态
+  if (shiftPressed) {
+    // 对于字母键，显示大写
+    if (key.match(/[a-z]/i)) {
+      return key.toUpperCase();
+    }
+    // 对于符号键，显示 shift 符号
+    if (shiftSymbols[key]) {
+      return shiftSymbols[key];
+    }
+  }
+  return key;
+  };
+  
   const renderKey = (key: string) => {
     const isSpecial = key.length > 1;
     const hasShiftSymbol = shiftSymbols[key];
-    const shifted = isShiftActive();
-
+    const shifted = shiftPressed;
+  
     if (isSpecial) {
       return <span className="main-char">{key}</span>;
     }
-
+  
     if (hasShiftSymbol) {
       return (
         <div className="key-content">
@@ -169,12 +229,8 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey })
         </div>
       );
     }
-
-    if (key.match(/[a-z]/i)) {
-      return <span className="main-char">{shifted ? key.toUpperCase() : key}</span>;
-    }
-
-    return <span className="main-char">{key}</span>;
+  
+    return <span className="main-char">{getDisplayKey(key)}</span>;
   };
 
   return (
