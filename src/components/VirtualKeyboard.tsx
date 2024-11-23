@@ -6,9 +6,10 @@ interface VirtualKeyboardProps {
   activeKey: string | null;
   lastKey: string | null;
   shiftPressed: boolean;
+  lastComboShift: string | null;
 }
 
-const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey,shiftPressed }) => {
+const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey,shiftPressed,lastComboShift }) => {
   // 定义键盘布局
   interface KeyConfig {
     key: string;
@@ -93,58 +94,40 @@ const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ activeKey, lastKey,sh
   };
 
   const isKeyActive = (key: string): boolean => {
-    const lowerKey = key.toLowerCase();
-  
-    // 对 shift 键的特殊处理
+ // 如果当前有键被按下，优先显示当前按下的键
+ if (activeKey !== null) {
+  if (shiftPressed) {
+    // 处理符号键
+    if (shiftSymbols[key]) {
+      return activeKey === shiftSymbols[key];
+    }
+    // 处理字母键
+    return key.toLowerCase() === activeKey.toLowerCase();
+  }
+  return key.toLowerCase() === activeKey.toLowerCase();
+}
+
+// 处理组合键状态
+if (lastKey !== null) {
+  // 如果有组合键状态（有shift记录）
+  if (lastComboShift) {
+    // 如果是shift键，检查是否是记录的那个shift
     if (key === 'leftshift' || key === 'rightshift') {
-      // 当前正在按着这个 shift 键
-      if (activeKey === key) return true;
-      // 这个 shift 键是上一个按下的键，且当前没有按其他键
-      if (lastKey === key && !activeKey) return true;
-      // shift 状态被激活，且这是正确的那个 shift 键
-      if (shiftPressed && lastKey === key) return true;
-      return false;
+      return key === lastComboShift;
     }
-  
-    // 对其他键的处理
-    if (activeKey !== null) {
-      // 处理空格键
-      if (key === 'Space') return activeKey === ' ' || activeKey === 'space';
-      
-      // 如果按住了 shift，检查是否是 shift 组合键
-      if (shiftPressed) {
-        const shiftSymbol = shiftSymbols[key];
-        // 如果是可以 shift 的符号键
-        if (shiftSymbol) {
-          return activeKey === shiftSymbol;
-        }
-        // 如果是字母键
-        if (key.match(/[a-z]/i)) {
-          return key.toLowerCase() === activeKey.toLowerCase();
-        }
-      }
-      
-      return lowerKey === activeKey.toLowerCase();
+    // 处理符号键
+    if (shiftSymbols[key]) {
+      const shiftSymbol = shiftSymbols[key];
+      return lastKey === shiftSymbol;
     }
-  
-    // 处理上一个按键的情况
-    if (lastKey !== null) {
-      if (key === 'Space') return lastKey === ' ' || lastKey === 'space';
-      
-      if (shiftPressed) {
-        const shiftSymbol = shiftSymbols[key];
-        if (shiftSymbol) {
-          return lastKey === shiftSymbol;
-        }
-        if (key.match(/[a-z]/i)) {
-          return key.toLowerCase() === lastKey.toLowerCase();
-        }
-      }
-      
-      return lowerKey === lastKey.toLowerCase();
-    }
-  
-    return false;
+    // 处理字母键
+    return key.toLowerCase() === lastKey.toLowerCase();
+  }
+  // 如果没有组合键状态，只显示最后按下的键
+  return key.toLowerCase() === lastKey.toLowerCase();
+}
+
+return false;
   };
 
   const isFingerActive = (fingerType: string): boolean => {

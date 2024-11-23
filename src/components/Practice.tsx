@@ -46,7 +46,8 @@ const Practice: React.FC = () => {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [lastKey, setLastKey] = useState<string | null>(null);
   const [shiftPressed, setShiftPressed] = useState(false);
-  
+  const [lastComboShift, setLastComboShift] = useState<string | null>(null); // 记录最后组合键中的shift
+const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记录最后按下的普通键
   // 添加实际按键计数器状态
   const [actualKeyCount, setActualKeyCount] = useState<number>(0);
 
@@ -185,13 +186,25 @@ const Practice: React.FC = () => {
     setShiftPressed(true);
     const shiftKey = e.location === 1 ? 'leftshift' : 'rightshift';
     setActiveKey(shiftKey);
-    setLastKey(shiftKey);
+    // 如果没有其他键被按下，则更新lastComboShift
+    if (!lastNormalKey) {
+      setLastComboShift(shiftKey);
+      setLastKey(shiftKey);
+    }
   } else {
-    // 对于非 shift 键，同时更新 activeKey 和 lastKey
+    // 对于非 shift 键
     const key = e.key.toLowerCase();
     setActiveKey(key);
-    // 如果当前按着 shift，保持 shift 的 lastKey，否则更新为当前键
-    if (!shiftPressed) {
+    setLastNormalKey(key);
+    
+    // 如果当前按着 shift，记录组合键状态
+    if (shiftPressed) {
+      const currentShiftKey = lastComboShift || (e.getModifierState('Shift') && e.location === 1 ? 'leftshift' : 'rightshift');
+      setLastComboShift(currentShiftKey);
+      setLastKey(key); // 保持最新按下的键的状态
+    } else {
+      // 如果没有按 shift，清除组合键状态
+      setLastComboShift(null);
       setLastKey(key);
     }
   }
@@ -298,16 +311,17 @@ const Practice: React.FC = () => {
     if (e.key === 'Shift') {
       setShiftPressed(false);
       setActiveKey(null);
-      // 如果当前没有按其他键，清除 lastKey
-      if (!activeKey || activeKey === 'leftshift' || activeKey === 'rightshift') {
-        setLastKey(null);
-      }
+      // 松开 shift 时清除所有状态
+      setLastKey(null);
+      setLastComboShift(null);
+      setLastNormalKey(null);
     } else {
       const key = e.key.toLowerCase();
       setActiveKey(null);
-      // 如果松开的不是 shift 键，更新 lastKey
-      // 如果此时没有按着 shift，就清除之前的 shift lastKey
+      // 松开普通键时，如果当前没有按着 shift，就清除最后的普通键记录
       if (!shiftPressed) {
+        setLastNormalKey(null);
+        setLastComboShift(null);
         setLastKey(key);
       }
     }
@@ -668,11 +682,12 @@ const Practice: React.FC = () => {
         <p>每分钟单词数: {Math.round(stats.wordsPerMinute)}</p>
       </Modal>
       <div style={{ marginTop: 20 }}>
-        <VirtualKeyboard 
-          activeKey={activeKey} 
-          lastKey={lastKey}
-          shiftPressed={shiftPressed}
-        />
+      <VirtualKeyboard 
+  activeKey={activeKey} 
+  lastKey={lastKey}
+  shiftPressed={shiftPressed}
+  lastComboShift={lastComboShift}
+/>
       </div>
     </Card>
   );
