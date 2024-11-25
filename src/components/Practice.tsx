@@ -410,6 +410,13 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
 
   // 修改 confirmExit 函数，补全被截断的部分
   const confirmExit = async () => {
+    const accuracyThreshold = 90;
+    if (stats.accuracy < accuracyThreshold) {
+      message.warning(`因为你的准确率未达到${accuracyThreshold}%，所以本次练习不保存记录`);
+      setIsModalVisible(false);
+      navigate('/practice-history');
+      return;
+    }
     try {
       // 检查认证信息
       const token = localStorage.getItem('token');
