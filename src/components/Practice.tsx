@@ -14,11 +14,7 @@ import { API_PATHS } from '../config';
 import type { ChangeEvent, KeyboardEvent, ClipboardEvent } from 'react';
 import VirtualKeyboard from './VirtualKeyboard';
 import CryptoJS from 'crypto-js';
-// 检查公钥是否存在
-const PUBLIC_KEY = process.env.REACT_APP_PUBLIC_KEY;
-if (!PUBLIC_KEY) {
-  throw new Error('Public key not found in environment variables');
-}
+
 interface PracticeStats {
   totalWords: number;
   correctWords: number;
