@@ -9,7 +9,7 @@ import keywordsRouter from './routes/keywords';
 import practiceRecordsRouter from './routes/practiceRecords';
 import leaderboardRouter from './routes/leaderboard';
 import adminRoutes from './routes/admin';
-
+import systemRoutes from './routes/system';
 // 加载环境变量
 dotenv.config();
 
@@ -38,7 +38,7 @@ app.use('/api/keywords', keywordsRouter);
 app.use('/api/practice-records', practiceRecordsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/admin', adminRoutes);
-
+app.use('/api/system', systemRoutes);
 // 错误处理中间件
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);

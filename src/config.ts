@@ -27,6 +27,9 @@ export const API_PATHS = {
   PRACTICE_RECORDS: '/api/practice-records',
   LEADERBOARD: '/api/leaderboard',
   AUTH: '/api/auth',
+  SYSTEM: {
+    SERVER_TIME: '/api/system/server-time'
+  },
 } as const;
 
 // 练习类型枚举

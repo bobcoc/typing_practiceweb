@@ -13,7 +13,12 @@ import { api, ApiError} from '../api/apiClient';
 import { API_PATHS } from '../config';
 import type { ChangeEvent, KeyboardEvent, ClipboardEvent } from 'react';
 import VirtualKeyboard from './VirtualKeyboard';
-
+import CryptoJS from 'crypto-js';
+// 检查公钥是否存在
+const PUBLIC_KEY = process.env.REACT_APP_PUBLIC_KEY;
+if (!PUBLIC_KEY) {
+  throw new Error('Public key not found in environment variables');
+}
 interface PracticeStats {
   totalWords: number;
   correctWords: number;
@@ -418,19 +423,7 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
       return;
     }
     try {
-      // 检查认证信息
-      const token = localStorage.getItem('token');
-      const userStr = localStorage.getItem('user');
-      
-      // 构造符合后端期望的数据格式
-      const finalStats = {
-        ...stats,
-        endTime: new Date(),
-        // 移除可能导致问题的新增字段
-        type: level,
-      };
-
-      // 简化发送的数据结构
+      const { serverTime } = await api.get<{ serverTime: number }>(API_PATHS.SYSTEM.SERVER_TIME);
       const practiceData = {
         type: level,
         stats: {
@@ -439,19 +432,25 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
           accuracy: stats.accuracy,
           wordsPerMinute: stats.wordsPerMinute,
           startTime: stats.startTime,
-          endTime: new Date(),
-          duration: stats.duration
+          endTime: new Date(serverTime),
+          duration: (serverTime - stats.startTime.getTime()) / 1000
         }
       };
-
-      console.log('准备发送的数据:', practiceData);
-
-      const response = await api.post(API_PATHS.PRACTICE_RECORDS, practiceData);
-
-      console.log('保存成功:', response);
-      message.success('练习记录已保存');
-      navigate('/practice-history');
-
+  
+      const orderedData = JSON.stringify(practiceData, Object.keys(practiceData).sort());
+    
+      // 3. 生成签名
+      const signature = CryptoJS.SHA256(orderedData + serverTime).toString();
+  
+      // 4. 发送数据
+      await api.post(API_PATHS.PRACTICE_RECORDS, {
+        ...practiceData,
+        timestamp: serverTime,
+        signature
+      });
+  
+     message.success('练习记录已保存');
+     navigate('/practice-history');
     } catch (error) {
       console.error('保存失败，错误详情:', {
         error,

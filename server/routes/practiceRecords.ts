@@ -4,6 +4,7 @@ import { PracticeRecord } from '../models/PracticeRecord';
 import { auth } from '../middleware/auth';
 import { Types, Error as MongooseError, startSession } from 'mongoose';
 import { User, type IUser, type UserStats } from '../models/User'; 
+import { validatePracticeSubmission } from '../middleware/practiceValidation';
 const router = express.Router();
 
 // 验证练习记录数据
@@ -23,7 +24,7 @@ interface PracticeRecordBody {
 }
 
 // 保存练习记录
-router.post('/', auth, async (req: Request, res: Response) => {
+router.post('/', auth, validatePracticeSubmission, async (req: Request, res: Response) => {
   try {
     console.log('Received practice record request:', {
       body: req.body,
@@ -76,7 +77,8 @@ router.post('/', auth, async (req: Request, res: Response) => {
         ...stats,
         startTime: new Date(stats.startTime),
         endTime: new Date(stats.endTime),
-      }
+      },
+      inputEvents: req.body.inputEvents
     });
     
     // 保存练习记录 (移除 session)
