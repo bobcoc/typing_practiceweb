@@ -27,7 +27,8 @@ declare global {
 class AuthError extends Error {
   constructor(
     message: string,
-    public statusCode: number = 401
+    public statusCode: number = 401,
+    public code: string = 'AUTH_ERROR' 
   ) {
     super(message);
     this.name = 'AuthError';
@@ -43,7 +44,6 @@ const verifyToken = (token: string): UserPayload => {
   try {
     const decoded = jwt.verify(token, config.JWT_SECRET) as UserPayload;
     
-    // 调试信息
     console.debug('Token verification:', {
       userId: decoded._id,
       username: decoded.username,
@@ -54,14 +54,14 @@ const verifyToken = (token: string): UserPayload => {
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
       console.debug('Token expired:', { error: error.message, expiredAt: error.expiredAt });
-      throw new AuthError('认证令牌已过期');
+      throw new AuthError('认证令牌已过期', 401, 'TOKEN_EXPIRED');
     }
     if (error instanceof jwt.JsonWebTokenError) {
       console.debug('Invalid token:', { error: error.message });
-      throw new AuthError('无效的认证令牌');
+      throw new AuthError('无效的认证令牌', 401, 'INVALID_TOKEN');
     }
     console.error('Unexpected token verification error:', error);
-    throw new AuthError('认证失败');
+    throw new AuthError('认证失败', 401, 'AUTH_FAILED');
   }
 };
 
@@ -70,57 +70,76 @@ const verifyToken = (token: string): UserPayload => {
  */
 export const auth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // 获取并验证 Authorization header
     const authHeader = req.header('Authorization');
 
     if (!authHeader) {
-      throw new AuthError('未提供认证令牌');
+      return res.status(401).json({
+        error: '未提供认证令牌',
+        code: 'NO_TOKEN'
+      });
     }
 
-    // 验证 token 格式
     if (!authHeader.startsWith('Bearer ')) {
-      throw new AuthError('认证令牌格式无效');
+      return res.status(401).json({
+        error: '认证令牌格式无效',
+        code: 'INVALID_TOKEN_FORMAT'
+      });
     }
 
-    // 提取并验证 token
     const token = authHeader.replace('Bearer ', '').trim();
     if (!token) {
-      throw new AuthError('认证令牌为空');
+      return res.status(401).json({
+        error: '认证令牌为空',
+        code: 'EMPTY_TOKEN'
+      });
     }
 
-    // 验证并解析 token
-    const decoded = verifyToken(token);
+    try {
+      const decoded = verifyToken(token);
 
-    // 验证必要的用户信息
-    if (!decoded._id || !decoded.username) {
-      throw new AuthError('认证令牌信息不完整');
-    }
-
-    // 检查 token 是否即将过期（如果有过期时间）
-    if (decoded.exp) {
-      const now = Math.floor(Date.now() / 1000);
-      const timeLeft = decoded.exp - now;
-      if (timeLeft < 300) { // 5分钟内过期
-        console.debug('Token expiring soon:', {
-          timeLeft: `${timeLeft}s`,
-          expireAt: new Date(decoded.exp * 1000).toISOString()
+      if (!decoded._id || !decoded.username) {
+        return res.status(401).json({
+          error: '认证令牌信息不完整',
+          code: 'INCOMPLETE_TOKEN'
         });
       }
+
+      if (decoded.exp) {
+        const now = Math.floor(Date.now() / 1000);
+        const timeLeft = decoded.exp - now;
+        if (timeLeft < 300) {
+          console.debug('Token expiring soon:', {
+            timeLeft: `${timeLeft}s`,
+            expireAt: new Date(decoded.exp * 1000).toISOString()
+          });
+        }
+      }
+
+      req.user = decoded;
+      req.token = token;
+
+      console.debug('Auth successful:', {
+        userId: decoded._id,
+        username: decoded.username,
+        path: req.path
+      });
+
+      next();
+    } catch (error) {
+      if (error instanceof AuthError) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+          code: error.code
+        });
+      }
+      throw error;
     }
-
-    // 将用户信息和 token 添加到请求对象
-    req.user = decoded;
-    req.token = token;
-
-    console.debug('Auth successful:', {
-      userId: decoded._id,
-      username: decoded.username,
-      path: req.path
-    });
-
-    next();
   } catch (error) {
-    next(error); 
+    console.error('Auth error:', error);
+    return res.status(401).json({
+      error: '认证失败',
+      code: 'AUTH_FAILED'
+    });
   }
 };
 
@@ -141,7 +160,10 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
     }
     next();
   } catch (error) {
-    console.debug('Optional auth failed:', { error: error instanceof Error ? error.message : 'Unknown error' });
+    console.debug('Optional auth failed:', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      code: error instanceof AuthError ? error.code : 'OPTIONAL_AUTH_FAILED'
+    });
     next();
   }
 };
@@ -151,16 +173,17 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
  */
 export const adminAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // 首先进行普通认证
     await auth(req, res, () => {
-      // 检查用户是否为管理员
       if (!req.user || !req.user.isAdmin) {
         console.debug('Admin auth failed:', {
           userId: req.user?._id,
           username: req.user?.username,
           isAdmin: req.user?.isAdmin
         });
-        throw new AuthError('需要管理员权限', 403);
+        return res.status(403).json({
+          error: '需要管理员权限',
+          code: 'ADMIN_REQUIRED'
+        });
       }
       console.debug('Admin auth successful:', {
         userId: req.user._id,
@@ -169,12 +192,6 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
       next();
     });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return res.status(error.statusCode).json({
-        error: error.message,
-        code: 'ADMIN_AUTH_ERROR'
-      });
-    }
     console.error('Admin auth unexpected error:', error);
     res.status(500).json({
       error: '服务器内部错误',

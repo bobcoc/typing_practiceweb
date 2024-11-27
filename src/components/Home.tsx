@@ -17,7 +17,7 @@ import {
   School as SchoolIcon,
   Psychology as PsychologyIcon
 } from '@mui/icons-material';
-import { api } from '../api/apiClient';
+import { api,ApiError } from '../api/apiClient';
 
 // 统计数据类型
 interface Statistics {

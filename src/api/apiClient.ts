@@ -79,6 +79,29 @@ apiClient.interceptors.response.use(
       // 处理特定状态码
       switch (statusCode) {
         case 401:
+          if (responseData.code === 'TOKEN_EXPIRED') {
+            // 保存当前路径，用于登录后重定向
+            const currentPath = window.location.pathname;
+            if (currentPath !== '/login') {
+              window.localStorage.setItem('redirectPath', currentPath);
+            }
+            
+            // 清除认证信息
+            window.localStorage.removeItem('token');
+            window.localStorage.removeItem('user');
+            
+            // 创建认证错误
+            const authError = new ApiError(
+              responseData.error || '认证已过期，请重新登录',
+              statusCode,
+              responseData
+            );
+            
+            // 触发认证错误事件
+            authEvents.emitAuthError(authError);
+            
+            return Promise.reject(authError);
+          }
           const currentPath = window.location.pathname;
           if (currentPath !== '/login') {
             window.localStorage.setItem('redirectPath', currentPath);
