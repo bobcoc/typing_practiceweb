@@ -42,13 +42,14 @@ const ChangePassword: React.FC = () => {
       navigate('/', { replace: true });
     } catch (error: any) {
       if (error instanceof ApiError) {
-        let errorMessage = error.message;
-        
-        if (error.response?.message === 'Invalid old password') {
-          errorMessage = '原密码错误';
+        if (error.statusCode === 401) {
+          // 认证错误已经由 AuthWrapper 处理，这里不需要额外处理
+          console.log('Authentication error handled by AuthWrapper');
+        } else if (error.response?.message === 'Invalid old password') {
+          message.error('原密码错误');
+        } else {
+          message.error(error.message);
         }
-        
-        message.error(errorMessage);
       } else {
         message.error('修改失败，请稍后重试');
       }

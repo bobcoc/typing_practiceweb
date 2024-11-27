@@ -9,7 +9,7 @@ import Row from 'antd/lib/row';
 import Col from 'antd/lib/col';
 import Button from 'antd/lib/button';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api, ApiError} from '../api/apiClient';
+import { api, ApiError, authEvents} from '../api/apiClient';
 import { API_PATHS } from '../config';
 import type { ChangeEvent, KeyboardEvent, ClipboardEvent } from 'react';
 import VirtualKeyboard from './VirtualKeyboard';
@@ -99,13 +99,21 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
     fetchContent();
     const intervalTimer = setInterval(updateTimer, 1000);
     setTimer(intervalTimer);
-
+    const handleAuthError = (error: ApiError) => {
+      message.error(error.message);
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
+    };
+    authEvents.onAuthError.add(handleAuthError);
     return () => {
       if (timer) {
         clearInterval(timer);
       }
+      // 移除认证错误处理器
+      authEvents.onAuthError.delete(handleAuthError);
     };
-  }, []);
+  }, [navigate]);
 
   const updateTimer = () => {
     setStats(prev => {

@@ -61,7 +61,18 @@ const Home: React.FC = () => {
 
   // 组件加载时获取数据
   useEffect(() => {
-    fetchStatistics();
+    const fetchData = async () => {
+      try {
+        await fetchStatistics();
+      } catch (error) {
+        if (error instanceof ApiError && error.statusCode === 401) {
+          // 认证错误已经由 AuthWrapper 处理，这里不需要额外处理
+          console.log('Authentication error handled by AuthWrapper');
+        }
+      }
+    };
+    
+    fetchData();
   }, []);
 
   const practiceTypes = [

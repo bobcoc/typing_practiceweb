@@ -63,9 +63,9 @@ apiClient.interceptors.request.use(
 );
 // 创建一个自定义事件用于处理认证失败
 export const authEvents = {
-  onAuthError: new Set<() => void>(),
-  emitAuthError() {
-    this.onAuthError.forEach(handler => handler());
+  onAuthError: new Set<(error: ApiError) => void>(),
+  emitAuthError(error: ApiError) {
+    this.onAuthError.forEach(handler => handler(error));
   }
 };
 // 响应拦截器
@@ -79,18 +79,26 @@ apiClient.interceptors.response.use(
       // 处理特定状态码
       switch (statusCode) {
         case 401:
-          // 未认证，清除token并重定向到登录页
+          const currentPath = window.location.pathname;
+          if (currentPath !== '/login') {
+            window.localStorage.setItem('redirectPath', currentPath);
+          }
+          
+          // 清除认证信息
           window.localStorage.removeItem('token');
           window.localStorage.removeItem('user');
-          authEvents.emitAuthError();
-           // 使用后端返回的具体错误信息
-           return Promise.reject(
-            new ApiError(
-              responseData?.message || '认证失败', // 使用后端返回的消息
-              statusCode,
-              responseData
-            )
+          
+          // 创建认证错误
+          const authError = new ApiError(
+            responseData?.message || '认证已过期，请重新登录',
+            statusCode,
+            responseData
           );
+          
+          // 触发认证错误事件
+          authEvents.emitAuthError(authError);
+          
+          return Promise.reject(authError);
 
 
         case 403:
