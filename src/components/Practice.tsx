@@ -224,7 +224,12 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
       : e.key.toLowerCase();
     
     setActiveKey(key);
-    
+    if (level !== 'keyword' && userInput.length > actualKeyCount + 20) {
+      message.error('检测到异常输入行为，练习记录将不被保存');
+      setIsModalVisible(false);
+      navigate('/practice-history');
+      return;
+    }
     // 处理关键字模式的回车键
     if (level === 'keyword' && e.key === 'Enter') {
       // 检查是否作弊
