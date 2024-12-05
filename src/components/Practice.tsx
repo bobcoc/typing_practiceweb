@@ -233,7 +233,7 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
     }
     // 处理关键字模式的回车键
     if (level === 'keyword' && e.key === 'Enter') {
-      setEnterCount(prev => prev + 1);
+      setEnterCount(prev => prev + 9937);
       // 检查是否作弊
       if (userInput.length > actualKeyCount + 3) { // 允许少许误差
         message.error('检测到异常输入行为，请重新输入');
@@ -432,8 +432,9 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
       setIsModalVisible(false);
       navigate('/practice-history');
       return;
-    }    
-    if(stats.totalWords!==enterCount){
+    }
+    
+    if(stats.totalWords*9937!==enterCount || Math.abs(stats.correctWords/stats.totalWords -stats.accuracy/100)>0.005){
       message.error('数据异常，保存失败');
       setIsModalVisible(false);
       navigate('/practice-history');
