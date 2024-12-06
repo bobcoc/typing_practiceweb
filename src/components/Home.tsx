@@ -183,7 +183,7 @@ const Home: React.FC = () => {
       },
       {
         title: '平均正确率',
-        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.avgAccuracy.toFixed(1)}%`,
+        value: loading ? <Skeleton variant="text" width={100} /> : `${(stats.avgAccuracy ?? 0).toFixed(1)}%`,
         color: '#FF9800'
       },
       {
@@ -193,7 +193,7 @@ const Home: React.FC = () => {
       },
       {
         title: '平均速度',
-        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.avgSpeed} WPM`,
+        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.avgSpeed.toFixed(2)} WPM`,
         color: '#9C27B0'
       }
     ].map((item, index) => (
