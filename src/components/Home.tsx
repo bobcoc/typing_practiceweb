@@ -173,7 +173,7 @@ const Home: React.FC = () => {
     {[
       {
         title: '今日练习时长',
-        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.todayPracticeTime} 分钟`,
+        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.todayPracticeTime} 秒`,
         color: '#4CAF50'
       },
       {
@@ -193,7 +193,7 @@ const Home: React.FC = () => {
       },
       {
         title: '平均速度',
-        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.avgSpeed.toFixed(2)} WPM`,
+        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.avgSpeed.toFixed(0)} WPM`,
         color: '#9C27B0'
       }
     ].map((item, index) => (
