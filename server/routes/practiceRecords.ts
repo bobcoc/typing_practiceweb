@@ -186,9 +186,7 @@ router.get('/statistics', auth, async (req: Request, res: Response) => {
     };
 
     // 计算准确的平均正确率
-    const avgAccuracy = stats.totalWords > 0
-      ? (stats.totalCorrectWords / stats.totalWords) * 100
-      : 0;
+    const avgAccuracy = stats.totalAccuracy;
 
     // 获取准确率历史记录（最近10次）
     const recentRecords = await PracticeRecord.find(
