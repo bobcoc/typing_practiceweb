@@ -287,11 +287,18 @@ userSchema.methods.updatePracticeStats = async function (this: IUser, {
 
   this.stats.totalPracticeCount += 1;
   this.stats.totalWords += words;
-  this.stats.totalAccuracy += accuracy;
+  this.stats.totalAccuracy = 
+  ((this.stats.totalAccuracy * (this.stats.totalPracticeCount - 1)) + accuracy) 
+  / this.stats.totalPracticeCount;
   this.stats.accuracyHistory.push(accuracy);
+  if (this.stats.accuracyHistory.length > 10) {
+    this.stats.accuracyHistory.shift();  // 保持最近10次记录
+  }
   this.stats.todayPracticeTime += Math.round(duration);
   this.stats.lastPracticeDate = new Date();
-  this.stats.totalSpeed += speed;
+  this.stats.totalSpeed = 
+  ((this.stats.totalSpeed * (this.stats.totalPracticeCount - 1)) + speed) 
+  / this.stats.totalPracticeCount;
 
   await this.save();
 };

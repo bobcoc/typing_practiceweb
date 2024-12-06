@@ -144,36 +144,72 @@ router.get('/statistics', auth, async (req: Request, res: Response) => {
       });
     }
 
-    const user = await User.findById(req.user._id);
-    if (!user || !user.stats) {
-      return res.status(404).json({ 
-        error: '用户统计信息不存在',
-        code: 'STATS_NOT_FOUND'
-      });
-    }
+    // 从 PracticeRecord 集合中聚合计算最准确的统计数据
+    const records = await PracticeRecord.aggregate([
+      {
+        $match: {
+          userId: new Types.ObjectId(req.user._id)
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          practiceCount: { $sum: 1 },
+          totalWords: { $sum: "$stats.totalWords" },
+          totalCorrectWords: { $sum: "$stats.correctWords" },
+          avgSpeed: { $avg: "$stats.wordsPerMinute" },
+          // 计算今日练习时间
+          todayPracticeTime: {
+            $sum: {
+              $cond: [
+                {
+                  $gte: [
+                    "$stats.endTime",
+                    new Date(new Date().setHours(0, 0, 0, 0))
+                  ]
+                },
+                "$stats.duration",
+                0
+              ]
+            }
+          }
+        }
+      }
+    ]);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const stats = records.length > 0 ? records[0] : {
+      practiceCount: 0,
+      totalWords: 0,
+      totalCorrectWords: 0,
+      avgSpeed: 0,
+      todayPracticeTime: 0
+    };
 
-    // 如果需要重置今日练习时长
-    if (!user.stats.lastPracticeDate || user.stats.lastPracticeDate < today) {
-      await user.resetTodayPracticeTime();
-    }
+    // 计算准确的平均正确率
+    const avgAccuracy = stats.totalWords > 0
+      ? (stats.totalCorrectWords / stats.totalWords) * 100
+      : 0;
 
-    // 获取统计数据
-    const avgAccuracy = user.get('averageAccuracy');
-    const avgSpeed = user.get('averageSpeed'); 
-    const recentAccuracyTrend = user.getAccuracyTrend(10);
+    // 获取准确率历史记录（最近10次）
+    const recentRecords = await PracticeRecord.find(
+      { userId: new Types.ObjectId(req.user._id) },
+      { "stats.accuracy": 1 }
+    )
+    .sort({ "stats.endTime": -1 })
+    .limit(10);
+
+    const accuracyTrend = recentRecords.map(record => record.stats.accuracy);
 
     res.json({
-      practiceCount: user.stats.totalPracticeCount || 0,
-      totalWords: user.stats.totalWords || 0,
-      avgAccuracy: Math.round(avgAccuracy * 100) / 100,
-      avgSpeed: Math.round(avgSpeed * 10) / 10,
-      todayPracticeTime: Math.round((user.stats.todayPracticeTime || 0) / 60), // 转换为分钟
-      accuracyTrend: recentAccuracyTrend,
-      lastPracticeDate: user.stats.lastPracticeDate
+      practiceCount: stats.practiceCount || 0,
+      totalWords: stats.totalWords || 0,
+      avgAccuracy: Math.round(avgAccuracy * 100) / 100, // 保留2位小数
+      avgSpeed: Math.round((stats.avgSpeed || 0) * 10) / 10, // 保留1位小数
+      todayPracticeTime: Math.round((stats.todayPracticeTime || 0) / 60000), // 转换为分钟
+      accuracyTrend: accuracyTrend,
+      lastPracticeDate: recentRecords[0]?.stats.endTime || null
     });
+
   } catch (error) {
     console.error('获取统计数据失败:', error);
     res.status(500).json({ 
