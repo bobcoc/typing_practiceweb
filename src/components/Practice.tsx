@@ -118,15 +118,22 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
 
   const updateTimer = () => {
     setStats(prev => {
-      const duration = (new Date().getTime() - prev.startTime.getTime()) / 1000;
+      // 使用本地时间加上时间差值来获取当前的服务器时间
+      const currentServerTime = Date.now() + timeOffset;
+      const duration = (currentServerTime - prev.startTime.getTime()) / 1000;
       const wordsPerMinute = (prev.totalWords / duration) * 60;
       return { ...prev, duration, wordsPerMinute };
     });
   };
+  const [timeOffset, setTimeOffset] = useState<number>(0);
   const fetchContent = async () => {
     try {
       setLoading(true);
       const { serverTime } = await api.get<{ serverTime: number }>(API_PATHS.SYSTEM.SERVER_TIME);
+      // 计算本地时间和服务器时间的差值
+    const localTime = Date.now();
+    const offset = serverTime - localTime;
+    setTimeOffset(offset);
       setStats(prev => ({
         ...prev,
         startTime: new Date(serverTime)
