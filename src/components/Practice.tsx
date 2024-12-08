@@ -126,6 +126,11 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // шо░х
   const fetchContent = async () => {
     try {
       setLoading(true);
+      const { serverTime } = await api.get<{ serverTime: number }>(API_PATHS.SYSTEM.SERVER_TIME);
+      setStats(prev => ({
+        ...prev,
+        startTime: new Date(serverTime)
+      }));
       const endpoint = level === 'keyword' 
         ? API_PATHS.KEYWORDS
         : `${API_PATHS.CODE_EXAMPLES}/${level}`;

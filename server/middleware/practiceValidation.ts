@@ -13,7 +13,7 @@ export const validatePracticeSubmission = async (
       // 1. 验证时间戳
       if (Math.abs(currentServerTime - timestamp) > 2000) {
         return res.status(400).json({
-          error: '提交时间异常',
+          error: '提交时间异111常',
           code: 'INVALID_TIMESTAMP'
         });
       }
@@ -51,7 +51,7 @@ export const validatePracticeSubmission = async (
     } catch (error) {
       console.error('Validation error:', error);
       res.status(400).json({
-        error: '数据验证失败',
+        error: '数据验证失败'+error,
         code: 'VALIDATION_ERROR'
       });
     }
