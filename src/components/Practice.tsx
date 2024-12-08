@@ -36,6 +36,8 @@ interface KeywordsResponse {
 }
 const Practice: React.FC = () => {
   const [enterCount, setEnterCount] = useState(0); 
+  const timeOffsetRef = useRef<number>(0);
+  const [timeOffset, setTimeOffset] = useState<number>(0);
   const navigate = useNavigate();
   const { level } = useParams<{ level: string }>();
   const [content, setContent] = useState<string>('');
@@ -98,8 +100,12 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
 
   useEffect(() => {
     fetchContent();
-    const intervalTimer = setInterval(updateTimer, 1000);
+    const intervalTimer = setInterval(() => {
+      // 直接使用 ref 中的值
+      updateTimer();
+    }, 1000);
     setTimer(intervalTimer);
+    
     const handleAuthError = (error: ApiError) => {
       message.error(error.message);
       setTimeout(() => {
@@ -107,25 +113,26 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
       }, 1500);
     };
     authEvents.onAuthError.add(handleAuthError);
+    
     return () => {
-      if (timer) {
-        clearInterval(timer);
+      if (intervalTimer) {
+        clearInterval(intervalTimer);
       }
-      // 移除认证错误处理器
       authEvents.onAuthError.delete(handleAuthError);
     };
-  }, [navigate]);
+  }, [navigate]); 
 
   const updateTimer = () => {
+    const currentOffset = timeOffsetRef.current;
     setStats(prev => {
-      // 使用本地时间加上时间差值来获取当前的服务器时间
-      const currentServerTime = Date.now() + timeOffset;
+      const currentServerTime = Date.now() + currentOffset;
       const duration = (currentServerTime - prev.startTime.getTime()) / 1000;
       const wordsPerMinute = (prev.totalWords / duration) * 60;
+      
       return { ...prev, duration, wordsPerMinute };
     });
   };
-  const [timeOffset, setTimeOffset] = useState<number>(0);
+
   const fetchContent = async () => {
     try {
       setLoading(true);
@@ -133,6 +140,7 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
       // 计算本地时间和服务器时间的差值
     const localTime = Date.now();
     const offset = serverTime - localTime;
+    timeOffsetRef.current = offset;
     setTimeOffset(offset);
       setStats(prev => ({
         ...prev,
@@ -143,7 +151,7 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
         : `${API_PATHS.CODE_EXAMPLES}/${level}`;
   
       const response = await api.get<KeywordsResponse | CodeExampleResponse>(endpoint);
-      console.log('API response:', response);
+
       if (level === 'keyword') {
         const keywordArray = response.content
           .split('\n')
@@ -162,7 +170,6 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
       }
     } catch (error) {
       message.error('获取内容失败');
-      console.error('获取内容失败:', error);
     } finally {
       setLoading(false);
     }
@@ -514,6 +521,9 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
           localStorage.setItem('redirectPath', window.location.pathname);
           navigate('/login');
           return;
+        }
+        if (error.statusCode === 409) {
+          message.warning('该练习记录已经保存，请勿重复提交');
         }
       } else {
         message.error('保存失败，请稍后重试');

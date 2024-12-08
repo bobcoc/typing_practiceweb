@@ -49,7 +49,23 @@ router.post('/', auth, validatePracticeSubmission, async (req: Request, res: Res
         code: 'INVALID_DATA'
       });
     }
+    // 检查是否存在最近的重复提交
+    const recentRecord = await PracticeRecord.findOne({
+      userId: new Types.ObjectId(req.user._id),
+      'stats.startTime': stats.startTime,
+    });
 
+    if (recentRecord) {
+      console.log('Detected duplicate submission:', {
+        userId: req.user._id,
+        existingRecord: recentRecord._id
+      });
+      return res.status(409).json({
+        error: '检测到重复提交',
+        code: 'DUPLICATE_SUBMISSION',
+        existingRecordId: recentRecord._id
+      });
+    }
     // 验证统计数据
     if (
       typeof stats.totalWords !== 'number' ||
