@@ -83,6 +83,9 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
     timestamp: Date.now()
   });
 
+  // 添加新的状态
+  const [currentKeywordToType, setCurrentKeywordToType] = useState<string>(''); // 用户需要输入的部分
+
   // 防止复制粘贴的事件处理函数
   const handlePaste = (e: ClipboardEvent) => {
     e.preventDefault();
@@ -178,10 +181,21 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
   const getRandomKeyword = (keywordArray: string[]) => {
     if (keywordArray.length === 0) {
       setCurrentKeyword('');
+      setCurrentKeywordToType('');
       return;
     }
     const randomIndex = Math.floor(Math.random() * keywordArray.length);
-    setCurrentKeyword(keywordArray[randomIndex]);
+    const selectedKeyword = keywordArray[randomIndex];
+    const keywordParts = selectedKeyword.split(',');
+    
+    setCurrentKeyword(selectedKeyword); // 保持完整内容显示
+    setCurrentKeywordToType(keywordParts[0].trim()); // 设置用户需要输入的部分
+    
+    if (codePreviewRef.current) {
+      const lineHeight = 21;
+      const currentLine = randomIndex;
+      codePreviewRef.current.scrollTop = currentLine * lineHeight;
+    }
   };
 
   const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -210,134 +224,48 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
 
   // 修改 handleKeyDown 函数
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-  // 处理 shift 状态
-  if (e.key === 'Shift') {
-    setShiftPressed(true);
-    const shiftKey = e.location === 1 ? 'leftshift' : 'rightshift';
-    setActiveKey(shiftKey);
-    // 如果没有其他键被按下，则更新lastComboShift
-    if (!lastNormalKey) {
-      setLastComboShift(shiftKey);
-      setLastKey(shiftKey);
-    }
-  } else {
-    // 对于非 shift 键
-    const key = e.key.toLowerCase();
-    setActiveKey(key);
-    setLastNormalKey(key);
-    
-    // 如果当前按着 shift，记录组合键状态
-    if (shiftPressed) {
-      const currentShiftKey = lastComboShift || (e.getModifierState('Shift') && e.location === 1 ? 'leftshift' : 'rightshift');
-      setLastComboShift(currentShiftKey);
-      setLastKey(key); // 保持最新按下的键的状态
+    setActiveKey(e.key);
+    if (e.key === 'Shift') {
+      setShiftPressed(true);
+      setLastComboShift(e.key);
     } else {
-      // 如果没有按 shift，清除组合键状态
-      setLastComboShift(null);
-      setLastKey(key);
+      setLastNormalKey(e.key);
     }
-  }
 
-    // 设置当前按下的键（用于虚拟键盘显示）
-    const key = e.key === 'Shift' 
-      ? (e.location === 1 ? 'leftshift' : 'rightshift')
-      : e.key.toLowerCase();
-    
-    setActiveKey(key);
-    if (level !== 'keyword' && userInput.length > actualKeyCount + 20) {
-      message.error('检测到异常输入行为，练习记录将不被保存');
-      setIsModalVisible(false);
-      navigate('/practice-history');
-      return;
-    }
-    // 处理关键字模式的回车键
-    if (level === 'keyword' && e.key === 'Enter') {
-      setEnterCount(prev => prev + 9937);
-      // 检查是否作弊
-      if (userInput.length > actualKeyCount + 3) { // 允许少许误差
-        message.error('检测到异常输入行为，请重新输入');
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      setEnterCount(prev => prev + 1);
+      
+      const isCorrect = userInput.trim() === currentKeywordToType; // 使用 currentKeywordToType 进行验证
+      
+      if (isCorrect) {
+        message.success('正确!');
+        setStats(prev => ({
+          ...prev,
+          correctWords: prev.correctWords + 1,
+          totalWords: prev.totalWords + 1,
+          accuracy: ((prev.correctWords + 1) / (prev.totalWords + 1)) * 100
+        }));
         setUserInput('');
-        setActualKeyCount(0);
-        return;
+        getRandomKeyword(content.split('\n'));
+      } else {
+        message.error(`错误! 正确答案是: ${currentKeywordToType}`);
+        setStats(prev => ({
+          ...prev,
+          totalWords: prev.totalWords + 1,
+          accuracy: (prev.correctWords / (prev.totalWords + 1)) * 100
+        }));
+        setUserInput('');
       }
-
-      const isCorrect = userInput.trim() === currentKeyword;
-      updateKeywordStats(isCorrect);
-      setUserInput('');
-      setActualKeyCount(0); // 重置计数器
-      getRandomKeyword(content.split('\n').filter(k => k.trim() !== ''));
-      return;
-    }
-    
-    // 计数有效的键盘输入
-    if (!e.ctrlKey && !e.metaKey) {
-      if (e.key.length === 1) { // 普通字符输入
-        setActualKeyCount(prev => prev + 1);
-      } else if (e.key === 'Backspace' || e.key === 'Delete') {
-        setActualKeyCount(prev => Math.max(0, prev - 1));
-      }
-    }
-
-    // 处理代码模式的特殊键
-    if (level !== 'keyword' && e.currentTarget instanceof HTMLTextAreaElement) {
-      // 处理 Tab 键
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        const start = e.currentTarget.selectionStart;
-        const end = e.currentTarget.selectionEnd;
-        const value = e.currentTarget.value;
-        const newValue = value.substring(0, start) + '    ' + value.substring(end);
-        setUserInput(newValue);
-        
-        if (textAreaRef.current) {
-          textAreaRef.current.value = newValue;
-          textAreaRef.current.selectionStart = textAreaRef.current.selectionEnd = start + 4;
-        }
-      }
-
-      // 处理回车键
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const start = e.currentTarget.selectionStart;
-        const value = e.currentTarget.value;
-        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-        const currentLine = value.slice(lineStart, start);
-        
-        const indentMatch = currentLine.match(/^\s*/);
-        const indent = indentMatch ? indentMatch[0] : '';
-        
-        const needsExtraIndent = value.slice(Math.max(0, start - 1), start) === '{';
-        const extraIndent = needsExtraIndent ? '    ' : '';
-        
-        const newValue = value.substring(0, start) + '\n' + indent + extraIndent + value.substring(start);
-        setUserInput(newValue);
-        
-        const newPosition = start + 1 + indent.length + extraIndent.length;
-        if (textAreaRef.current) {
-          textAreaRef.current.value = newValue;
-          textAreaRef.current.selectionStart = textAreaRef.current.selectionEnd = newPosition;
-        }
-      }
-
-      // 处理右大括号 }
-      if (e.key === '}') {
-        const start = e.currentTarget.selectionStart;
-        const value = e.currentTarget.value;
-        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-        const currentLine = value.slice(lineStart, start);
-        
-        if (/^\s*$/.test(currentLine)) {
-          e.preventDefault();
-          const newIndent = currentLine.slice(0, Math.max(0, currentLine.length - 4));
-          const newValue = value.substring(0, lineStart) + newIndent + '}' + value.substring(start);
-          setUserInput(newValue);
-          
-          if (textAreaRef.current) {
-            textAreaRef.current.value = newValue;
-            textAreaRef.current.selectionStart = textAreaRef.current.selectionEnd = lineStart + newIndent.length + 1;
-          }
-        }
-      }
+      
+      setActualKeyCount(prev => prev + 1);
+      setDebugInfo(prev => ({
+        ...prev,
+        keyCount: prev.keyCount + 1,
+        inputLength: 0,
+        lastInputChange: isCorrect ? 'correct input' : 'incorrect input',
+        timestamp: Date.now()
+      }));
     }
   };
 
