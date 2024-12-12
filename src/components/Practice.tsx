@@ -197,15 +197,6 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
     const oldLength = userInput.length;
     const newLength = newValue.length;
     
-    console.log('输入变化:', {
-      oldLength,
-      newLength,
-      lengthDiff: newLength - oldLength,
-      actualKeyCount,
-      timeSinceLastInput: Date.now() - debugInfo.timestamp,
-      valueChanged: newValue.slice(Math.max(0, newValue.length - 10)) // 显示最后10个字符的变化
-    });
-
     setUserInput(newValue);
     if (level !== 'keyword') {
       updateStats(newValue);
@@ -214,6 +205,11 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
 
   const handleKeywordInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     setUserInput(e.target.value);
+  };
+
+  // 添加一个工具函数来过滤不可见字符
+  const removeInvisibleChars = (str: string): string => {
+    return str.replace(/\s+/g, ''); // 移除所有空白字符（空格、换行、制表符等）
   };
 
   // 修改 handleKeyDown 函数
@@ -252,11 +248,15 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
       : e.key.toLowerCase();
     
     setActiveKey(key);
-    if (level !== 'keyword' && userInput.length > actualKeyCount + 20) {
-      message.error('检测到异常输入行为，练习记录将不被保存');
-      setIsModalVisible(false);
-      navigate('/practice-history');
-      return;
+    if (level !== 'keyword') {
+      const visibleInputLength = removeInvisibleChars(userInput).length;
+      const visibleContentLength = removeInvisibleChars(content).length;
+      if (visibleInputLength > actualKeyCount + 20) {
+        message.error('检测到异常输入行为，练习记录将不被保存');
+        setIsModalVisible(false);
+        navigate('/practice-history');
+        return;
+      }
     }
     // 处理关键字模式的回车键
     if (level === 'keyword' && e.key === 'Enter') {
@@ -281,8 +281,6 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
     if (!e.ctrlKey && !e.metaKey) {
       if (e.key.length === 1) { // 普通字符输入
         setActualKeyCount(prev => prev + 1);
-      } else if (e.key === 'Backspace' || e.key === 'Delete') {
-        setActualKeyCount(prev => Math.max(0, prev - 1));
       }
     }
 
@@ -385,6 +383,9 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
     }
   };
   const updateStats = (currentInput: string) => {
+    const visibleInput = removeInvisibleChars(currentInput);
+    const visibleContent = removeInvisibleChars(content);
+    
     const processCode = (code: string) => {
       // 1. 标准化代码，处理不影响语法的空格差异
       let processed = code
@@ -415,8 +416,8 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
     };
 
     // 处理输入和目标代码
-    const inputTokens = processCode(currentInput);
-    const contentTokens = processCode(content);
+    const inputTokens = processCode(visibleInput);
+    const contentTokens = processCode(visibleContent);
 
     // 只比较已输入的部分
     const tokensToCompare = contentTokens.slice(0, inputTokens.length);
@@ -436,15 +437,6 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
       correctWords: correctCount,
       accuracy: (correctCount / (inputTokens.length || 1)) * 100,
     }));
-
-    // 调试输出
-    console.log('Code comparison:', {
-      input: inputTokens,
-      expected: tokensToCompare,
-      correctCount,
-      totalTokens: inputTokens.length,
-      accuracy: (correctCount / (inputTokens.length || 1)) * 100
-    });
   };
 
   const handleExit = () => {
