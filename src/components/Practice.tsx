@@ -234,7 +234,7 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
 
     if (e.key === 'Enter') {
       e.preventDefault();
-      setEnterCount(prev => prev + 1);
+      setEnterCount(prev => prev + 9937);
       
       const isCorrect = userInput.trim() === currentKeywordToType; // 使用 currentKeywordToType 进行验证
       
@@ -382,6 +382,7 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
     }
     
     if(stats.totalWords*9937!==enterCount || Math.abs(stats.correctWords/stats.totalWords -stats.accuracy/100)>0.005){
+      console.log(stats.totalWords*9937,enterCount,stats.correctWords/stats.totalWords,stats.accuracy/100);
       message.error('数据异常，保存失败');
       setIsModalVisible(false);
       navigate('/practice-history');
