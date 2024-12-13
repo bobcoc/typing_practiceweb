@@ -14,6 +14,7 @@ import { API_PATHS } from '../config';
 import type { ChangeEvent, KeyboardEvent, ClipboardEvent } from 'react';
 import VirtualKeyboard from './VirtualKeyboard';
 import CryptoJS from 'crypto-js';
+import { SoundOutlined } from '@ant-design/icons';
 
 interface PracticeStats {
   totalWords: number;
@@ -383,9 +384,6 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
     }
   };
   const updateStats = (currentInput: string) => {
-    const visibleInput = removeInvisibleChars(currentInput);
-    const visibleContent = removeInvisibleChars(content);
-    
     const processCode = (code: string) => {
       // 1. 标准化代码，处理不影响语法的空格差异
       let processed = code
@@ -416,8 +414,8 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
     };
 
     // 处理输入和目标代码
-    const inputTokens = processCode(visibleInput);
-    const contentTokens = processCode(visibleContent);
+    const inputTokens = processCode(currentInput);
+    const contentTokens = processCode(content);
 
     // 只比较已输入的部分
     const tokensToCompare = contentTokens.slice(0, inputTokens.length);
@@ -558,6 +556,13 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
     </div>
   );
 
+  // 添加播放声音的函数
+  const playWordSound = (word: string) => {
+    const utterance = new SpeechSynthesisUtterance(word);
+    utterance.lang = 'en-US';
+    window.speechSynthesis.speak(utterance);
+  };
+
   if (loading) {
     return (
       <Card>
@@ -573,8 +578,29 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
       {level === 'keyword' ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: '1000px', margin: '0 auto' }}>
           {renderStats()}
-          <div style={{ margin: '20px 0', fontSize: '24px', fontFamily: 'monospace' }}>
-            {currentKeyword || '没有可用的关键字'}
+          <div style={{ 
+            margin: '20px 0', 
+            fontSize: '24px', 
+            fontFamily: 'monospace',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            {currentKeyword ? (
+              <>
+                {currentKeyword}
+                {currentKeyword.includes(',') && (
+                  <SoundOutlined 
+                    style={{ 
+                      cursor: 'pointer',
+                      fontSize: '20px',
+                      color: '#1890ff'
+                    }}
+                    onClick={() => playWordSound(currentKeyword.split(',')[0])}
+                  />
+                )}
+              </>
+            ) : '没有可用的关键字'}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', width: '80%', maxWidth: '600px', marginBottom: 20 }}>
             <Input
