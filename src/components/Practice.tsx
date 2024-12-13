@@ -14,7 +14,9 @@ import { API_PATHS } from '../config';
 import type { ChangeEvent, KeyboardEvent, ClipboardEvent } from 'react';
 import VirtualKeyboard from './VirtualKeyboard';
 import CryptoJS from 'crypto-js';
-import { SoundOutlined } from '@ant-design/icons';
+import { SoundOutlined, SettingOutlined } from '@ant-design/icons';
+import Select from 'antd/lib/select';
+import Slider from 'antd/lib/slider';
 
 interface PracticeStats {
   totalWords: number;
@@ -557,11 +559,68 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
   );
 
   // 添加播放声音的函数
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState<string>('');
+
+  // 在 useEffect 中初始化声音列表
+  useEffect(() => {
+    const loadVoices = () => {
+      const availableVoices = window.speechSynthesis.getVoices();
+      const englishVoices = availableVoices.filter(voice => 
+        voice.lang.includes('en')
+      );
+      setVoices(englishVoices);
+      if (englishVoices.length > 0) {
+        setSelectedVoice(englishVoices[0].name);
+      }
+    };
+
+    // Chrome 需要这个事件
+    if (window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+      loadVoices();
+    }
+  }, []);
+
+  // 修改后的播放函数
   const playWordSound = (word: string) => {
+    if (!('speechSynthesis' in window)) {
+      message.warning('您的浏览器不支持语音合成功能');
+      return;
+    }
+
     const utterance = new SpeechSynthesisUtterance(word);
+    
+    // 使用选中的声音
+    const voice = voices.find(v => v.name === selectedVoice);
+    if (voice) {
+      utterance.voice = voice;
+    }
+    
     utterance.lang = 'en-US';
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
     window.speechSynthesis.speak(utterance);
   };
+
+  // 在设置区域添加声音选择器
+  const VoiceSelector = () => (
+    <Select
+      value={selectedVoice}
+      onChange={setSelectedVoice}
+      style={{ width: 200 }}
+    >
+      {voices.map(voice => (
+        <Select.Option key={voice.name} value={voice.name}>
+          {voice.name} ({voice.lang})
+        </Select.Option>
+      ))}
+    </Select>
+  );
+
+  const [isSettingsVisible, setIsSettingsVisible] = useState(false);
 
   if (loading) {
     return (
@@ -590,14 +649,24 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
               <>
                 {currentKeyword}
                 {currentKeyword.includes(',') && (
-                  <SoundOutlined 
-                    style={{ 
-                      cursor: 'pointer',
-                      fontSize: '20px',
-                      color: '#1890ff'
-                    }}
-                    onClick={() => playWordSound(currentKeyword.split(',')[0])}
-                  />
+                  <>
+                    <SoundOutlined 
+                      style={{ 
+                        cursor: 'pointer',
+                        fontSize: '20px',
+                        color: '#1890ff'
+                      }}
+                      onClick={() => playWordSound(currentKeyword.split(',')[0])}
+                    />
+                    <SettingOutlined 
+                      style={{ 
+                        cursor: 'pointer',
+                        fontSize: '18px',
+                        color: '#666'
+                      }}
+                      onClick={() => setIsSettingsVisible(true)}
+                    />
+                  </>
                 )}
               </>
             ) : '没有可用的关键字'}
@@ -762,6 +831,44 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
   lastComboShift={lastComboShift}
 />
       </div>
+      <Modal
+        title="语音设置"
+        open={isSettingsVisible}
+        onOk={() => setIsSettingsVisible(false)}
+        onCancel={() => setIsSettingsVisible(false)}
+        style={{ zIndex: 1001 }}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 8 }}>选择语音：</div>
+          <Select
+            value={selectedVoice}
+            onChange={setSelectedVoice}
+            style={{ width: '100%' }}
+            dropdownStyle={{ zIndex: 1002 }}
+            listHeight={300}
+            optionFilterProp="children"
+            showSearch
+          >
+            {voices.map(voice => (
+              <Select.Option key={voice.name} value={voice.name}>
+                {voice.name} ({voice.lang})
+              </Select.Option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <div style={{ marginBottom: 8 }}>语速：</div>
+          <Slider
+            min={0.5}
+            max={2}
+            step={0.1}
+            defaultValue={0.9}
+            onChange={value => {
+              // 可以添加语速设置
+            }}
+          />
+        </div>
+      </Modal>
     </Card>
   );
 };
