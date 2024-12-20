@@ -48,9 +48,13 @@ export const API_PATHS = {
   AUTH: '/api/auth',
   KEYWORDS: '/api/keywords',
   CODE_EXAMPLES: '/api/code-examples',
-  PRACTICE_TYPES: '/api/practice-types', // 添加这行
+  PRACTICE_TYPES: '/api/practice-types',
   PRACTICE_RECORDS: '/api/practice-records',
   LEADERBOARD: '/api/leaderboard',
+  ADMIN: {
+    USERS: '/api/users',
+    PRACTICE_RECORDS: '/api/practice-records/all'
+  }
 } as const;
 
 // 分页配置

@@ -32,7 +32,7 @@ router.post('/', auth, validatePracticeSubmission, async (req: Request, res: Res
     });
 
     // 验证用户信息
-    if (!req.user?._id || !req.user?.username) {
+    if (!req.user ?._id || !req.user?.username) {
       console.error('Missing user information in request');
       return res.status(401).json({ 
         error: '用户信息无效',
@@ -208,6 +208,76 @@ router.get('/my-records', auth, async (req: Request, res: Response) => {
   } catch (error) {
     console.error('获取记录失败:', error);
     res.status(500).json({ 
+      error: '获取记录失败',
+      code: 'FETCH_ERROR'
+    });
+  }
+});
+
+// 管理员获取所有练习记录
+router.get('/all', auth, async (req: Request, res: Response) => {
+  try {
+    // 验证管理员权限
+    if (!req.user?.isAdmin) {
+      return res.status(403).json({
+        error: '需要管理员权限',
+        code: 'FORBIDDEN'
+      });
+    }
+
+    const { date, search } = req.query;
+    const query: any = {};
+
+    // 添加日期筛选
+    if (date) {
+      const startDate = new Date(date as string);
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 1);
+      
+      query.createdAt = {
+        $gte: startDate,
+        $lt: endDate
+      };
+    }
+
+    // 添加搜索条件
+    if (search) {
+      const searchRegex = new RegExp(search as string, 'i');
+      query['$or'] = [
+        { 'userInfo.fullname': searchRegex },
+        { 'userInfo.username': searchRegex }
+      ];
+    }
+
+    const records = await PracticeRecord.aggregate([
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      { $unwind: '$userInfo' },
+      { $match: query },  // 移动 $match 到 $lookup 后面以支持用户信息搜索
+      {
+        $project: {
+          _id: 1,
+          type: 1,
+          stats: 1,
+          createdAt: 1,
+          fullname: '$userInfo.fullname',
+          username: '$userInfo.username'
+        }
+      },
+      { $sort: { fullname: 1, createdAt: -1 } }
+    ]);
+
+    res.json(records);
+
+  } catch (error) {
+    console.error('获取所有练习记录失败:', error);
+    res.status(500).json({
       error: '获取记录失败',
       code: 'FETCH_ERROR'
     });

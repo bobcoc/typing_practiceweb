@@ -254,6 +254,7 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
     if (level !== 'keyword') {
       const visibleInputLength = removeInvisibleChars(userInput).length;
       const visibleContentLength = removeInvisibleChars(content).length;
+      console.log(visibleInputLength,visibleContentLength,actualKeyCount);
       if (visibleInputLength > actualKeyCount + 20) {
         message.error('检测到异常输入行为，练习记录将不被保存');
         setIsModalVisible(false);
@@ -452,7 +453,17 @@ const [lastNormalKey, setLastNormalKey] = useState<string | null>(null); // 记�
       navigate('/practice-history');
       return;
     }
-    
+    if (level !== 'keyword') {
+      const visibleInputLength = removeInvisibleChars(userInput).length;
+      const visibleContentLength = removeInvisibleChars(content).length;
+      console.log(visibleInputLength,visibleContentLength,actualKeyCount);
+      if (visibleInputLength > actualKeyCount + 20) {
+        message.error('检测到异常输入行为，练习记录将不被保存');
+        setIsModalVisible(false);
+        navigate('/practice-history');
+        return;
+      }
+    }
     if(level === 'keyword' &&(stats.totalWords*9937!==enterCount || Math.abs(stats.correctWords/stats.totalWords -stats.accuracy/100)>0.005)){
       console.log(stats.totalWords*9937,enterCount,stats.correctWords/stats.totalWords,stats.accuracy/100);
       message.error('数据异常，保存失败');

@@ -31,6 +31,25 @@ export interface CreateUserData {
   isAdmin?: boolean;
 }
 
+// 添加练习记录相关的接口
+export interface PracticeRecord {
+  _id: string;
+  userId: string;
+  username: string;
+  fullname: string;
+  type: string;
+  stats: {
+    totalWords: number;
+    correctWords: number;
+    accuracy: number;
+    wordsPerMinute: number;
+    startTime: string;
+    endTime: string;
+    duration: number;
+  };
+  createdAt: string;
+}
+
 export const adminApi = {
   getUsers: async (): Promise<User[]> => {
     const response = await apiClient.get('/api/admin/users');
@@ -65,6 +84,12 @@ export const adminApi = {
 
   deleteCodeExample: async (id: string): Promise<void> => {
     await apiClient.delete(`/api/code-examples/${id}`);
+  },
+
+  // 获取所有练习记录
+  getPracticeRecords: async (params?: { date?: string; userId?: string }): Promise<PracticeRecord[]> => {
+    const response = await apiClient.get('/api/practice-records/all', { params });
+    return response.data;
   },
 };
 

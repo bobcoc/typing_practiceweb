@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import AdminUserManager from './AdminUserManager';
 import AdminCodeManager from './AdminCodeManager';
+import AdminPracticeRecords from './AdminPracticeRecords';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -56,6 +57,7 @@ const AdminDashboard: React.FC = () => {
         >
           <Tab label="用户管理" />
           <Tab label="代码管理" />
+          <Tab label="练习记录" />
         </Tabs>
         
         <TabPanel value={tabValue} index={0}>
@@ -63,6 +65,9 @@ const AdminDashboard: React.FC = () => {
         </TabPanel>
         <TabPanel value={tabValue} index={1}>
           <AdminCodeManager />
+        </TabPanel>
+        <TabPanel value={tabValue} index={2}>
+          <AdminPracticeRecords />
         </TabPanel>
       </Paper>
     </Container>
