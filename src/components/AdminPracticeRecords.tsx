@@ -111,6 +111,18 @@ const AdminPracticeRecords: React.FC = () => {
       key: 'duration',
       render: (duration) => `${Math.round(duration)}秒`,
     },
+    {
+      title: '总字数',
+      dataIndex: ['stats', 'totalWords'],
+      key: 'totalWords',
+      render: (total) => `${total}`,
+    },
+    {
+      title: '正确字数',
+      dataIndex: ['stats', 'correctWords'],
+      key: 'correctWords',
+      render: (correct) => `${correct}`,
+    },
   ];
 
   return (
