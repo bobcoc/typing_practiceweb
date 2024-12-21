@@ -1,0 +1,277 @@
+.logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    height: 100px !important;
+    padding: 0 20px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.icon {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.book {
+    position: absolute;
+    width: 30px;
+    height: 24px;
+    border: 3px solid #4CAF50;
+    border-radius: 3px;
+    transform: rotate(-10deg);
+    transition: all 0.5s ease;
+    transform-origin: bottom left;
+    bottom: 0;
+}
+
+.bulb {
+    position: absolute;
+    top: -8px;
+    left: 8px;
+    width: 16px;
+    height: 16px;
+    background: #4CAF50;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.rays {
+    position: absolute;
+    top: -10px;
+    left: 6px;
+    width: 20px;
+    height: 20px;
+}
+
+.ray {
+    position: absolute;
+    width: 2px;
+    height: 6px;
+    background: #4CAF50;
+    opacity: 0;
+}
+
+/* 创建8个光线 */
+.ray:nth-child(1) { transform: translate(9px, 0) rotate(0deg); }
+.ray:nth-child(2) { transform: translate(16px, 3px) rotate(45deg); }
+.ray:nth-child(3) { transform: translate(19px, 10px) rotate(90deg); }
+.ray:nth-child(4) { transform: translate(16px, 17px) rotate(135deg); }
+.ray:nth-child(5) { transform: translate(9px, 20px) rotate(180deg); }
+.ray:nth-child(6) { transform: translate(2px, 17px) rotate(225deg); }
+.ray:nth-child(7) { transform: translate(-1px, 10px) rotate(270deg); }
+.ray:nth-child(8) { transform: translate(2px, 3px) rotate(315deg); }
+
+@keyframes charge {
+    0% {
+        transform: translateY(10px);
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-5px);
+        opacity: 0;
+    }
+}
+
+@keyframes glow {
+    0%, 100% {
+        opacity: 0;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.2);
+    }
+}
+
+.logo:hover .bulb {
+    background: #FFD700;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+}
+
+.logo:hover .ray {
+    animation: glow 1.5s infinite;
+    background: #FFD700;
+}
+
+.logo:hover .ray:nth-child(2) { animation-delay: 0.2s; }
+.logo:hover .ray:nth-child(3) { animation-delay: 0.4s; }
+.logo:hover .ray:nth-child(4) { animation-delay: 0.6s; }
+.logo:hover .ray:nth-child(5) { animation-delay: 0.8s; }
+.logo:hover .ray:nth-child(6) { animation-delay: 1.0s; }
+.logo:hover .ray:nth-child(7) { animation-delay: 1.2s; }
+.logo:hover .ray:nth-child(8) { animation-delay: 1.4s; }
+
+.brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    justify-content: center;
+}
+
+.d1kt {
+    font-size: 28px;
+    font-weight: 300;
+    color: #FF7043;
+    letter-spacing: 1px;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+.one {
+    color: #4CAF50;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.cn {
+    font-size: 20px;
+    color: #9E9E9E;
+    transition: all 0.3s ease;
+}
+
+.tagline {
+    font-size: 12px;
+    color: #757575;
+    letter-spacing: 1px;
+    margin: 0;
+    line-height: 1;
+    position: relative;
+}
+
+.tagline:after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: #4CAF50;
+    transition: width 0.3s ease;
+    pointer-events: none;
+}
+
+.logo:hover .tagline:after {
+    width: 100%;
+}
+
+.logo:hover .book {
+    transform: rotate(-5deg) translateY(-2px);
+    box-shadow: 0 5px 15px rgba(76,175,80,0.2);
+}
+
+.logo:hover .d1kt {
+    color: #FF8A65;
+}
+
+.logo:hover .one {
+    color: #66BB6A;
+}
+
+.charging-dots {
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+}
+
+.dot {
+    width: 4px;
+    height: 4px;
+    background: #FFD700;
+    border-radius: 50%;
+    margin: 2px 0;
+}
+
+.logo:hover .charging-dots {
+    opacity: 1;
+}
+
+.logo:hover .dot {
+    animation: charge 1.5s infinite;
+}
+
+.logo:hover .dot:nth-child(2) {
+    animation-delay: 0.5s;
+}
+
+.logo:hover .dot:nth-child(3) {
+    animation-delay: 1s;
+}
+
+/* 导航菜单样式覆盖 */
+.ant-menu-horizontal {
+    line-height: 84px !important;
+    border-bottom: none !important;
+}
+
+.ant-menu-horizontal > .ant-menu-item,
+.ant-menu-horizontal > .ant-menu-submenu {
+    color: #666;
+    padding: 0 20px !important;
+    margin: 0 4px !important;
+}
+
+.ant-menu-horizontal > .ant-menu-item:hover,
+.ant-menu-horizontal > .ant-menu-submenu:hover {
+    color: #4CAF50;
+}
+
+.ant-menu-horizontal > .ant-menu-item-selected {
+    color: #4CAF50 !important;
+}
+
+.ant-menu-horizontal > .ant-menu-item::after,
+.ant-menu-horizontal > .ant-menu-submenu::after {
+    display: none !important;
+}
+
+.ant-menu-horizontal > .ant-menu-item-selected::after {
+    display: block !important;
+    border-bottom: 2px solid #4CAF50 !important;
+}
+
+.navbar-header.ant-layout-header {
+    background: #ffffff !important;
+    height: 100px !important;
+    line-height: 100px !important;
+    padding: 8px 0 !important;
+}
+
+/* 增加选择器特异性 */
+.navbar-brand .logo-container {
+    width: 300px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.navbar-brand .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 0;
+} 

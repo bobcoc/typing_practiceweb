@@ -1,0 +1,12 @@
+/* src/styles/logo.css */
+.logo-container {
+    width: 300px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    font-family: 'Segoe UI', Arial, sans-serif;
+  }
+  
+  /* ... rest of the styles ... */

@@ -5,6 +5,7 @@ import Menu from 'antd/es/menu';
 import Layout from 'antd/es/layout';
 import message from 'antd/es/message';
 import type { MenuProps } from 'antd/es/menu'; 
+import './Navbar.css';
 
 const { Header } = Layout;
 
@@ -109,13 +110,59 @@ const NavBar: React.FC = () => {
   };
 
   return (
-    <Header style={{ padding: 0 }}>
-      <Menu 
-        theme="dark" 
-        mode="horizontal" 
-        selectedKeys={[window.location.pathname]}
-        items={getMenuItems()}
-      />
+    <Header className="navbar-header" style={{ 
+      padding: '8px 0', 
+      background: '#ffffff',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      height: '100px'
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center',
+        height: '100%',
+        maxWidth: '1200px',
+        margin: '0 auto',
+        width: '100%'
+      }}>
+        <Link to="/" style={{ textDecoration: 'none' }}>
+          <div className="logo-container">
+            <div className="logo">
+              <div className="icon">
+                <div className="book"></div>
+                <div className="bulb"></div>
+                <div className="rays">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="ray"></div>
+                  ))}
+                </div>
+                <div className="charging-dots">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="dot"></div>
+                  ))}
+                </div>
+              </div>
+              <div className="brand-text">
+                <div className="d1kt">
+                  d<span className="one">1</span>kt<span className="cn">.cn</span>
+                </div>
+                <div className="tagline">AI教育· 第一课堂</div>
+              </div>
+            </div>
+          </div>
+        </Link>
+
+        <Menu 
+          mode="horizontal" 
+          selectedKeys={[window.location.pathname]}
+          items={getMenuItems()}
+          style={{
+            background: 'transparent',
+            borderBottom: 'none',
+            flex: 1,
+            minWidth: 0
+          }}
+        />
+      </div>
     </Header>
   );
 };
