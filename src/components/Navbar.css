@@ -1,10 +1,11 @@
 .logo-container {
+    width: 300px;
+    height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #ffffff;
     font-family: 'Segoe UI', Arial, sans-serif;
-    height: 100px !important;
     padding: 0 20px;
 }
 
@@ -18,8 +19,8 @@
 
 .icon {
     position: relative;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     margin-top: 4px;
@@ -120,17 +121,17 @@
 .brand-text {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 0px;
     justify-content: center;
 }
 
 .d1kt {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 300;
     color: #FF7043;
     letter-spacing: 1px;
     line-height: 1;
-    margin-bottom: 2px;
+    margin: 0;
 }
 
 .one {
@@ -152,6 +153,7 @@
     margin: 0;
     line-height: 1;
     position: relative;
+    margin-top: 1px;
 }
 
 .tagline:after {
@@ -220,7 +222,7 @@
 
 /* 导航菜单样式覆盖 */
 .ant-menu-horizontal {
-    line-height: 84px !important;
+    line-height: 68px !important;
     border-bottom: none !important;
 }
 
@@ -229,6 +231,7 @@
     color: #666;
     padding: 0 20px !important;
     margin: 0 4px !important;
+    position: relative !important;
 }
 
 .ant-menu-horizontal > .ant-menu-item:hover,
@@ -248,13 +251,14 @@
 .ant-menu-horizontal > .ant-menu-item-selected::after {
     display: block !important;
     border-bottom: 2px solid #4CAF50 !important;
+    bottom: 8px !important;
 }
 
 .navbar-header.ant-layout-header {
     background: #ffffff !important;
-    height: 100px !important;
-    line-height: 100px !important;
-    padding: 8px 0 !important;
+    height: 68px !important;
+    line-height: 68px !important;
+    padding: 4px 0 !important;
 }
 
 /* 增加选择器特异性 */
