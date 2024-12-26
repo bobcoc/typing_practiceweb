@@ -10,6 +10,7 @@ import practiceRecordsRouter from './routes/practiceRecords';
 import leaderboardRouter from './routes/leaderboard';
 import adminRoutes from './routes/admin';
 import systemRoutes from './routes/system';
+import oauth2Routes from './routes/oauth2.routes';
 // 加载环境变量
 dotenv.config();
 
@@ -34,6 +35,7 @@ mongoose.connect(MONGODB_URI)
 app.use('/api/practice-types', practiceTypesRouter);
 app.use('/api/code-examples', codeExamplesRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/oauth2', oauth2Routes);
 app.use('/api/keywords', keywordsRouter);
 app.use('/api/practice-records', practiceRecordsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
