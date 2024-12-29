@@ -57,6 +57,7 @@ export class OAuth2Controller {
       }
       res.redirect(redirectUrl.toString());
     } catch (error) {
+      console.log('error', error);
       res.status(500).json({ error: 'server_error8' });
     }
   }
