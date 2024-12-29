@@ -4,7 +4,9 @@ import { adminAuth } from '../middleware/auth';
 import { User } from '../models/User';
 import bcrypt from 'bcrypt';
 import { OAuth2Client } from '../models/oauth2';
+import { AdminController } from './admin.controller';
 const router = express.Router();
+const adminController = new AdminController();
 
 router.get('/users', adminAuth, async (req, res) => {
   try {
@@ -123,55 +125,12 @@ router.delete('/users/:id', adminAuth, async (req, res) => {
 });
 
 // OAuth2 客户端管理路由
-router.get('/oauth2/clients', adminAuth, async (req, res) => {
-  try {
-    const clients = await OAuth2Client.find().sort({ createdAt: -1 });
-    res.json(clients);
-  } catch (error) {
-    console.error('Error fetching OAuth2 clients:', error);
-    res.status(500).json({ message: '获取客户端列表失败' });
-  }
-});
+router.get('/oauth2/clients', adminAuth, (req, res) => adminController.listOAuth2Clients(req, res));
 
-router.post('/oauth2/clients', adminAuth, async (req, res) => {
-  try {
-    const newClient = new OAuth2Client(req.body);
-    await newClient.save();
-    res.status(201).json(newClient);
-  } catch (error) {
-    console.error('Error creating OAuth2 client:', error);
-    res.status(500).json({ message: '创建客户端失败' });
-  }
-});
+router.post('/oauth2/clients', adminAuth, (req, res) => adminController.createOAuth2Client(req, res));
 
-router.put('/oauth2/clients/:id', adminAuth, async (req, res) => {
-  try {
-    const client = await OAuth2Client.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    if (!client) {
-      return res.status(404).json({ message: '客户端不存在' });
-    }
-    res.json(client);
-  } catch (error) {
-    console.error('Error updating OAuth2 client:', error);
-    res.status(500).json({ message: '更新客户端失败' });
-  }
-});
+router.put('/oauth2/clients/:id', adminAuth, (req, res) => adminController.updateOAuth2Client(req, res));
 
-router.delete('/oauth2/clients/:id', adminAuth, async (req, res) => {
-  try {
-    const client = await OAuth2Client.findByIdAndDelete(req.params.id);
-    if (!client) {
-      return res.status(404).json({ message: '客户端不存在' });
-    }
-    res.json({ message: '客户端已删除' });
-  } catch (error) {
-    console.error('Error deleting OAuth2 client:', error);
-    res.status(500).json({ message: '删除客户端失败' });
-  }
-});
+router.delete('/oauth2/clients/:id', adminAuth, (req, res) => adminController.deleteOAuth2Client(req, res));
 
 export default router;

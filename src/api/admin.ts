@@ -63,6 +63,12 @@ export interface OAuth2Client {
   updatedAt?: Date;
 }
 
+export interface CreateOAuth2ClientData {
+  name: string;
+  redirectUris: string[];
+  scope: string;
+}
+
 export const adminApi = {
   getUsers: async (): Promise<User[]> => {
     const response = await apiClient.get('/api/admin/users');
@@ -111,8 +117,8 @@ export const adminApi = {
     return response.data;
   },
 
-  createOAuth2Client: async (clientData: Omit<OAuth2Client, '_id'>): Promise<OAuth2Client> => {
-    const response = await apiClient.post('/api/admin/oauth2/clients', clientData);
+  createOAuth2Client: async (data: CreateOAuth2ClientData): Promise<OAuth2Client> => {
+    const response = await apiClient.post('/api/admin/oauth2/clients', data);
     return response.data;
   },
 

@@ -39,6 +39,7 @@ function TabPanel(props: TabPanelProps) {
 
 const AdminDashboard: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -59,7 +60,7 @@ const AdminDashboard: React.FC = () => {
           <Tab label="用户管理" />
           <Tab label="代码管理" />
           <Tab label="练习记录" />
-          <Tab label="OAuth2管理" />
+          {user.username === 'bobcoc' && <Tab label="OAuth2管理" />}
         </Tabs>
         
         <TabPanel value={tabValue} index={0}>
@@ -71,9 +72,11 @@ const AdminDashboard: React.FC = () => {
         <TabPanel value={tabValue} index={2}>
           <AdminPracticeRecords />
         </TabPanel>
-        <TabPanel value={tabValue} index={3}>
-          <AdminOAuth2Manager />
-        </TabPanel>
+        {user.username === 'bobcoc' && (
+          <TabPanel value={tabValue} index={3}>
+            <AdminOAuth2Manager />
+          </TabPanel>
+        )}
       </Paper>
     </Container>
   );

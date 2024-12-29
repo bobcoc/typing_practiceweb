@@ -50,15 +50,16 @@ const AdminOAuth2Manager: React.FC = () => {
   // 创建新客户端
   const handleCreate = async () => {
     try {
-      const response = await axios.post('/api/admin/oauth2/clients', {
+      const response = await adminApi.createOAuth2Client({
         ...formData,
         redirectUris: formData.redirectUris.filter(uri => uri.trim() !== '')
       });
       message.success('创建成功');
-      setClients([...clients, response.data]);
+      setClients([...clients, response]);
       setIsModalOpen(false);
       resetForm();
     } catch (error) {
+      console.error('创建失败:', error);
       message.error('创建失败');
     }
   };
@@ -68,9 +69,10 @@ const AdminOAuth2Manager: React.FC = () => {
     if (!selectedClient) return;
     
     try {
-      await axios.put(`/api/admin/oauth2/clients/${selectedClient.clientId}`, {
+      await adminApi.updateOAuth2Client(selectedClient.clientId, {
         ...formData,
-        redirectUris: formData.redirectUris.filter(uri => uri.trim() !== '')
+        redirectUris: formData.redirectUris.filter(uri => uri.trim() !== ''),
+        scope: formData.scope.split(' ')
       });
       message.success('更新成功');
       fetchClients();
@@ -84,7 +86,7 @@ const AdminOAuth2Manager: React.FC = () => {
   // 删除客户端
   const handleDelete = async (clientId: string) => {
     try {
-      await axios.delete(`/api/admin/oauth2/clients/${clientId}`);
+      await adminApi.deleteOAuth2Client(clientId);
       message.success('删除成功');
       setClients(clients.filter(client => client.clientId !== clientId));
     } catch (error) {
@@ -158,7 +160,11 @@ const AdminOAuth2Manager: React.FC = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-500">
-                      {client.scope.join(' ')}
+                      {Array.isArray(client.scope) 
+                        ? client.scope.join(' ')
+                        : typeof client.scope === 'string' 
+                          ? client.scope 
+                          : ''}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
