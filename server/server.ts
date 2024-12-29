@@ -2,6 +2,8 @@ import dotenv from 'dotenv';
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import session from 'express-session';
+import MongoStore from 'connect-mongo';
 import practiceTypesRouter from './routes/practiceTypes';
 import codeExamplesRouter from './routes/codeExamples';
 import authRouter from './routes/auth';
@@ -22,6 +24,25 @@ app.use(cors());
 
 // MongoDB 连接
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/typeskill';
+
+// 添加 session 配置
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: MONGODB_URI,
+        ttl: 24 * 60 * 60
+    }),
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
+
+// 如果使用了代理（如 nginx），添加这行
+app.set('trust proxy', 1);
 
 mongoose.connect(MONGODB_URI)
   .then(() => {
