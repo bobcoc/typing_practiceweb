@@ -33,8 +33,11 @@ export class OAuth2Controller {
       }
 
       // 如果用户未登录,重定向到登录页面
+      console.log('Session userId:', req.session.userId);
       if (!req.session.userId) {
-        return res.redirect(`/login?redirect=${encodeURIComponent(req.url)}`);
+        const loginUrl = `/login?redirect=${encodeURIComponent(req.url)}`;
+        console.log('Redirecting to:', loginUrl);
+        return res.redirect(loginUrl);
       }
 
       // 生成授权码
@@ -43,9 +46,9 @@ export class OAuth2Controller {
         code,
         clientId: client_id,
         userId: req.session.userId,
-        scope: (scope as string)?.split(' '),
+        scope: (scope as string)?.split(' ') || [],
         redirectUri: redirect_uri,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10分钟有效期
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       });
       await authCode.save();
 
