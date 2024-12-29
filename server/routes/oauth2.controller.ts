@@ -69,6 +69,8 @@ export class OAuth2Controller {
           name: user.username
         },
         email: user.email,
+        firstname: user.username,
+        lastname: user.fullname,
         username: user.username
       };
 
