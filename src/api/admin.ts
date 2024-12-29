@@ -50,6 +50,19 @@ export interface PracticeRecord {
   createdAt: string;
 }
 
+// 添加 OAuth2Client 接口
+export interface OAuth2Client {
+  _id: string;
+  clientId: string;
+  clientSecret: string;
+  name: string;
+  redirectUris: string[];
+  grants: string[];
+  scope: string[];
+  createdAt: string;
+  updatedAt?: Date;
+}
+
 export const adminApi = {
   getUsers: async (): Promise<User[]> => {
     const response = await apiClient.get('/api/admin/users');
@@ -90,6 +103,26 @@ export const adminApi = {
   getPracticeRecords: async (params?: { date?: string; userId?: string }): Promise<PracticeRecord[]> => {
     const response = await apiClient.get('/api/practice-records/all', { params });
     return response.data;
+  },
+
+  // OAuth2 相关方法
+  getOAuth2Clients: async (): Promise<OAuth2Client[]> => {
+    const response = await apiClient.get('/api/admin/oauth2/clients');
+    return response.data;
+  },
+
+  createOAuth2Client: async (clientData: Omit<OAuth2Client, '_id'>): Promise<OAuth2Client> => {
+    const response = await apiClient.post('/api/admin/oauth2/clients', clientData);
+    return response.data;
+  },
+
+  updateOAuth2Client: async (id: string, clientData: Partial<OAuth2Client>): Promise<OAuth2Client> => {
+    const response = await apiClient.put(`/api/admin/oauth2/clients/${id}`, clientData);
+    return response.data;
+  },
+
+  deleteOAuth2Client: async (id: string): Promise<void> => {
+    await apiClient.delete(`/api/admin/oauth2/clients/${id}`);
   },
 };
 
