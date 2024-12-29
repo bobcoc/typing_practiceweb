@@ -21,6 +21,7 @@ export class OAuth2Controller {
     
     try {
       // 验证客户端
+      console.log('client_id', client_id);
       const client = await OAuth2Client.findOne({ clientId: client_id });
       if (!client) {
         return res.status(400).json({ error: 'invalid_client' });
@@ -70,6 +71,7 @@ export class OAuth2Controller {
         clientId: client_id,
         clientSecret: client_secret
       });
+      console.log('eeeeclient', client);
       if (!client) {
         return res.status(400).json({ error: 'invalid_client' });
       }
