@@ -20,6 +20,10 @@ export class OAuth2Controller {
     const { client_id, redirect_uri, scope, response_type, state } = req.query;
     
     try {
+      // 添加请求信息的详细日志
+      console.log('Full request session:', req.session);
+      console.log('Full request query:', req.query);
+      
       // 验证客户端
       console.log('client_id', client_id);
       const client = await OAuth2Client.findOne({ clientId: client_id });
@@ -32,11 +36,16 @@ export class OAuth2Controller {
         return res.status(400).json({ error: 'invalid_redirect_uri' });
       }
 
-      // 如果用户未登录,重定向到登录页面
+      // 检查 session 和 userId
+      if (!req.session) {
+        console.log('Session is undefined');
+        return res.status(500).json({ error: 'session_not_found' });
+      }
+
       console.log('Session userId:', req.session.userId);
       if (!req.session.userId) {
         const loginUrl = `/login?redirect=${encodeURIComponent(req.url)}`;
-        console.log('Redirecting to:', loginUrl);
+        console.log('User not logged in. Redirecting to:', loginUrl);
         return res.redirect(loginUrl);
       }
 
