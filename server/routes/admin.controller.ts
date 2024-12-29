@@ -30,7 +30,7 @@ export class AdminController {
         scope
       });
     } catch (error) {
-      res.status(500).json({ error: 'server_error' });
+      res.status(500).json({ error: 'server_error1' });
     }
   }
 
@@ -42,7 +42,7 @@ export class AdminController {
       });
       res.json(clients);
     } catch (error) {
-      res.status(500).json({ error: 'server_error' });
+      res.status(500).json({ error: 'server_error2' });
     }
   }
 
@@ -60,7 +60,7 @@ export class AdminController {
 
       res.json(client);
     } catch (error) {
-      res.status(500).json({ error: 'server_error' });
+      res.status(500).json({ error: 'server_error9' });
     }
   }
 
@@ -84,7 +84,7 @@ export class AdminController {
       await OAuth2Client.updateOne({ clientId: id }, updateData);
       res.json({ ...updateData, clientId: id });
     } catch (error) {
-      res.status(500).json({ error: 'server_error' });
+      res.status(500).json({ error: 'server_error3' });
     }
   }
 
@@ -100,7 +100,7 @@ export class AdminController {
 
       res.status(204).send();
     } catch (error) {
-      res.status(500).json({ error: 'server_error' });
+      res.status(500).json({ error: 'server_error4' });
     }
   }
 } 

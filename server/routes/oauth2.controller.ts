@@ -57,7 +57,7 @@ export class OAuth2Controller {
       }
       res.redirect(redirectUrl.toString());
     } catch (error) {
-      res.status(500).json({ error: 'server_error' });
+      res.status(500).json({ error: 'server_error8' });
     }
   }
 
@@ -112,7 +112,7 @@ export class OAuth2Controller {
         res.status(400).json({ error: 'unsupported_grant_type' });
       }
     } catch (error) {
-      res.status(500).json({ error: 'server_error' });
+      res.status(500).json({ error: 'server_error7' });
     }
   }
 
@@ -151,7 +151,7 @@ export class OAuth2Controller {
 
       res.json(userInfo);
     } catch (error) {
-      res.status(500).json({ error: 'server_error' });
+      res.status(500).json({ error: 'server_error6' });
     }
   }
 } 
