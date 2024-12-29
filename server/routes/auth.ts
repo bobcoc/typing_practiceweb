@@ -3,6 +3,20 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config'; 
 import { MongoError } from 'mongodb'; 
 import { User, type IUser, type UserStats } from '../models/User'; 
+import bcrypt from 'bcrypt';
+import { Session } from 'express-session';
+import mongoose from 'mongoose';
+
+interface CustomSession extends Session {
+  userId?: string;
+  isAuthenticated?: boolean;
+}
+
+// 扩展 Request 类型
+interface CustomRequest extends Request {
+  session: CustomSession;
+}
+
 // 定义 JWT payload 的类型
 interface UserPayload {
   _id: string;
@@ -32,7 +46,7 @@ type RouteHandler = (
 )  => Promise<void | any>;  // 允许任何返回值
 
 // 登录处理函数
-const loginHandler: RouteHandler = async (req, res) => {
+const loginHandler: RouteHandler = async (req: CustomRequest, res) => {
   try {
     const { username, password } = req.body;
     
@@ -51,6 +65,12 @@ const loginHandler: RouteHandler = async (req, res) => {
       return res.status(401).json({ message: '密码错误' });
     }
 
+    // 确保设置这些session值
+    req.session.userId = (user._id as mongoose.Types.ObjectId).toString();
+    req.session.isAuthenticated = true;
+    
+    // 如果有重定向参数，则重定向回原始OAuth2请求
+    const redirectUrl = req.query.redirect || '/';
 
     // 生成 JWT token
     const token = jwt.sign(
@@ -86,7 +106,9 @@ const loginHandler: RouteHandler = async (req, res) => {
         fullname: user.fullname,
         email: user.email,
         isAdmin: user.isAdmin
-      }
+      },
+      success: true,
+      redirectUrl
     });
   } catch (error) {
     console.error('Login error:', error);

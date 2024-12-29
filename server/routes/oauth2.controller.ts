@@ -7,6 +7,7 @@ import { Session } from 'express-session';
 // 添加 session 接口声明
 interface CustomSession extends Session {
   userId?: string;
+  isAuthenticated?: boolean;
 }
 
 // 扩展 Request 类型
@@ -49,6 +50,28 @@ export class OAuth2Controller {
         return res.redirect(loginUrl);
       }
 
+      // 确保检查 session 中的认证状态
+      if (!req.session || !req.session.isAuthenticated) {
+        const loginUrl = `/login?redirect=${encodeURIComponent(req.originalUrl)}`;
+        return res.redirect(loginUrl);
+      }
+
+      // 获取用户信息并创建字段映射
+      const user = await User.findById(req.session.userId);
+      if (!user) {
+        return res.status(404).json({ error: 'user_not_found' });
+      }
+
+      // 根据请求的 scope 创建用户信息映射
+      const scopeMapping = {
+        openid: user._id,
+        profile: {
+          name: user.username
+        },
+        email: user.email,
+        username: user.username
+      };
+
       // 生成授权码
       const code = generateRandomString(32);
       const authCode = new OAuth2AuthorizationCode({
@@ -56,21 +79,24 @@ export class OAuth2Controller {
         clientId: client_id,
         userId: req.session.userId,
         scope: (scope as string)?.split(' ') || [],
+        scopeMapping: scopeMapping,  // 保存字段映射
         redirectUri: redirect_uri,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       });
+
       await authCode.save();
 
-      // 重定向回客户端
+      // 构建重定向URL
       const redirectUrl = new URL(redirect_uri as string);
       redirectUrl.searchParams.set('code', code);
       if (state) {
         redirectUrl.searchParams.set('state', state as string);
       }
-      res.redirect(redirectUrl.toString());
+
+      return res.redirect(redirectUrl.toString());
     } catch (error) {
-      console.log('error', error);
-      res.status(500).json({ error: 'server_error8' });
+      console.error('Authorization error:', error);
+      return res.status(500).json({ error: 'server_error' });
     }
   }
 
