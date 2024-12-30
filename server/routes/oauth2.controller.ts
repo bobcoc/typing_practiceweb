@@ -80,8 +80,8 @@ export class OAuth2Controller {
         code,
         clientId: client_id,
         userId: req.session.userId,
-        scope: (scope as string)?.split(' ') || [],
-        scopeMapping: scopeMapping,  // 保存字段映射
+        scope: (scope as string)?.split(' ') || ['openid', 'profile', 'email', 'firstname', 'lastname', 'username'],
+        scopeMapping: scopeMapping,
         redirectUri: redirect_uri,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       });
@@ -238,6 +238,8 @@ export class OAuth2Controller {
       }
       console.log('user', user);
       console.log('userInfo', userInfo);
+
+      console.log('Token scopes:', token.scope);
 
       res.json(userInfo);
     } catch (error) {
