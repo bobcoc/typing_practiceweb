@@ -19,118 +19,67 @@ export class OAuth2Controller {
   // 授权端点
   async authorize(req: CustomRequest, res: Response) {
     try {
-      console.log('=== OAuth2 Authorize Debug Info ===');
-      console.log('Request params:', {
-        clientId: req.query.client_id,
-        userId: req.session.userId,
-        redirectUri: req.query.redirect_uri
-      });
-
       const { client_id, redirect_uri, scope, response_type, state } = req.query;
-      
+      const user = req.user;
+
       // 验证客户端
-      console.log('client_id', client_id);
       const client = await OAuth2Client.findOne({ clientId: client_id });
       if (!client) {
-        return res.status(400).json({ error: 'invalid_client1' });
+        return res.status(400).json({ error: 'invalid_client' });
       }
 
-      // 验证redirect_uri
-      if (!redirect_uri || typeof redirect_uri !== 'string') {
-        return res.status(400).json({ error: 'invalid_redirect_uri' });
-      }
-
-      // 检查 session 和 userId
-      if (!req.session) {
-        console.log('Session is undefined');
-        return res.status(500).json({ error: 'session_not_found' });
-      }
-
-      console.log('Session userId:', req.session.userId);
-      if (!req.session.userId) {
-        const loginUrl = `/login?redirect=${encodeURIComponent(req.url)}`;
-        console.log('User not logged in. Redirecting to:', loginUrl);
-        return res.redirect(loginUrl);
-      }
-
-      // 确保检查 session 中的认证状态
-      if (!req.session || !req.session.isAuthenticated) {
-        const loginUrl = `/login?redirect=${encodeURIComponent(req.originalUrl)}`;
-        return res.redirect(loginUrl);
-      }
-
-      // 获取用户信息并检查是否已存在
-      const user = await User.findById(req.session.userId);
-      console.log('Found user:', {
-        userId: user?._id,
-        username: user?.username,
-        email: user?.email
-      });
-
-      if (!user) {
-        console.log('User not found error');
-        return res.status(404).json({ error: 'user_not_found' });
-      }
-
-      // 检查该用户是否已经关联了其他 OAuth 账号
-      const existingOAuthUser = await OAuth2Client.findOne({
+      // 查找现有的用户关联
+      const existingLink = await OAuth2Client.findOne({
         clientId: client_id,
-        'linkedUsers.userId': user._id
-      });
-      
-      console.log('OAuth linking check:', {
-        userId: user._id,
-        clientId: client_id,
-        existingLink: !!existingOAuthUser,
-        linkDetails: existingOAuthUser
+        'linkedUsers.email': user!.email
       });
 
-      // 不管是否已关联，都继续授权流程
-      if (!existingOAuthUser) {
-        console.log('Creating new OAuth link');
+      console.log('OAuth2 authorize check:', {
+        clientId: client_id,
+        userEmail: user!.email,
+        existingLink: !!existingLink
+      });
+
+      // 如果没有关联，创建新的关联
+      if (!existingLink) {
         await OAuth2Client.updateOne(
           { clientId: client_id },
-          { 
-            $addToSet: { 
+          {
+            $addToSet: {
               linkedUsers: {
-                userId: user._id,
-                username: user.username,
-                email: user.email
+                userId: user!._id,
+                username: user!.username,
+                email: user!.email
               }
             }
           }
         );
-      } else {
-        console.log('Using existing OAuth link');
       }
 
-      // 生成新的授权码
+      // 生成授权码
       const code = generateRandomString(32);
       const authCode = new OAuth2AuthorizationCode({
         code,
         clientId: client_id,
-        userId: user._id,
+        userId: user!._id,
         redirectUri: redirect_uri,
         scope: (typeof scope === 'string' ? scope.split(' ') : []) || [],
         expiresAt: new Date(Date.now() + 10 * 60 * 1000)
       });
-      
+
       await authCode.save();
-      console.log('Generated new auth code:', { code, userId: user._id });
+      console.log('Generated auth code:', { code, userId: user!._id });
 
       // 重定向回 Moodle
-      const redirectUrl = new URL(redirect_uri);
+      const redirectUrl = new URL(redirect_uri as string);
       redirectUrl.searchParams.set('code', code);
       redirectUrl.searchParams.set('state', state?.toString() || '');
-      
+
       console.log('Redirecting to:', redirectUrl.toString());
       return res.redirect(redirectUrl.toString());
 
     } catch (error: any) {
-      console.error('OAuth2 authorize error:', {
-        message: error.message,
-        stack: error.stack
-      });
+      console.error('OAuth2 authorize error:', error);
       throw error;
     }
   }
@@ -227,7 +176,7 @@ export class OAuth2Controller {
 
       const user = await User.findById(token.userId);
       if (!user) {
-        return res.status(404).json({ error: 'user_not_found' });
+        return res.status(401).json({ error: 'user_not_found' });
       }
 
       // 根据scope返回用户信息
