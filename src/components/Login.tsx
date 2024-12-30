@@ -55,6 +55,15 @@ const Login: React.FC = () => {
       localStorage.setItem('user', JSON.stringify(response.user));
       window.dispatchEvent(new Event('user-login'));
       
+      // 添加 Moodle 静默登录
+      const silentMoodleLogin = () => {
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = 'https://m.d1kt.cn/auth/oauth2/login.php?id=1&wantsurl=/';
+        document.body.appendChild(iframe);
+      };
+      silentMoodleLogin();
+      
       message.success('登录成功');
       navigate('/', { replace: true });
     } catch (error: any) {
