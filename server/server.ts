@@ -20,6 +20,7 @@ const app = express();
 
 // 中间件配置
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 // MongoDB 连接

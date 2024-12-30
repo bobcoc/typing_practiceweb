@@ -29,7 +29,7 @@ export class OAuth2Controller {
       console.log('client_id', client_id);
       const client = await OAuth2Client.findOne({ clientId: client_id });
       if (!client) {
-        return res.status(400).json({ error: 'invalid_client' });
+        return res.status(400).json({ error: 'invalid_client1' });
       }
 
       // 验证redirect_uri
@@ -104,26 +104,60 @@ export class OAuth2Controller {
 
   // 令牌端点
   async token(req: Request, res: Response) {
-    const { grant_type, code, client_id, client_secret, redirect_uri } = req.body;
-
     try {
+      // 添加请求体调试日志
+      console.log('Request Content-Type:', req.headers['content-type']);
+      console.log('Full request body:', req.body);
+      
+      const { grant_type, code, client_id, client_secret, redirect_uri } = req.body;
+
+      // 验证所需参数是否存在
+      if (!client_id || !client_secret) {
+        console.log('Missing credentials:', { client_id, client_secret });
+        return res.status(400).json({ error: 'invalid_request', message: 'Missing client credentials' });
+      }
+
       // 验证客户端
       const client = await OAuth2Client.findOne({ 
-        clientId: client_id,
-        clientSecret: client_secret
+        clientId: client_id
       });
-      console.log('eeeeclient', client);
+
       if (!client) {
-        return res.status(400).json({ error: 'invalid_client' });
+        console.log('Client authentication failed for:', { client_id, client_secret });
+        return res.status(401).json({ error: 'invalid_client2' });
       }
 
       if (grant_type === 'authorization_code') {
-        // 验证授权码
+        // 打印完整的请求参数
+        console.log('Token request parameters:', {
+          grant_type,
+          code,
+          client_id,
+          client_secret,
+          redirect_uri
+        });
+        
+        // 先只用code查询，看看记录是否存在
+        const codeRecord = await OAuth2AuthorizationCode.findOne({ code });
+        console.log('Found record by code:', codeRecord);
+        
+        // 如果找到记录，比对其他字段
+        if (codeRecord) {
+          console.log('Comparing values:', {
+            'Request clientId': client_id,
+            'DB clientId': codeRecord.clientId,
+            'Request redirectUri': redirect_uri,
+            'DB redirectUri': codeRecord.redirectUri,
+            'Expired?': codeRecord.expiresAt < new Date()
+          });
+        }
+
         const authCode = await OAuth2AuthorizationCode.findOne({ 
           code,
           clientId: client_id,
           redirectUri: redirect_uri
         });
+        console.log('authCode', authCode);
 
         if (!authCode || authCode.expiresAt < new Date()) {
           return res.status(400).json({ error: 'invalid_grant' });
