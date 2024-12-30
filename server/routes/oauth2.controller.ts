@@ -250,21 +250,28 @@ export class OAuth2Controller {
   }
 
   async getMoodleSesskey(req: Request, res: Response) {
+    console.log('Received request for moodle-sesskey');  // 请求开始日志
+    
     try {
+      console.log('Fetching Moodle login page...');
       const response = await fetch('https://m.d1kt.cn/login/index.php');
       const html = await response.text();
+      console.log('Moodle response received, length:', html.length);  // 检查是否获取到响应
+      
       const sesskeyMatch = html.match(/sesskey":"([^"]+)/);
+      console.log('Sesskey match result:', sesskeyMatch);  // 检查正则匹配结果
+      
       const sesskey = sesskeyMatch ? sesskeyMatch[1] : '';
       
       if (!sesskey) {
-        console.log('Failed to extract sesskey from Moodle response');
+        console.log('No sesskey found in response');  // 未找到 sesskey
         return res.status(500).json({ error: 'Failed to get sesskey' });
       }
 
-      console.log('Successfully got sesskey:', sesskey);
+      console.log('Successfully got sesskey:', sesskey);  // 成功获取 sesskey
       res.json({ sesskey });
     } catch (error) {
-      console.error('Get sesskey error:', error);
+      console.error('Get sesskey error:', error);  // 详细的错误信息
       res.status(500).json({ error: 'Failed to get sesskey' });
     }
   }
