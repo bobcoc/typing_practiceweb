@@ -74,6 +74,34 @@ export class OAuth2Controller {
         username: user.username
       };
 
+      // 检查该用户是否已经关联了其他 OAuth 账号
+      const existingOAuthUser = await OAuth2Client.findOne({
+        clientId: client_id,
+        'linkedUsers.userId': user._id
+      });
+
+      // 如果已经关联，直接生成新的授权码
+      if (existingOAuthUser) {
+        console.log('User already linked, proceeding with login');
+        // 继续授权流程，而不是返回错误
+      }
+
+      // 如果是首次关联，添加关联关系
+      if (!existingOAuthUser) {
+        await OAuth2Client.updateOne(
+          { clientId: client_id },
+          { 
+            $addToSet: { 
+              linkedUsers: {
+                userId: user._id,
+                username: user.username,
+                email: user.email
+              }
+            }
+          }
+        );
+      }
+
       // 生成授权码
       const code = generateRandomString(32);
       const authCode = new OAuth2AuthorizationCode({
@@ -163,6 +191,12 @@ export class OAuth2Controller {
           return res.status(400).json({ error: 'invalid_grant' });
         }
 
+        // 查找已关联的用户
+        const linkedUser = await OAuth2Client.findOne({
+          clientId: client_id,
+          'linkedUsers.userId': authCode.userId
+        });
+
         // 生成访问令牌
         const accessToken = generateRandomString(32);
         const token = new OAuth2AccessToken({
@@ -170,18 +204,24 @@ export class OAuth2Controller {
           clientId: client_id,
           userId: authCode.userId,
           scope: authCode.scope,
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1小时有效期
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          // 添加关联用户信息
+          linkedUser: linkedUser ? {
+            userId: authCode.userId,
+            isLinked: true
+          } : null
         });
         await token.save();
 
-        // 删除使用过的授权码
-        await authCode.deleteOne();
-
+        // 在响应中包含用户关联状态
         res.json({
           access_token: accessToken,
           token_type: 'Bearer',
           expires_in: 3600,
-          scope: authCode.scope.join(' ')
+          scope: authCode.scope.join(' '),
+          // 添加用户关联信息
+          account_status: linkedUser ? 'linked' : 'new',
+          user_id: authCode.userId
         });
       } else {
         res.status(400).json({ error: 'unsupported_grant_type' });
@@ -209,6 +249,12 @@ export class OAuth2Controller {
       if (!token) {
         return res.status(401).json({ error: 'invalid_token' });
       }
+
+      // 查找已关联的用户
+      const linkedUser = await OAuth2Client.findOne({
+        clientId: token.clientId,
+        'linkedUsers.userId': token.userId
+      });
 
       const user = await User.findById(token.userId);
       if (!user) {
