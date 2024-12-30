@@ -64,6 +64,10 @@ const NavBar: React.FC = () => {
   const getMenuItems = (): NonNullable<MenuProps['items']> => {
     const baseItems = [
       {
+        key: 'd1kt',
+        label: <a href="https://m.d1kt.cn" target="_blank" rel="noopener noreferrer">第一课堂课程中心</a>,
+      },
+      {
         key: '/',
         label: <Link to="/">打字练习</Link>,
       },
