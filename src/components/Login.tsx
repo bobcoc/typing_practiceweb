@@ -60,7 +60,7 @@ const Login: React.FC = () => {
       window.dispatchEvent(new Event('user-login'));
       
       // 使用 await 确保 sesskey 获取完成
-      await silentMoodleLogin();
+      //await silentMoodleLogin();
       
       message.success('登录成功');
       navigate('/', { replace: true });
