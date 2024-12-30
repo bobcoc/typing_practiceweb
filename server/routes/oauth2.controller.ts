@@ -77,18 +77,17 @@ export class OAuth2Controller {
         clientId: client_id,
         'linkedUsers.userId': user._id
       });
-      console.log('Existing OAuth user check:', {
-        exists: !!existingOAuthUser,
-        clientId: existingOAuthUser?.clientId,
-        linkedUsers: existingOAuthUser?.linkedUsers
+      
+      console.log('OAuth linking check:', {
+        userId: user._id,
+        clientId: client_id,
+        existingLink: !!existingOAuthUser,
+        linkDetails: existingOAuthUser
       });
 
-      // 如果已经关联，继续授权流程
-      if (existingOAuthUser) {
-        console.log('User already linked, proceeding with login flow');
-      } else {
-        console.log('First time OAuth login, creating link');
-        // 创建关联
+      // 不管是否已关联，都继续授权流程
+      if (!existingOAuthUser) {
+        console.log('Creating new OAuth link');
         await OAuth2Client.updateOne(
           { clientId: client_id },
           { 
@@ -101,24 +100,25 @@ export class OAuth2Controller {
             }
           }
         );
+      } else {
+        console.log('Using existing OAuth link');
       }
 
-      // 生成授权码
+      // 生成新的授权码
       const code = generateRandomString(32);
-      console.log('Generated authorization code:', code);
-
       const authCode = new OAuth2AuthorizationCode({
         code,
         clientId: client_id,
         userId: user._id,
         redirectUri: redirect_uri,
         scope: (typeof scope === 'string' ? scope.split(' ') : []) || [],
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000)
       });
+      
       await authCode.save();
-      console.log('Authorization code saved successfully');
+      console.log('Generated new auth code:', { code, userId: user._id });
 
-      // 构建重定向 URL
+      // 重定向回 Moodle
       const redirectUrl = new URL(redirect_uri);
       redirectUrl.searchParams.set('code', code);
       redirectUrl.searchParams.set('state', state?.toString() || '');
@@ -127,13 +127,11 @@ export class OAuth2Controller {
       return res.redirect(redirectUrl.toString());
 
     } catch (error: any) {
-      console.error('OAuth2 Authorize Error:', error);
-      console.error('Error stack:', error.stack);
-      return res.status(500).json({
-        error: 'server_error',
-        error_description: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      console.error('OAuth2 authorize error:', {
+        message: error.message,
+        stack: error.stack
       });
+      throw error;
     }
   }
 
