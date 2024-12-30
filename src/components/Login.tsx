@@ -50,6 +50,10 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
+      // 获取 URL 中的 redirect 参数
+      const params = new URLSearchParams(window.location.search);
+      const redirectUrl = params.get('redirect');
+
       const response = await api.post<LoginResponse>(`${API_PATHS.AUTH}/login`, {
         username,
         password
@@ -59,11 +63,16 @@ const Login: React.FC = () => {
       localStorage.setItem('user', JSON.stringify(response.user));
       window.dispatchEvent(new Event('user-login'));
       
-      // 使用 await 确保 sesskey 获取完成
-      //await silentMoodleLogin();
-      
       message.success('登录成功');
-      navigate('/', { replace: true });
+
+      // 如果有 redirect 参数且是 OAuth2 相关的路径，则跳转
+      if (redirectUrl && redirectUrl.includes('/api/oauth2/authorize')) {
+        console.log('Redirecting to OAuth flow:', redirectUrl);
+        window.location.href = redirectUrl; // 使用 window.location.href 进行完整的页面跳转
+      } else {
+        // 否则跳转到首页
+        navigate('/', { replace: true });
+      }
     } catch (error: any) {
       if (error instanceof ApiError) {
         let errorMessage = error.message;

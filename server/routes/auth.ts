@@ -49,9 +49,8 @@ type RouteHandler = (
 const loginHandler: RouteHandler = async (req: CustomRequest, res) => {
   try {
     const { username, password } = req.body;
-    const redirectUrl = req.query.redirect;  // 获取重定向URL
     
-    console.log('Login attempt:', { username, redirectUrl });
+    console.log('Login attempt:', { username });
     
     const user = await User.findOne({ username });
     
@@ -66,11 +65,14 @@ const loginHandler: RouteHandler = async (req: CustomRequest, res) => {
       return res.status(401).json({ message: '密码错误' });
     }
 
-    // 设置 session
+    // 确保设置这些session值
     req.session.userId = (user._id as mongoose.Types.ObjectId).toString();
     req.session.isAuthenticated = true;
     
-    // 生成 token
+    // 如果有重定向参数，则重定向回原始OAuth2请求
+    const redirectUrl = req.query.redirect || '/';
+
+    // 生成 JWT token
     const token = jwt.sign(
       {
         _id: user._id,
@@ -83,21 +85,20 @@ const loginHandler: RouteHandler = async (req: CustomRequest, res) => {
       { expiresIn: '24h' }
     );
 
-    console.log('Login successful:', { 
-      username,
-      redirectUrl,
-      hasToken: !!token 
+    // 调试：打印 token 信息（不打印完整 token）
+    console.log('Generated token info:', {
+      username: user.username,
+      tokenLength: token.length,
+      tokenStart: token.substring(0, 20) + '...'
     });
 
-    // 如果有重定向URL且是OAuth2相关的路径，则进行重定向
-    if (redirectUrl && typeof redirectUrl === 'string' && 
-        redirectUrl.includes('/api/oauth2/authorize')) {
-      console.log('Redirecting to OAuth flow:', redirectUrl);
-      return res.redirect(redirectUrl);
-    }
-
-    // 否则返回JSON响应
-    return res.json({
+    console.log('Login successful:', { 
+      username, fullname:user.fullname,
+      isAdmin: user.isAdmin,
+      hasToken: !!token 
+    });
+    
+    res.json({
       token,
       user: {
         _id: user._id,
@@ -107,7 +108,7 @@ const loginHandler: RouteHandler = async (req: CustomRequest, res) => {
         isAdmin: user.isAdmin
       },
       success: true,
-      redirectUrl: redirectUrl || '/'
+      redirectUrl
     });
   } catch (error) {
     console.error('Login error:', error);
