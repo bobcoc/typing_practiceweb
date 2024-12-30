@@ -66,9 +66,12 @@ const Login: React.FC = () => {
       message.success('登录成功');
 
       // 如果有 redirect 参数且是 OAuth2 相关的路径，则跳转
-      if (redirectUrl && redirectUrl.includes('/api/oauth2/authorize')) {
-        console.log('Redirecting to OAuth flow:', redirectUrl);
-        window.location.href = redirectUrl; // 使用 window.location.href 进行完整的页面跳转
+      if (redirectUrl && redirectUrl.includes('/oauth2/authorize')) {
+        console.log('Original redirect URL:', redirectUrl);
+        // 使用 API_PATHS.AUTH2 作为基础路径
+        const correctRedirectUrl = redirectUrl.replace('/oauth2', API_PATHS.AUTH2);
+        console.log('Redirecting to OAuth flow:', correctRedirectUrl);
+        window.location.href = correctRedirectUrl;
       } else {
         // 否则跳转到首页
         navigate('/', { replace: true });
