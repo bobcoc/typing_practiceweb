@@ -55,14 +55,8 @@ const Login: React.FC = () => {
       localStorage.setItem('user', JSON.stringify(response.user));
       window.dispatchEvent(new Event('user-login'));
       
-      // 添加 Moodle 静默登录
-      const silentMoodleLogin = () => {
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = 'https://m.d1kt.cn/auth/oauth2/login.php?id=1&wantsurl=/';
-        document.body.appendChild(iframe);
-      };
-      silentMoodleLogin();
+      // 使用 await 确保 sesskey 获取完成
+      await silentMoodleLogin();
       
       message.success('登录成功');
       navigate('/', { replace: true });
@@ -83,6 +77,31 @@ const Login: React.FC = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const silentMoodleLogin = async () => {
+    try {
+      // 1. 先获取 sesskey
+      const response = await fetch('https://m.d1kt.cn/login/index.php');
+      const html = await response.text();
+      const sesskeyMatch = html.match(/sesskey":"([^"]+)/);
+      const sesskey = sesskeyMatch ? sesskeyMatch[1] : '';
+      
+      console.log('Found sesskey:', sesskey);
+
+      if (!sesskey) {
+        console.error('Failed to get sesskey');
+        return;
+      }
+
+      // 2. 创建带有 sesskey 的 iframe
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = `https://m.d1kt.cn/auth/oauth2/login.php?id=1&wantsurl=/&sesskey=${sesskey}`;
+      document.body.appendChild(iframe);
+    } catch (error) {
+      console.error('Silent Moodle login error:', error);
     }
   };
 
