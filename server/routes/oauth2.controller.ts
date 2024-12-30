@@ -36,7 +36,7 @@ export class OAuth2Controller {
       }
 
       // 验证redirect_uri
-      if (!client.redirectUris.includes(redirect_uri as string)) {
+      if (!redirect_uri || typeof redirect_uri !== 'string') {
         return res.status(400).json({ error: 'invalid_redirect_uri' });
       }
 
@@ -112,7 +112,7 @@ export class OAuth2Controller {
         clientId: client_id,
         userId: user._id,
         redirectUri: redirect_uri,
-        scope: scope?.split(' ') || [],
+        scope: (typeof scope === 'string' ? scope.split(' ') : []) || [],
         expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
       });
       await authCode.save();
@@ -121,12 +121,12 @@ export class OAuth2Controller {
       // 构建重定向 URL
       const redirectUrl = new URL(redirect_uri);
       redirectUrl.searchParams.set('code', code);
-      redirectUrl.searchParams.set('state', state || '');
+      redirectUrl.searchParams.set('state', state?.toString() || '');
       
       console.log('Redirecting to:', redirectUrl.toString());
       return res.redirect(redirectUrl.toString());
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('OAuth2 Authorize Error:', error);
       console.error('Error stack:', error.stack);
       return res.status(500).json({
@@ -237,7 +237,7 @@ export class OAuth2Controller {
       } else {
         res.status(400).json({ error: 'unsupported_grant_type' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('OAuth2 Token Error:', error);
       console.error('Error stack:', error.stack);
       return res.status(500).json({

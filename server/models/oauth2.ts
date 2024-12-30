@@ -9,6 +9,11 @@ const OAuth2ClientSchema = new Schema({
   grants: [{ type: String }],
   scope: [{ type: String }],
   createdAt: { type: Date, default: Date.now },
+  linkedUsers: [{
+    userId: String,
+    username: String,
+    email: String
+  }]
 });
 
 // OAuth2授权码
