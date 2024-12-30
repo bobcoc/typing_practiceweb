@@ -86,7 +86,7 @@ const Login: React.FC = () => {
 
   const silentMoodleLogin = async () => {
     try {
-      const { sesskey } = await api.get<SessKeyResponse>(`${API_PATHS.AUTH}/moodle-sesskey`);
+      const { sesskey } = await api.get<SessKeyResponse>(`${API_PATHS.AUTH2}/moodle-sesskey`);
       
       if (!sesskey) {
         console.error('Failed to get sesskey');
