@@ -28,32 +28,44 @@ export class OAuth2Controller {
         return res.status(400).json({ error: 'invalid_client' });
       }
 
+      if (!user) {
+        return res.status(401).json({ error: 'user_not_found' });
+      }
+
+      console.log('OAuth2 authorize start:', {
+        user: user.username,
+        clientId: client_id
+      });
+
       // 查找现有的用户关联
       const existingLink = await OAuth2Client.findOne({
         clientId: client_id,
-        'linkedUsers.email': user!.email
+        'linkedUsers.username': user!.username
       });
 
-      console.log('OAuth2 authorize check:', {
-        clientId: client_id,
-        userEmail: user!.email,
-        existingLink: !!existingLink
+      console.log('OAuth2 link check:', {
+        username: user.username,
+        exists: !!existingLink,
+        linkDetails: existingLink
       });
 
-      // 如果没有关联，创建新的关联
+      // 只在没有现有关联时创建新的关联
       if (!existingLink) {
+        console.log('Creating new OAuth link');
         await OAuth2Client.updateOne(
           { clientId: client_id },
           {
             $addToSet: {
               linkedUsers: {
-                userId: user!._id,
-                username: user!.username,
-                email: user!.email
+                userId: user._id,
+                username: user.username,
+                email: user.email
               }
             }
           }
         );
+      } else {
+        console.log('Using existing OAuth link - proceeding with authorization');
       }
 
       // 生成授权码
@@ -71,7 +83,11 @@ export class OAuth2Controller {
       console.log('Generated auth code:', { code, userId: user!._id });
 
       // 重定向回 Moodle
-      const redirectUrl = new URL(redirect_uri as string);
+      if (!redirect_uri || typeof redirect_uri !== 'string') {
+        return res.status(400).json({ error: 'invalid_redirect_uri' });
+      }
+
+      const redirectUrl = new URL(redirect_uri);
       redirectUrl.searchParams.set('code', code);
       redirectUrl.searchParams.set('state', state?.toString() || '');
 
