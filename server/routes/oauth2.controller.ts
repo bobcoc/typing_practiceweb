@@ -217,11 +217,24 @@ export class OAuth2Controller {
 
       // 根据scope返回用户信息
       const userInfo: any = {};
+      if (token.scope.includes('openid')) {
+        userInfo.sub = user._id;
+      }
       if (token.scope.includes('profile')) {
         userInfo.name = user.username;
+        userInfo.fullname = user.fullname;
       }
       if (token.scope.includes('email')) {
         userInfo.email = user.email;
+      }
+      if (token.scope.includes('firstname')) {
+        userInfo.firstname = user.username;
+      }
+      if (token.scope.includes('lastname')) {
+        userInfo.lastname = user.fullname;
+      }
+      if (token.scope.includes('username')) {
+        userInfo.username = user.username;
       }
 
       res.json(userInfo);
