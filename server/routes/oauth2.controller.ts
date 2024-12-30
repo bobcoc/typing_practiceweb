@@ -139,20 +139,9 @@ export class OAuth2Controller {
   async token(req: Request, res: Response) {
     try {
       console.log('=== OAuth2 Token Debug Info ===');
-      console.log('Token request body:', {
-        grantType: req.body.grant_type,
-        code: req.body.code,
-        clientId: req.body.client_id,
-        redirectUri: req.body.redirect_uri
-      });
+      console.log('Token request body:', req.body);
 
       const { grant_type, code, client_id, client_secret, redirect_uri } = req.body;
-
-      // 验证所需参数是否存在
-      if (!client_id || !client_secret) {
-        console.log('Missing credentials:', { client_id, client_secret });
-        return res.status(400).json({ error: 'invalid_request', message: 'Missing client credentials' });
-      }
 
       // 验证客户端
       const client = await OAuth2Client.findOne({ 
@@ -160,51 +149,19 @@ export class OAuth2Controller {
       });
 
       if (!client) {
-        console.log('Client authentication failed for:', { client_id, client_secret });
-        return res.status(401).json({ error: 'invalid_client2' });
+        console.log('Client not found:', client_id);
+        return res.status(401).json({ error: 'invalid_client' });
       }
 
       if (grant_type === 'authorization_code') {
-        // 打印完整的请求参数
-        console.log('Token request parameters:', {
-          grant_type,
-          code,
-          client_id,
-          client_secret,
-          redirect_uri
-        });
-        
-        // 先只用code查询，看看记录是否存在
-        const codeRecord = await OAuth2AuthorizationCode.findOne({ code });
-        console.log('Found record by code:', codeRecord);
-        
-        // 如果找到记录，比对其他字段
-        if (codeRecord) {
-          console.log('Comparing values:', {
-            'Request clientId': client_id,
-            'DB clientId': codeRecord.clientId,
-            'Request redirectUri': redirect_uri,
-            'DB redirectUri': codeRecord.redirectUri,
-            'Expired?': codeRecord.expiresAt < new Date()
-          });
-        }
-
-        const authCode = await OAuth2AuthorizationCode.findOne({ 
-          code,
-          clientId: client_id,
-          redirectUri: redirect_uri
-        });
-        console.log('authCode', authCode);
+        // 查找授权码
+        const authCode = await OAuth2AuthorizationCode.findOne({ code });
+        console.log('Found auth code:', authCode);
 
         if (!authCode || authCode.expiresAt < new Date()) {
+          console.log('Invalid or expired auth code');
           return res.status(400).json({ error: 'invalid_grant' });
         }
-
-        // 查找已关联的用户
-        const linkedUser = await OAuth2Client.findOne({
-          clientId: client_id,
-          'linkedUsers.userId': authCode.userId
-        });
 
         // 生成访问令牌
         const accessToken = generateRandomString(32);
@@ -213,35 +170,32 @@ export class OAuth2Controller {
           clientId: client_id,
           userId: authCode.userId,
           scope: authCode.scope,
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-          // 添加关联用户信息
-          linkedUser: linkedUser ? {
-            userId: authCode.userId,
-            isLinked: true
-          } : null
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000)
         });
-        await token.save();
 
-        // 在响应中包含用户关联状态
-        res.json({
+        await token.save();
+        console.log('Generated access token:', accessToken);
+
+        // 返回令牌响应
+        return res.json({
           access_token: accessToken,
           token_type: 'Bearer',
           expires_in: 3600,
-          scope: authCode.scope.join(' '),
-          // 添加用户关联信息
-          account_status: linkedUser ? 'linked' : 'new',
-          user_id: authCode.userId
+          scope: authCode.scope.join(' ')
         });
-      } else {
-        res.status(400).json({ error: 'unsupported_grant_type' });
       }
+
+      return res.status(400).json({ error: 'unsupported_grant_type' });
+
     } catch (error: any) {
-      console.error('OAuth2 Token Error:', error);
-      console.error('Error stack:', error.stack);
-      return res.status(500).json({
+      console.error('OAuth2 Token Error:', {
+        message: error.message,
+        stack: error.stack,
+        body: req.body
+      });
+      return res.status(500).json({ 
         error: 'server_error',
-        error_description: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        error_description: error.message
       });
     }
   }
