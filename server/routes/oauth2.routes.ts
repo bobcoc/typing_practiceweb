@@ -8,5 +8,6 @@ const oauth2Controller = new OAuth2Controller();
 router.get('/authorize', oauth2Controller.authorize);
 router.post('/token', oauth2Controller.token);
 router.get('/userinfo', oauth2Controller.userinfo);
+router.get('/moodle-sesskey', oauth2Controller.getMoodleSesskey.bind(oauth2Controller));
 
 export default router; 

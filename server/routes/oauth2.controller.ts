@@ -3,6 +3,7 @@ import { OAuth2Client, OAuth2AuthorizationCode, OAuth2AccessToken } from '../mod
 import { User } from '../models/User';
 import { generateRandomString } from '../utils/crypto';
 import { Session } from 'express-session';
+import fetch from 'node-fetch';
 
 // 添加 session 接口声明
 interface CustomSession extends Session {
@@ -245,6 +246,26 @@ export class OAuth2Controller {
       res.json(userInfo);
     } catch (error) {
       res.status(500).json({ error: 'server_error6' });
+    }
+  }
+
+  async getMoodleSesskey(req: Request, res: Response) {
+    try {
+      const response = await fetch('https://m.d1kt.cn/login/index.php');
+      const html = await response.text();
+      const sesskeyMatch = html.match(/sesskey":"([^"]+)/);
+      const sesskey = sesskeyMatch ? sesskeyMatch[1] : '';
+      
+      if (!sesskey) {
+        console.log('Failed to extract sesskey from Moodle response');
+        return res.status(500).json({ error: 'Failed to get sesskey' });
+      }
+
+      console.log('Successfully got sesskey:', sesskey);
+      res.json({ sesskey });
+    } catch (error) {
+      console.error('Get sesskey error:', error);
+      res.status(500).json({ error: 'Failed to get sesskey' });
     }
   }
 } 
