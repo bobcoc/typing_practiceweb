@@ -20,16 +20,31 @@ export class OAuth2Controller {
   async authorize(req: CustomRequest, res: Response) {
     try {
       const { client_id, redirect_uri, scope, response_type, state } = req.query;
-      const user = req.user;
+
+      // 添加用户会话检查
+      if (!req.session.userId || !req.session.isAuthenticated) {
+        console.log('User not authenticated:', {
+          sessionId: req.session.id,
+          userId: req.session.userId,
+          isAuthenticated: req.session.isAuthenticated
+        });
+        
+        // 保存当前 OAuth 请求参数，以便登录后重定向回来
+        const currentUrl = req.originalUrl;
+        return res.redirect(`/login?redirect=${encodeURIComponent(currentUrl)}`);
+      }
+
+      // 从会话中获取用户信息
+      const user = await User.findById(req.session.userId);
+      if (!user) {
+        console.log('User not found in database:', req.session.userId);
+        return res.status(401).json({ error: 'user_not_found' });
+      }
 
       // 验证客户端
       const client = await OAuth2Client.findOne({ clientId: client_id });
       if (!client) {
         return res.status(400).json({ error: 'invalid_client' });
-      }
-
-      if (!user) {
-        return res.status(401).json({ error: 'user_not_found' });
       }
 
       console.log('OAuth2 authorize start:', {
