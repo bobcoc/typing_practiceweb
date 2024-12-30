@@ -21,12 +21,13 @@ export const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
 
 // API 路径配置
 export const API_PATHS = {
+  AUTH: '/api/auth',
+  AUTH2: '/api/oauth2',
   KEYWORDS: '/api/keywords',
   CODE_EXAMPLES: '/api/code-examples',
   PRACTICE_TYPES: '/api/practice-types',
   PRACTICE_RECORDS: '/api/practice-records',
   LEADERBOARD: '/api/leaderboard',
-  AUTH: '/api/auth',
   SYSTEM: {
     SERVER_TIME: '/api/system/server-time'
   },
