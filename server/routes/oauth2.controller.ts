@@ -236,6 +236,8 @@ export class OAuth2Controller {
       if (token.scope.includes('username')) {
         userInfo.username = user.username;
       }
+      console.log('user', user);
+      console.log('userInfo', userInfo);
 
       res.json(userInfo);
     } catch (error) {
