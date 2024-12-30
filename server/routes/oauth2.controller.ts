@@ -112,8 +112,8 @@ export class OAuth2Controller {
         return res.redirect(redirectUrl.toString());
       } else {
         // 如果用户未登录，先进行静默授权
-        const silentAuthUrl = `/api/auth/silent-login?redirect=${encodeURIComponent(req.originalUrl)}`;
-        return res.redirect(silentAuthUrl);
+       // const silentAuthUrl = `/api/auth/silent-login?redirect=${encodeURIComponent(req.originalUrl)}`;
+        //return res.redirect(silentAuthUrl);
       }
     } catch (error: any) {
       console.error('OAuth2 authorize error:', error);
