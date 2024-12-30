@@ -18,12 +18,15 @@ interface CustomRequest extends Request {
 export class OAuth2Controller {
   // 授权端点
   async authorize(req: CustomRequest, res: Response) {
-    const { client_id, redirect_uri, scope, response_type, state } = req.query;
-    
     try {
-      // 添加请求信息的详细日志
-      console.log('Full request session:', req.session);
-      console.log('Full request query:', req.query);
+      console.log('=== OAuth2 Authorize Debug Info ===');
+      console.log('Request params:', {
+        clientId: req.query.client_id,
+        userId: req.session.userId,
+        redirectUri: req.query.redirect_uri
+      });
+
+      const { client_id, redirect_uri, scope, response_type, state } = req.query;
       
       // 验证客户端
       console.log('client_id', client_id);
@@ -56,38 +59,36 @@ export class OAuth2Controller {
         return res.redirect(loginUrl);
       }
 
-      // 获取用户信息并创建字段映射
+      // 获取用户信息并检查是否已存在
       const user = await User.findById(req.session.userId);
+      console.log('Found user:', {
+        userId: user?._id,
+        username: user?.username,
+        email: user?.email
+      });
+
       if (!user) {
+        console.log('User not found error');
         return res.status(404).json({ error: 'user_not_found' });
       }
-
-      // 根据请求的 scope 创建用户信息映射
-      const scopeMapping = {
-        openid: user._id,
-        profile: {
-          name: user.username
-        },
-        email: user.email,
-        firstname: user.username,
-        lastname: user.fullname,
-        username: user.username
-      };
 
       // 检查该用户是否已经关联了其他 OAuth 账号
       const existingOAuthUser = await OAuth2Client.findOne({
         clientId: client_id,
         'linkedUsers.userId': user._id
       });
+      console.log('Existing OAuth user check:', {
+        exists: !!existingOAuthUser,
+        clientId: existingOAuthUser?.clientId,
+        linkedUsers: existingOAuthUser?.linkedUsers
+      });
 
-      // 如果已经关联，直接生成新的授权码
+      // 如果已经关联，继续授权流程
       if (existingOAuthUser) {
-        console.log('User already linked, proceeding with login');
-        // 继续授权流程，而不是返回错误
-      }
-
-      // 如果是首次关联，添加关联关系
-      if (!existingOAuthUser) {
+        console.log('User already linked, proceeding with login flow');
+      } else {
+        console.log('First time OAuth login, creating link');
+        // 创建关联
         await OAuth2Client.updateOne(
           { clientId: client_id },
           { 
@@ -104,39 +105,49 @@ export class OAuth2Controller {
 
       // 生成授权码
       const code = generateRandomString(32);
+      console.log('Generated authorization code:', code);
+
       const authCode = new OAuth2AuthorizationCode({
         code,
         clientId: client_id,
-        userId: req.session.userId,
-        scope: (scope as string)?.split(' ') || ['openid', 'profile', 'email', 'firstname', 'lastname', 'username'],
-        scopeMapping: scopeMapping,
+        userId: user._id,
         redirectUri: redirect_uri,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        scope: scope?.split(' ') || [],
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
       });
-
       await authCode.save();
+      console.log('Authorization code saved successfully');
 
-      // 构建重定向URL
-      const redirectUrl = new URL(redirect_uri as string);
+      // 构建重定向 URL
+      const redirectUrl = new URL(redirect_uri);
       redirectUrl.searchParams.set('code', code);
-      if (state) {
-        redirectUrl.searchParams.set('state', state as string);
-      }
-
+      redirectUrl.searchParams.set('state', state || '');
+      
+      console.log('Redirecting to:', redirectUrl.toString());
       return res.redirect(redirectUrl.toString());
+
     } catch (error) {
-      console.error('Authorization error:', error);
-      return res.status(500).json({ error: 'server_error' });
+      console.error('OAuth2 Authorize Error:', error);
+      console.error('Error stack:', error.stack);
+      return res.status(500).json({
+        error: 'server_error',
+        error_description: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 
   // 令牌端点
   async token(req: Request, res: Response) {
     try {
-      // 添加请求体调试日志
-      console.log('Request Content-Type:', req.headers['content-type']);
-      console.log('Full request body:', req.body);
-      
+      console.log('=== OAuth2 Token Debug Info ===');
+      console.log('Token request body:', {
+        grantType: req.body.grant_type,
+        code: req.body.code,
+        clientId: req.body.client_id,
+        redirectUri: req.body.redirect_uri
+      });
+
       const { grant_type, code, client_id, client_secret, redirect_uri } = req.body;
 
       // 验证所需参数是否存在
@@ -227,7 +238,13 @@ export class OAuth2Controller {
         res.status(400).json({ error: 'unsupported_grant_type' });
       }
     } catch (error) {
-      res.status(500).json({ error: 'server_error7' });
+      console.error('OAuth2 Token Error:', error);
+      console.error('Error stack:', error.stack);
+      return res.status(500).json({
+        error: 'server_error',
+        error_description: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 
