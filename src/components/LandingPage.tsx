@@ -78,7 +78,7 @@ const LandingPage: React.FC = () => {
       </Box>
 
       {/* 第二部分 - AI平台 */}
-      <Box sx={{ mb: 8, textAlign: 'center' }}>
+      <Box sx={{ mb: 8 }}>
         <Typography variant="h3" component="h2" gutterBottom>
           {config.secondSectionTitle}
         </Typography>
@@ -118,7 +118,7 @@ const LandingPage: React.FC = () => {
       </Box>
 
       {/* 第三部分 - 课程中心 */}
-      <Box sx={{ mb: 8, textAlign: 'center' }}>
+      <Box sx={{ mb: 8 }}>
         <Typography variant="h3" component="h2" gutterBottom>
           {config.thirdSectionTitle}
         </Typography>
