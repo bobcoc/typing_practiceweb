@@ -77,7 +77,7 @@ const LandingPage: React.FC = () => {
         </Grid>
       </Box>
 
-      {/* 第二组QA内容区域 - 使用与顶部相同的样式 */}
+      {/* 第二部分 - AI平台 */}
       <Box sx={{ mb: 8, textAlign: 'center' }}>
         <Typography variant="h3" component="h2" gutterBottom>
           {config.secondSectionTitle}
@@ -104,9 +104,20 @@ const LandingPage: React.FC = () => {
             </Grid>
           ))}
         </Grid>
+        {/* AI平台按钮 */}
+        <Box sx={{ mt: 4, textAlign: 'center' }}>
+          <Button 
+            variant="contained" 
+            size="large" 
+            onClick={() => window.open('https://c.d1kt.cn', '_blank')}
+            sx={{ mt: 2 }}
+          >
+            进入第一课堂AI平台
+          </Button>
+        </Box>
       </Box>
 
-      {/* 课程中心区域 */}
+      {/* 第三部分 - 课程中心 */}
       <Box sx={{ mb: 8, textAlign: 'center' }}>
         <Typography variant="h3" component="h2" gutterBottom>
           {config.thirdSectionTitle}
@@ -133,26 +144,17 @@ const LandingPage: React.FC = () => {
             </Grid>
           ))}
         </Grid>
-      </Box>
-
-      {/* 更新入口按钮 */}
-      <Box sx={{ mt: 6, textAlign: 'center' }}>
-        <Button 
-          variant="contained" 
-          size="large" 
-          onClick={() => window.open('https://m.d1kt.cn', '_blank')}
-          sx={{ mt: 2, mr: 2 }}
-        >
-          进入课程中心
-        </Button>
-        <Button 
-          variant="contained" 
-          size="large" 
-          onClick={() => window.open('https://c.d1kt.cn', '_blank')}
-          sx={{ mt: 2 }}
-        >
-          进入第一课堂AI平台
-        </Button>
+        {/* 课程中心按钮 */}
+        <Box sx={{ mt: 4, textAlign: 'center' }}>
+          <Button 
+            variant="contained" 
+            size="large" 
+            onClick={() => window.open('https://m.d1kt.cn', '_blank')}
+            sx={{ mt: 2 }}
+          >
+            进入课程中心
+          </Button>
+        </Box>
       </Box>
     </Container>
   );
