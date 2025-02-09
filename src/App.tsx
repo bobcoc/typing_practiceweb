@@ -12,6 +12,8 @@ import Footer from './components/Footer';
 import PracticeHistory from './components/PracticeHistory';
 import Leaderboard from './components/Leaderboard';
 import ChangePassword from './components/ChangePassword';
+import LandingPage from './components/LandingPage';
+import TypingPractice from './components/TypingPractice';
 
 // 创建一个包装组件来处理认证
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -76,10 +78,11 @@ const App: React.FC = () => {
         <Navbar />
         <Routes>
           {/* 公共路由 - 不需要登录就能访问 */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/typing" element={<TypingPractice />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
-          <Route path="/" element={<Home />} />
 
           {/* 需要登录的路由 */}
           {user ? (
