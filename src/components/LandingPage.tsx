@@ -50,14 +50,8 @@ const LandingPage: React.FC = () => {
         </Typography>
       </Box>
 
-      {/* 第一组QA内容区域 */}
+      {/* 直接显示第一组QA内容，不需要标题 */}
       <Box sx={{ mb: 8 }}>
-        <Typography variant="h4" sx={{ mb: 2 }}>
-          {config.firstSectionTitle}
-        </Typography>
-        <Typography variant="h5" color="text.secondary" sx={{ mb: 4 }}>
-          {config.firstSectionSubtitle}
-        </Typography>
         <Grid container spacing={4}>
           {firstSection.map((qa, index) => (
             <Grid item xs={12} md={6} key={index}>
@@ -79,12 +73,12 @@ const LandingPage: React.FC = () => {
         </Grid>
       </Box>
 
-      {/* 第二组QA内容区域 */}
-      <Box sx={{ mb: 8 }}>
-        <Typography variant="h4" sx={{ mb: 2 }}>
+      {/* 第二组QA内容区域 - 使用与顶部相同的样式 */}
+      <Box sx={{ mb: 8, textAlign: 'center' }}>
+        <Typography variant="h3" component="h2" gutterBottom>
           {config.secondSectionTitle}
         </Typography>
-        <Typography variant="h5" color="text.secondary" sx={{ mb: 4 }}>
+        <Typography variant="h5" color="text.secondary" paragraph>
           {config.secondSectionSubtitle}
         </Typography>
         <Grid container spacing={4}>
