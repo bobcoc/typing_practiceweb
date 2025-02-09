@@ -22,6 +22,21 @@ const qaContent = [
     question: "如何将AI融入课堂教学？",
     answer: "1. 使用AI进行实时语言翻译和解释\n2. 创建交互式教学内容\n3. 利用AI进行课堂提问和讨论引导\n4. 应用AI辅助教学评估和反馈",
     category: "课堂应用"
+  },
+  {
+    question: "第一课堂AI平台有哪些特色功能？",
+    answer: "1. 多模型集成：整合了deepseek、阿里千问、智谙AI等主流大模型\n2. 智能教学助手：为教师提供备课、出题、批改作业等全方位支持\n3. 个性化学习：根据学生水平推荐适合的学习内容和练习\n4. 实时互动：支持师生在线交流和即时答疑",
+    category: "平台介绍"
+  },
+  {
+    question: "第一课堂AI平台如何帮助教师？",
+    answer: "1. 自动生成教案和课件，节省备课时间\n2. 智能分析学生作业和考试数据，掌握学情\n3. 提供个性化教学建议和教学策略优化方案\n4. 协助设计多样化的课堂活动和互动环节",
+    category: "教师服务"
+  },
+  {
+    question: "学生如何充分利用第一课堂AI平台？",
+    answer: "1. 获取个性化学习建议和解答\n2. 利用AI辅助完成作业和自主学习\n3. 通过智能练习系统巩固知识点\n4. 使用AI工具进行学习规划和时间管理",
+    category: "学生服务"
   }
 ];
 
@@ -38,14 +53,6 @@ const LandingPage: React.FC = () => {
         <Typography variant="h5" color="text.secondary" paragraph>
           赋能教育，智启未来
         </Typography>
-        <Button 
-          variant="contained" 
-          size="large" 
-          onClick={() => navigate('/typing')}
-          sx={{ mt: 2 }}
-        >
-          进入打字练习
-        </Button>
       </Box>
 
       {/* QA内容区域 */}
@@ -72,6 +79,18 @@ const LandingPage: React.FC = () => {
           </Grid>
         ))}
       </Grid>
+
+      {/* 平台入口按钮 */}
+      <Box sx={{ mt: 6, textAlign: 'center' }}>
+        <Button 
+          variant="contained" 
+          size="large" 
+          onClick={() => window.open('https://c.d1kt.cn', '_blank')}
+          sx={{ mt: 2 }}
+        >
+          进入第一课堂AI平台
+        </Button>
+      </Box>
     </Container>
   );
 };
