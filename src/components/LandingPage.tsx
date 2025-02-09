@@ -37,6 +37,10 @@ const LandingPage: React.FC = () => {
     config.firstSectionCount,
     config.firstSectionCount + config.secondSectionCount
   );
+  const thirdSection = config.qaContent.slice(
+    config.firstSectionCount + config.secondSectionCount,
+    config.firstSectionCount + config.secondSectionCount + config.thirdSectionCount
+  );
 
   return (
     <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -102,8 +106,45 @@ const LandingPage: React.FC = () => {
         </Grid>
       </Box>
 
-      {/* 平台入口按钮 */}
+      {/* 课程中心区域 */}
+      <Box sx={{ mb: 8, textAlign: 'center' }}>
+        <Typography variant="h3" component="h2" gutterBottom>
+          {config.thirdSectionTitle}
+        </Typography>
+        <Typography variant="h5" color="text.secondary" paragraph>
+          {config.thirdSectionSubtitle}
+        </Typography>
+        <Grid container spacing={4}>
+          {thirdSection.map((qa, index) => (
+            <Grid item xs={12} md={6} key={index}>
+              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardContent>
+                  <Typography variant="overline" color="primary">
+                    {qa.category}
+                  </Typography>
+                  <Typography variant="h6" component="h2" gutterBottom>
+                    {qa.question}
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                    {qa.answer}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
+
+      {/* 更新入口按钮 */}
       <Box sx={{ mt: 6, textAlign: 'center' }}>
+        <Button 
+          variant="contained" 
+          size="large" 
+          onClick={() => window.open('https://m.d1kt.cn', '_blank')}
+          sx={{ mt: 2, mr: 2 }}
+        >
+          进入课程中心
+        </Button>
         <Button 
           variant="contained" 
           size="large" 
