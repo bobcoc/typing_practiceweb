@@ -31,7 +31,7 @@ interface Statistics {
 }
 
 
-const Home: React.FC = () => {
+const TypingPractice: React.FC = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<Statistics>({
     practiceCount: 0,
@@ -224,4 +224,4 @@ const Home: React.FC = () => {
   );
 };
 
-export default Home;
+export default TypingPractice;

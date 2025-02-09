@@ -18,6 +18,13 @@ interface UserInfo {
 const NavBar: React.FC = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<UserInfo | null>(null);
+  const currentPath = window.location.pathname;
+
+  // 添加一个函数来检查是否为打字练习相关页面
+  const isTypingRelatedPage = (path: string): boolean => {
+    const typingPaths = ['/typing', '/leaderboard', '/practice-history'];
+    return typingPaths.some(p => path.startsWith(p));
+  };
 
   useEffect(() => {
     // 统一处理用户状态更新
@@ -75,17 +82,22 @@ const NavBar: React.FC = () => {
         key: '/typing',
         label: <Link to="/typing">打字练习</Link>,
       },
+    ];
+
+    // 在打字练习相关页面显示这些菜单项
+    const typingRelatedItems = isTypingRelatedPage(currentPath) ? [
       {
         key: '/leaderboard',
         label: <Link to="/leaderboard">排行榜</Link>,
-      }
-    ];
-
-    const authenticatedItems = user ? [
-      {
+      },
+      ...(user ? [{
         key: '/practice-history',
         label: <Link to="/practice-history">练习历史</Link>,
-      },
+      }] : []),
+    ] : [];
+
+    const authenticatedItems = user ? [
+      ...typingRelatedItems,
       ...(user.isAdmin ? [{
         key: '/admin',
         label: <Link to="/admin">管理后台</Link>,
