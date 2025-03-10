@@ -14,6 +14,7 @@ import Leaderboard from './components/Leaderboard';
 import ChangePassword from './components/ChangePassword';
 import LandingPage from './components/LandingPage';
 import TypingPractice from './components/TypingPractice';
+import StudentSearch from './components/StudentSearch';
 
 // 创建一个包装组件来处理认证
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -105,6 +106,8 @@ const App: React.FC = () => {
               <Route path="/admin/*" element={<Navigate to="/login" replace />} />
             </>
           )}
+          
+          <Route path="/student-search" element={<StudentSearch />} />
           
           {/* 处理未匹配的路径 */}
           <Route path="*" element={<Navigate to="/" replace />} />
