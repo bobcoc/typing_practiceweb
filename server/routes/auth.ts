@@ -6,10 +6,12 @@ import { User, type IUser, type UserStats } from '../models/User';
 import bcrypt from 'bcrypt';
 import { Session } from 'express-session';
 import mongoose from 'mongoose';
+import { OAuth2AccessToken, UserSession } from '../models/oauth2';
 
 interface CustomSession extends Session {
   userId?: string;
   isAuthenticated?: boolean;
+  sessionId?: string;
 }
 
 // 扩展 Request 类型
@@ -25,6 +27,7 @@ interface UserPayload {
   email: string;
   isAdmin: boolean;
   exp?: number;
+  sessionId?: string;
 }
 
 // 扩展 Express 的 Request 类型
@@ -65,9 +68,29 @@ const loginHandler: RouteHandler = async (req: CustomRequest, res) => {
       return res.status(401).json({ message: '密码错误' });
     }
 
+    // 生成新的会话ID
+    const sessionId = require('crypto').randomBytes(16).toString('hex');
+    
+    // 使该用户之前的所有令牌失效
+    await OAuth2AccessToken.updateMany(
+      { userId: user._id },
+      { $set: { isActive: false } }
+    );
+    
+    // 更新或创建用户会话记录
+    await UserSession.findOneAndUpdate(
+      { userId: user._id },
+      { 
+        currentSessionId: sessionId,
+        lastLoginAt: new Date()
+      },
+      { upsert: true, new: true }
+    );
+
     // 确保设置这些session值
     req.session.userId = (user._id as mongoose.Types.ObjectId).toString();
     req.session.isAuthenticated = true;
+    req.session.sessionId = sessionId; // 存储会话ID到session
     
     // 如果有重定向参数，则重定向回原始OAuth2请求
     const redirectUrl = req.query.redirect || '/';
@@ -79,7 +102,8 @@ const loginHandler: RouteHandler = async (req: CustomRequest, res) => {
         username: user.username,
         fullname: user.fullname,
         email: user.email,
-        isAdmin: user.isAdmin
+        isAdmin: user.isAdmin,
+        sessionId: sessionId // 在token中包含会话ID
       },
       config.JWT_SECRET,
       { expiresIn: '24h' }
@@ -89,7 +113,8 @@ const loginHandler: RouteHandler = async (req: CustomRequest, res) => {
     console.log('Generated token info:', {
       username: user.username,
       tokenLength: token.length,
-      tokenStart: token.substring(0, 20) + '...'
+      tokenStart: token.substring(0, 20) + '...',
+      sessionId: sessionId
     });
 
     console.log('Login successful:', { 
