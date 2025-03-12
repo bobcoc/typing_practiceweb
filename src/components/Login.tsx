@@ -38,8 +38,8 @@ const Login: React.FC = () => {
       return;
     }
 
-    if (username.length < 3 || username.length > 20) {
-      message.error('用户名长度应在3-20个字符之间');
+    if (username.length < 2 || username.length > 20) {
+      message.error('用户名长度应在2-20个字符之间');
       return;
     }
 

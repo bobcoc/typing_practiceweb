@@ -45,8 +45,8 @@ const Register: React.FC = () => {
       return;
     }
 
-    if (formData.username.length < 3 || formData.username.length > 20) {
-      message.error('用户名长度应在3-20个字符之间');
+    if (formData.username.length < 2 || formData.username.length > 20) {
+      message.error('用户名长度应在2-20个字符之间');
       return;
     }
 

@@ -169,8 +169,8 @@ const AdminUserManager: React.FC = () => {
     if (!username) {
       return '用户名是必填项';
     }
-    if (username.length < 3 || username.length > 20) {
-      return '用户名长度应在3-20个字符之间';
+    if (username.length < 2 || username.length > 20) {
+      return '用户名长度应在2-20个字符之间';
     }
     return null;
   };
@@ -317,8 +317,8 @@ const AdminUserManager: React.FC = () => {
       return;
     }
 
-    if (selectedUser.username.length < 3 || selectedUser.username.length > 20) {
-      setError('用户名长度应在3-20个字符之间');
+    if (selectedUser.username.length < 2 || selectedUser.username.length > 20) {
+      setError('用户名长度应在2-20个字符之间');
       return;
     }
 
