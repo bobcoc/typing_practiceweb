@@ -4,7 +4,6 @@ import { User } from '../models/User';
 import { generateRandomString } from '../utils/crypto';
 import { Session } from 'express-session';
 import fetch from 'node-fetch';
-import { UserSession } from '../models/oauth2';
 
 // 添加 session 接口声明
 interface CustomSession extends Session {
@@ -151,13 +150,6 @@ export class OAuth2Controller {
           return res.status(400).json({ error: 'invalid_grant' });
         }
 
-        // 获取用户当前会话ID
-        const userSession = await UserSession.findOne({ userId: authCode.userId });
-        if (!userSession) {
-          console.log('User session not found');
-          return res.status(400).json({ error: 'invalid_session' });
-        }
-
         // 生成访问令牌
         const accessToken = generateRandomString(32);
         const token = new OAuth2AccessToken({
@@ -165,9 +157,7 @@ export class OAuth2Controller {
           clientId: client_id,
           userId: authCode.userId,
           scope: authCode.scope,
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-          sessionId: userSession.currentSessionId,
-          isActive: true
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000)
         });
 
         await token.save();
@@ -207,21 +197,13 @@ export class OAuth2Controller {
     const accessToken = authHeader.substring(7);
 
     try {
-      // 查找令牌并检查是否有效
       const token = await OAuth2AccessToken.findOne({ 
         accessToken,
-        expiresAt: { $gt: new Date() },
-        isActive: true // 只有活跃的令牌才有效
+        expiresAt: { $gt: new Date() }
       });
 
       if (!token) {
         return res.status(401).json({ error: 'invalid_token' });
-      }
-
-      // 检查令牌是否属于最新会话
-      const userSession = await UserSession.findOne({ userId: token.userId });
-      if (!userSession || userSession.currentSessionId !== token.sessionId) {
-        return res.status(401).json({ error: 'session_expired' });
       }
 
       // 查找已关联的用户
@@ -263,7 +245,7 @@ export class OAuth2Controller {
 
       res.json(userInfo);
     } catch (error) {
-      res.status(500).json({ error: 'server_error' });
+      res.status(500).json({ error: 'server_error6' });
     }
   }
 

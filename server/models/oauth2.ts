@@ -35,18 +35,8 @@ const OAuth2AccessTokenSchema = new Schema({
   scope: [{ type: String }],
   expiresAt: { type: Date, required: true },
   createdAt: { type: Date, default: Date.now },
-  sessionId: { type: String, required: true },
-  isActive: { type: Boolean, default: true }
-});
-
-// 添加用户会话跟踪模型
-const UserSessionSchema = new Schema({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
-  currentSessionId: { type: String, required: true },
-  lastLoginAt: { type: Date, default: Date.now }
 });
 
 export const OAuth2Client = model('OAuth2Client', OAuth2ClientSchema);
 export const OAuth2AuthorizationCode = model('OAuth2AuthorizationCode', OAuth2AuthorizationCodeSchema);
-export const OAuth2AccessToken = model('OAuth2AccessToken', OAuth2AccessTokenSchema);
-export const UserSession = model('UserSession', UserSessionSchema); 
+export const OAuth2AccessToken = model('OAuth2AccessToken', OAuth2AccessTokenSchema); 

@@ -100,7 +100,7 @@ const userSchema = new mongoose.Schema({
     required: [true, '用户名是必需的'],
     unique: true,
     trim: true,
-    minlength: [2, '用户名至少需要2个字符'],
+    minlength: [3, '用户名至少需要3个字符'],
     maxlength: [20, '用户名最多20个字符']
   },
   fullname: {
