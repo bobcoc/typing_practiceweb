@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Input, Button } from 'antd';
-
+import { api, ApiError } from '../api/apiClient';
 interface StudentData {
   name: string;
   url_path: string;
@@ -22,12 +22,21 @@ const StudentSearch: React.FC = () => {
       .catch(error => console.error('Error loading JSON:', error));
     
     // 获取访问者IP
-    fetch('/api/visitor/ip')
-      .then(response => response.json())
-      .then(data => setVisitorIp(data.ip))
-      .catch(error => console.error('Error fetching IP:', error));
+    const fetchVisitorIp = async () => {
+      try {
+        const response = await api.get('/api/visitor/ip');
+        setVisitorIp(response.data.ip);
+      } catch (error) {
+        if (error instanceof ApiError) {
+          console.error('API Error fetching IP:', error.message);
+        } else {
+          console.error('Error fetching IP:', error);
+        }
+      }
+    };
+    
+    fetchVisitorIp();
   }, []);
-
   const handleSearch = () => {
     const filtered = allStudents.filter(student => 
       student.exam_number.includes(searchTerm)
