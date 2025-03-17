@@ -75,11 +75,9 @@ const StudentSearch: React.FC = () => {
 
   return (
     <div>
-      {visitorIp && (
-        <div style={{ marginBottom: 16 }}>
-          <strong>您的IP地址:</strong> {visitorIp}
-        </div>
-      )}
+      <div style={{ marginBottom: 16 }}>
+        <strong>您的IP地址:</strong> {visitorIp || '加载中...'}
+      </div>
       <Input
         placeholder="输入学号进行搜索"
         value={searchTerm}
