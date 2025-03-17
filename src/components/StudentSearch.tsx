@@ -25,7 +25,9 @@ const StudentSearch: React.FC = () => {
     const fetchVisitorIp = async () => {
       try {
         const response = await api.get('/api/visitor/ip');
-        setVisitorIp(response.data.ip);
+        console.log('完整的响应数据:', response); // 查看完整响应
+        // 直接使用 response 而不是 response.data
+        setVisitorIp(response.ip);
       } catch (error) {
         if (error instanceof ApiError) {
           console.error('API Error fetching IP:', error.message);
