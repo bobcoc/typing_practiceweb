@@ -12,6 +12,7 @@ const StudentSearch: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredData, setFilteredData] = useState<StudentData[]>([]);
   const [allStudents, setAllStudents] = useState<StudentData[]>([]);
+  const [visitorIp, setVisitorIp] = useState<string>('');
 
   useEffect(() => {
     // 读取 JSON 文件
@@ -19,6 +20,12 @@ const StudentSearch: React.FC = () => {
       .then(response => response.json())
       .then(data => setAllStudents(data))
       .catch(error => console.error('Error loading JSON:', error));
+    
+    // 获取访问者IP
+    fetch('/api/visitor/ip')
+      .then(response => response.json())
+      .then(data => setVisitorIp(data.ip))
+      .catch(error => console.error('Error fetching IP:', error));
   }, []);
 
   const handleSearch = () => {
@@ -59,6 +66,11 @@ const StudentSearch: React.FC = () => {
 
   return (
     <div>
+      {visitorIp && (
+        <div style={{ marginBottom: 16 }}>
+          <strong>您的IP地址:</strong> {visitorIp}
+        </div>
+      )}
       <Input
         placeholder="输入学号进行搜索"
         value={searchTerm}

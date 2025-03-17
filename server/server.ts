@@ -13,6 +13,7 @@ import leaderboardRouter from './routes/leaderboard';
 import adminRoutes from './routes/admin';
 import systemRoutes from './routes/system';
 import oauth2Routes from './routes/oauth2.routes';
+import visitorRoutes from './routes/visitor';
 // 加载环境变量
 dotenv.config();
 
@@ -63,6 +64,7 @@ app.use('/api/practice-records', practiceRecordsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/admin', adminRoutes);
 app.use('/api/system', systemRoutes);
+app.use('/api/visitor', visitorRoutes);
 // 错误处理中间件
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
