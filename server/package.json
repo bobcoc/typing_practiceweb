@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "ts-node server.ts",
+    "start": "ts-node --transpile-only server.ts",
     "debug": "node --inspect=5858 -r ts-node/register server.ts",
     "dev": "nodemon -r ts-node/register server.ts"
   },
@@ -12,12 +12,19 @@
   "license": "ISC",
   "dependencies": {
     "@types/jsonwebtoken": "^9.0.7",
+    "@types/multer": "^1.4.12",
+    "connect-mongo": "^5.1.0",
     "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
     "express": "^4.21.1",
+    "express-session": "^1.18.1",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.7.3"
+    "mongoose": "^8.7.3",
+    "multer": "^1.4.5-lts.2"
   },
   "devDependencies": {
+    "@types/express-session": "^1.18.1",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "nodemon": "^3.1.7",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3"

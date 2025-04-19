@@ -1,0 +1,29 @@
+
+Congratulations, frps install completed!
+================================================
+You Server IP      : 16.171.135.63
+bind port          : 5443
+vhost http port    : 8080
+vhost https port   : 4430
+token              : KrD1uUzMEcyjIER6
+subdomain_host     : 16.171.135.63
+tcp mux            : true
+Max Pool count     : 5
+Log level          : info
+Log max days       : 3
+Log file           : enable
+transport protocol : enable
+kcp bind port      : 5443
+quic bind port     : 4430
+================================================
+frps Dashboard     : http://16.171.135.63:6443/
+Dashboard port     : 6443
+Dashboard user     : admin
+Dashboard password : PAXPFBOY
+================================================
+
+frps status manage : frps {start|stop|restart|status|config|version}
+Example:
+  start: frps start
+   stop: frps stop
+restart: frps restart

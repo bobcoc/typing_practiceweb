@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+        }
+        .config-group {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <h1>登录API测试</h1>
+    
+    <div class="config-group">
+        <h3>API配置</h3>
+        <div class="form-group">
+            <label for="baseUrl">基础URL：</label>
+            <input type="text" id="baseUrl" value="http://localhost:5001">
+        </div>
+        <div class="form-group">
+            <label for="apiPrefix">API前缀：</label>
+            <input type="text" id="apiPrefix" value="/api">
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label for="username">用户名：</label>
+        <input type="text" id="username" value="admin">
+    </div>
+    
+    <div class="form-group">
+        <label for="password">密码：</label>
+        <input type="password" id="password" value="admin123">
+    </div>
+    
+    <button id="loginButton">登录</button>
+    
+    <div id="result">结果将显示在这里...</div>
+    
+    <script>
+        document.getElementById('loginButton').addEventListener('click', async () => {
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const apiPrefix = document.getElementById('apiPrefix').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            const resultElement = document.getElementById('result');
+            resultElement.textContent = '发送请求中...';
+            
+            try {
+                const fullUrl = `${baseUrl}${apiPrefix}/auth/login`;
+                console.log('发送请求到:', fullUrl);
+                
+                const response = await fetch(fullUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const responseData = await response.json();
+                
+                if (response.ok) {
+                    resultElement.textContent = '登录成功！\n\n' + JSON.stringify(responseData, null, 2);
+                    
+                    // 将token保存到localStorage
+                    if (responseData.token) {
+                        localStorage.setItem('token', responseData.token);
+                        localStorage.setItem('user', JSON.stringify(responseData.user));
+                    }
+                } else {
+                    resultElement.textContent = '登录失败！\n\n' + JSON.stringify(responseData, null, 2);
+                }
+            } catch (error) {
+                resultElement.textContent = '请求错误：\n\n' + error.message;
+                console.error('登录错误:', error);
+            }
+        });
+    </script>
+</body>
+</html> 

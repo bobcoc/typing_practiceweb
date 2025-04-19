@@ -60,6 +60,7 @@
     "@types/xlsx": "^0.0.35",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "nodemon": "^3.1.7",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",

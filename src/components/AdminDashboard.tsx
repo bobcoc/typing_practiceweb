@@ -12,6 +12,7 @@ import AdminUserManager from './AdminUserManager';
 import AdminCodeManager from './AdminCodeManager';
 import AdminPracticeRecords from './AdminPracticeRecords';
 import AdminOAuth2Manager from './AdminOAuth2Manager';
+import AdminVocabularyManager from './AdminVocabularyManager';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -60,6 +61,7 @@ const AdminDashboard: React.FC = () => {
           <Tab label="用户管理" />
           <Tab label="代码管理" />
           <Tab label="练习记录" />
+          <Tab label="单词库管理" />
           {user.username === 'bobcoc' && <Tab label="OAuth2管理" />}
         </Tabs>
         
@@ -72,8 +74,11 @@ const AdminDashboard: React.FC = () => {
         <TabPanel value={tabValue} index={2}>
           <AdminPracticeRecords />
         </TabPanel>
+        <TabPanel value={tabValue} index={3}>
+          <AdminVocabularyManager />
+        </TabPanel>
         {user.username === 'bobcoc' && (
-          <TabPanel value={tabValue} index={3}>
+          <TabPanel value={tabValue} index={4}>
             <AdminOAuth2Manager />
           </TabPanel>
         )}

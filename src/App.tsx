@@ -15,6 +15,9 @@ import ChangePassword from './components/ChangePassword';
 import LandingPage from './components/LandingPage';
 import TypingPractice from './components/TypingPractice';
 import StudentSearch from './components/StudentSearch';
+import VocabularyStudy from './components/VocabularyStudy';
+import { Button } from 'antd';
+import { message } from 'antd';
 
 // 创建一个包装组件来处理认证
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -91,6 +94,7 @@ const App: React.FC = () => {
               <Route path="/practice/:level" element={<Practice />} />
               <Route path="/practice-history" element={<PracticeHistory />} />
               <Route path="/change-password" element={<ChangePassword />} />
+              <Route path="/vocabulary-study" element={<VocabularyStudy />} />
               {user.isAdmin && (
                 <>
                   <Route path="/admin" element={<AdminDashboard />} />
@@ -103,6 +107,7 @@ const App: React.FC = () => {
             <>
               <Route path="/practice/*" element={<Navigate to="/login" replace />} />
               <Route path="/practice-history" element={<Navigate to="/login" replace />} />
+              <Route path="/vocabulary-study" element={<Navigate to="/login" replace />} />
               <Route path="/admin/*" element={<Navigate to="/login" replace />} />
             </>
           )}

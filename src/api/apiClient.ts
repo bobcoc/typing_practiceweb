@@ -1,6 +1,6 @@
 // src/api/apiClient.ts
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { API_BASE_URL, DEFAULT_HEADERS } from '../config';
+import { API_BASE_URL, DEFAULT_HEADERS, getFullApiPath } from '../config';
 
 // 自定义错误类
 export class ApiError extends Error {
@@ -162,15 +162,16 @@ apiClient.interceptors.response.use(
   }
 );
 
-// 导出常用的请求方法
+// 导出常用的请求方法，使用getFullApiPath函数来获取完整路径
 export const api = {
   get: <T>(url: string, config = {}) => 
-    apiClient.get<T>(url, config).then(response => response.data),
+    apiClient.get<T>(getFullApiPath(url), config).then(response => response.data),
     
   post: async <T>(url: string, data = {}, config = {}) => {
     try {
-      console.log('API request:', { url, data }); // 调试日志
-      const response = await apiClient.post<T>(url, data, config);
+      const fullUrl = getFullApiPath(url);
+      console.log('API request:', { url: fullUrl, data }); // 调试日志
+      const response = await apiClient.post<T>(fullUrl, data, config);
       console.log('API response:', response); // 调试日志
       return response.data;
     } catch (error: any) {
@@ -192,10 +193,10 @@ export const api = {
     }
   },
   put: <T>(url: string, data = {}, config = {}) =>
-    apiClient.put<T>(url, data, config).then(response => response.data),
+    apiClient.put<T>(getFullApiPath(url), data, config).then(response => response.data),
     
   delete: <T>(url: string, config = {}) =>
-    apiClient.delete<T>(url, config).then(response => response.data),
+    apiClient.delete<T>(getFullApiPath(url), config).then(response => response.data),
 };
 
 export default apiClient;

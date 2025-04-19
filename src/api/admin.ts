@@ -69,6 +69,30 @@ export interface CreateOAuth2ClientData {
   scope: string;
 }
 
+// 添加词汇相关接口
+export interface WordSet {
+  _id: string;
+  name: string;
+  description?: string;
+  totalWords: number;
+  createdAt: string;
+  owner: {
+    _id: string;
+    username: string;
+    fullname: string;
+  };
+}
+
+export interface Word {
+  _id: string;
+  word: string;
+  translation: string;
+  pronunciation?: string;
+  example?: string;
+  wordSet: string;
+  createdAt: string;
+}
+
 export const adminApi = {
   getUsers: async (): Promise<User[]> => {
     const response = await apiClient.get('/api/admin/users');
@@ -129,6 +153,31 @@ export const adminApi = {
 
   deleteOAuth2Client: async (id: string): Promise<void> => {
     await apiClient.delete(`/api/admin/oauth2/clients/${id}`);
+  },
+
+  // 词汇管理相关方法
+  getVocabularyWordSets: async (): Promise<WordSet[]> => {
+    const response = await apiClient.get('/api/admin/vocabulary/word-sets');
+    return response.data;
+  },
+
+  getVocabularyWordSetDetails: async (id: string): Promise<{ wordSet: WordSet, words: Word[] }> => {
+    const response = await apiClient.get(`/api/admin/vocabulary/word-sets/${id}/words`);
+    return response.data;
+  },
+
+  uploadVocabularyFile: async (formData: FormData): Promise<{ message: string, wordSet: WordSet }> => {
+    const response = await apiClient.post('/api/admin/vocabulary/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  deleteVocabularyWordSet: async (id: string): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/api/admin/vocabulary/word-sets/${id}`);
+    return response.data;
   },
 };
 
