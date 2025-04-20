@@ -32,6 +32,7 @@ export const API_PATHS = {
   PRACTICE_TYPES: '/practice-types',
   PRACTICE_RECORDS: '/practice-records',
   LEADERBOARD: '/leaderboard',
+  VISITOR: '/visitor',
   SYSTEM: {
     SERVER_TIME: '/system/server-time'
   },

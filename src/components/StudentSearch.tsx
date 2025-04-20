@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Input, Button } from 'antd';
 import { api, ApiError } from '../api/apiClient';
+import { API_PATHS } from '../config';
+
 interface StudentData {
   name: string;
   url_path: string;
@@ -24,9 +26,7 @@ const StudentSearch: React.FC = () => {
     // 获取访问者IP
     const fetchVisitorIp = async () => {
       try {
-        const response = await api.get('/api/visitor/ip');
-        console.log('完整的响应数据:', response); // 查看完整响应
-        // 直接使用 response 而不是 response.data
+        const response = await api.get<{ ip: string }>(`${API_PATHS.VISITOR}/ip`);
         setVisitorIp(response.ip);
       } catch (error) {
         if (error instanceof ApiError) {
