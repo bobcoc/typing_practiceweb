@@ -742,11 +742,6 @@ const VocabularyStudy: React.FC = () => {
                   </div>
                   <div style={{ fontSize: 20, color: '#666' }}>
                     {currentWords[currentIndex].translation}
-                    {currentWords[currentIndex].pronunciation && (
-                      <span style={{ marginLeft: 10, color: '#888', fontSize: 20 }}>
-                        [{currentWords[currentIndex].pronunciation}]
-                      </span>
-                    )}
                   </div>
                   {currentWords[currentIndex].example && (
                     <div style={{ marginTop: 15, fontStyle: 'italic', color: '#888' }}>
@@ -933,13 +928,7 @@ const VocabularyStudy: React.FC = () => {
               )}
             </div>
           ) : (
-            <div style={{ width: '100%', maxWidth: 600 }}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && testStarted && !testFinished) {
-                  submitAnswer();
-                }
-              }}
-            >
+            <div style={{ width: '100%', maxWidth: 600 }}>
               <Card title={
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>{
@@ -967,12 +956,12 @@ const VocabularyStudy: React.FC = () => {
                       <div style={{ color: '#666', fontSize: '0.8em', marginBottom: 5 }}>请输入对应的英文单词</div>
                       <div style={{ fontWeight: 'bold' }}>
                         {currentWords[currentIndex].translation}
-                        {currentWords[currentIndex].pronunciation && (
-                          <span style={{ marginLeft: 10, color: '#888', fontSize: 20 }}>
-                            [{currentWords[currentIndex].pronunciation}]
-                          </span>
-                        )}
                       </div>
+                      {currentWords[currentIndex].pronunciation && (
+                        <div style={{ color: '#888', fontSize: 20, marginTop: 5 }}>
+                          [{currentWords[currentIndex].pronunciation}]
+                        </div>
+                      )}
                     </div>
                   )}
                   
@@ -1006,16 +995,16 @@ const VocabularyStudy: React.FC = () => {
                       <div style={{ color: '#666', fontSize: '0.8em', marginBottom: 5 }}>请选择正确的中文翻译</div>
                       <div style={{ fontWeight: 'bold' }}>
                         {currentWords[currentIndex].word}
-                        {currentWords[currentIndex].pronunciation && (
-                          <span style={{ marginLeft: 10, color: '#888', fontSize: 20 }}>
-                            [{currentWords[currentIndex].pronunciation}]
-                          </span>
-                        )}
                         <SoundOutlined 
                           onClick={() => playWordSound(currentWords[currentIndex].word)}
                           style={{ marginLeft: 10, cursor: 'pointer', fontSize: 20 }}
                         />
                       </div>
+                      {currentWords[currentIndex].pronunciation && (
+                        <div style={{ color: '#888', fontSize: 20, marginTop: 5 }}>
+                          [{currentWords[currentIndex].pronunciation}]
+                        </div>
+                      )}
                     </div>
                   )}
                   
@@ -1039,7 +1028,10 @@ const VocabularyStudy: React.FC = () => {
                       onChange={e => setUserAnswer(e.target.value)}
                       disabled={showAnswer}
                       style={{ marginBottom: 15 }}
-                      onPressEnter={submitAnswer}
+                      onPressEnter={e => {
+                        e.stopPropagation(); // 防止冒泡
+                        submitAnswer();
+                      }}
                       autoFocus
                       size="large"
                     />
