@@ -17,7 +17,9 @@ import {
   School as SchoolIcon,
   Psychology as PsychologyIcon
 } from '@mui/icons-material';
-import { api,ApiError } from '../api/apiClient';
+import { api, ApiError } from '../api/apiClient';
+import { message as antdMessage } from 'antd';
+import { API_PATHS } from '../config';
 
 // 统计数据类型
 interface Statistics {
@@ -47,13 +49,11 @@ const TypingPractice: React.FC = () => {
   // 获取统计数据
   const fetchStatistics = async () => {
     try {
-      setLoading(true);
-      const response = await api.get('/api/practice-records/statistics');
-      if (response) {
-        setStats(response as Statistics);
-      }
+      const response = await api.get(`${API_PATHS.PRACTICE_RECORDS}/statistics`);
+      setStats(response as Statistics);
     } catch (error) {
-      console.error('获取统计数据失败:', error);
+      console.error('Error fetching statistics:', error);
+      antdMessage.error('获取统计数据失败');
     } finally {
       setLoading(false);
     }

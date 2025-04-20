@@ -5,7 +5,10 @@ import Card from 'antd/es/card';
 import Tag from 'antd/es/tag';
 import Spin from 'antd/es/spin';
 import type { ColumnsType } from 'antd/es/table';
-import { api,ApiError } from '../api/apiClient';
+import { api, ApiError } from '../api/apiClient';
+import { message } from 'antd';
+import { API_PATHS } from '../config';
+
 interface PracticeRecord {
     _id: string;
     type: string;
@@ -26,16 +29,11 @@ interface PracticeRecord {
     const [records, setRecords] = useState<PracticeRecord[]>([]);
     const fetchPracticeRecords = async () => {
       try {
-        setLoading(true);
-        const response = await api.get<PracticeRecord[]>('/api/practice-records/my-records');
+        const response = await api.get<PracticeRecord[]>(`${API_PATHS.PRACTICE_RECORDS}/my-records`);
         setRecords(response);
       } catch (error) {
-        if (error instanceof ApiError && error.statusCode === 401) {
-          // 认证错误已经由 AuthWrapper 处理，这里不需要额外处理
-          console.log('Authentication error handled by AuthWrapper');
-        } else {
-          console.error('获取练习记录失败:', error);
-        }
+        console.error('Error fetching practice records:', error);
+        message.error('获取练习记录失败');
       } finally {
         setLoading(false);
       }

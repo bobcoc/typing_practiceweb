@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { message } from 'antd';
 import Button from 'antd/lib/button';
 import TextArea from 'antd/lib/input/TextArea';
+import { api } from '../api/apiClient';
+import { API_PATHS } from '../config';
 
 const KeywordManager: React.FC = () => {
   const [keywords, setKeywords] = useState('');
@@ -12,28 +14,22 @@ const KeywordManager: React.FC = () => {
 
   const fetchKeywords = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/keywords');
-      const data = await response.json();
-      setKeywords(data.content || '');
+      const response = await api.get<{ content: string }>(API_PATHS.KEYWORDS);
+      setKeywords(response.content);
     } catch (error) {
-      message.error('获取关键字失败');
+      console.error('Error fetching keywords:', error);
+      message.error('获取关键词列表失败');
     }
   };
 
-  const handleSubmit = () => {
-    fetch('http://localhost:5001/api/keywords', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ content: keywords }),
-    })
-      .then(() => {
-        message.success('保存成功');
-      })
-      .catch(() => {
-        message.error('保存失败');
-      });
+  const handleSubmit = async () => {
+    try {
+      await api.post(API_PATHS.KEYWORDS, { content: keywords });
+      message.success('保存成功');
+    } catch (error) {
+      console.error('Error saving keywords:', error);
+      message.error('保存失败');
+    }
   };
 
   return (
