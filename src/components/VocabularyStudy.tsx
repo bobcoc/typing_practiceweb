@@ -480,7 +480,7 @@ const VocabularyStudy: React.FC = () => {
     setUserAnswer('');
     setShowAnswer(false);
     setTestResults([]);
-    setActiveTab('study');
+    setActiveTab('test');
   };
 
   // 获取学习记录
@@ -571,11 +571,27 @@ const VocabularyStudy: React.FC = () => {
 
   // 自动播放单词发音：currentIndex变化时
   useEffect(() => {
-    if (currentWords.length > 0 && currentIndex >= 0 && currentIndex < currentWords.length) {
+    // 学习单词界面自动播放
+    if (
+      activeTab === 'study' &&
+      currentWords.length > 0 &&
+      currentIndex >= 0 &&
+      currentIndex < currentWords.length
+    ) {
+      playWordSound(currentWords[currentIndex].word);
+    }
+    // 测试模式界面自动播放
+    else if (
+      activeTab === 'test' &&
+      testStarted && !testFinished &&
+      currentWords.length > 0 &&
+      currentIndex >= 0 &&
+      currentIndex < currentWords.length
+    ) {
       playWordSound(currentWords[currentIndex].word);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, currentWords]);
+  }, [currentIndex, currentWords, testStarted, testFinished, activeTab]);
 
   // 自动聚焦输入框（仅在测试模式下需要输入时）
   useEffect(() => {
@@ -779,7 +795,11 @@ const VocabularyStudy: React.FC = () => {
                   </Button>
                   <Button 
                     type="primary"
-                    onClick={() => setActiveTab('test')}
+                    onClick={() => {
+                      setActiveTab('test');
+                      setTestStarted(false);
+                      setTestFinished(false);
+                    }}
                   >
                     开始测试
                   </Button>
