@@ -10,7 +10,7 @@ declare const process: {
 };
 
 // API 配置
-export const API_BASE_URL = 'http://localhost:5001';
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '/api';
 
 // API路径前缀 - 根据环境变量决定是否添加/api前缀
 export const API_PREFIX = '/api';
@@ -85,8 +85,9 @@ if (IS_DEVELOPMENT) {
 
 // 获取完整API路径的辅助函数
 export const getFullApiPath = (path: string): string => {
-  // 如果path已经以/开头，则直接拼接前缀
-  return `${API_PREFIX}${path}`;
+  // 移除路径开头的斜杠以避免重复
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  return cleanPath;
 };
 
 // 导出配置对象

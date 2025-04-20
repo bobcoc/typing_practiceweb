@@ -188,7 +188,6 @@ export const api = {
         );
       }
       
-      // 重新抛出其他类型的错误
       throw error;
     }
   },
