@@ -341,6 +341,17 @@ const VocabularyStudy: React.FC = () => {
     return newArray;
   };
 
+  function normalizeAnswer(str: string): string {
+    return str
+      .replace(/（/g, '(')
+      .replace(/）/g, ')')
+      .replace(/，/g, ',')      // 全角逗号转半角
+      .replace(/\s+/g, '')      // 去除所有空格
+      .replace(/,/g, '')        // 去除所有逗号
+      .replace(/[^\w()]/g, '')  // 只保留字母、数字、括号
+      .toLowerCase();
+  }
+
   // 提交答案
   const submitAnswer = async () => {
     if (!testStarted || currentWords.length === 0) return;
@@ -351,21 +362,11 @@ const VocabularyStudy: React.FC = () => {
 
     switch (testType) {
       case 'chinese-to-english':
-        correctAnswer = currentWord.word;
-        // 对用户答案进行简单的清理和规范化处理
-        const normalizedUserAnswer = userAnswer.trim().toLowerCase();
-        const normalizedCorrectAnswer = correctAnswer.toLowerCase();
-        // 允许一定的拼写灵活性，例如忽略标点符号
-        isCorrect = normalizedUserAnswer === normalizedCorrectAnswer || 
-                    normalizedUserAnswer.replace(/[^\w\s]/g, '') === normalizedCorrectAnswer.replace(/[^\w\s]/g, '');
-        break;
       case 'audio-to-english':
         correctAnswer = currentWord.word;
-        // 对听力模式也进行类似的处理
-        const normalizedAudioAnswer = userAnswer.trim().toLowerCase();
-        const normalizedAudioCorrect = correctAnswer.toLowerCase();
-        isCorrect = normalizedAudioAnswer === normalizedAudioCorrect || 
-                    normalizedAudioAnswer.replace(/[^\w\s]/g, '') === normalizedAudioCorrect.replace(/[^\w\s]/g, '');
+        const normUser = normalizeAnswer(userAnswer);
+        const normCorrect = normalizeAnswer(correctAnswer);
+        isCorrect = normUser === normCorrect;
         break;
       case 'multiple-choice':
         correctAnswer = currentWord.translation;
@@ -702,7 +703,7 @@ const VocabularyStudy: React.FC = () => {
                 style={{ marginBottom: 20 }}
               >
                 <Progress 
-                  percent={Math.round((currentIndex / currentWords.length) * 100)} 
+                  percent={Math.round(((currentIndex + 1) / currentWords.length) * 100)} 
                   status="active" 
                   strokeColor={{
                     '0%': '#108ee9',
@@ -713,6 +714,11 @@ const VocabularyStudy: React.FC = () => {
                 <div style={{ marginTop: 20 }}>
                   <div style={{ fontSize: 32, marginBottom: 10 }}>
                     {currentWords[currentIndex].word}
+                    {currentWords[currentIndex].pronunciation && (
+                      <span style={{ marginLeft: 10, color: '#888', fontSize: 22 }}>
+                        [{currentWords[currentIndex].pronunciation}]
+                      </span>
+                    )}
                     <SoundOutlined 
                       onClick={() => playWordSound(currentWords[currentIndex].word)}
                       style={{ marginLeft: 10, cursor: 'pointer', fontSize: 24 }}
@@ -720,6 +726,11 @@ const VocabularyStudy: React.FC = () => {
                   </div>
                   <div style={{ fontSize: 20, color: '#666' }}>
                     {currentWords[currentIndex].translation}
+                    {currentWords[currentIndex].pronunciation && (
+                      <span style={{ marginLeft: 10, color: '#888', fontSize: 20 }}>
+                        [{currentWords[currentIndex].pronunciation}]
+                      </span>
+                    )}
                   </div>
                   {currentWords[currentIndex].example && (
                     <div style={{ marginTop: 15, fontStyle: 'italic', color: '#888' }}>
@@ -922,7 +933,7 @@ const VocabularyStudy: React.FC = () => {
                 </div>
               }>
                 <Progress 
-                  percent={Math.round((currentIndex / currentWords.length) * 100)} 
+                  percent={Math.round(((currentIndex + 1) / currentWords.length) * 100)} 
                   status="active"
                   strokeColor={{
                     '0%': '#108ee9',
@@ -934,17 +945,31 @@ const VocabularyStudy: React.FC = () => {
                   {testType === 'chinese-to-english' && (
                     <div style={{ fontSize: 24, marginBottom: 15, textAlign: 'center' }}>
                       <div style={{ color: '#666', fontSize: '0.8em', marginBottom: 5 }}>请输入对应的英文单词</div>
-                      <div style={{ fontWeight: 'bold' }}>{currentWords[currentIndex].translation}</div>
+                      <div style={{ fontWeight: 'bold' }}>
+                        {currentWords[currentIndex].translation}
+                        {currentWords[currentIndex].pronunciation && (
+                          <span style={{ marginLeft: 10, color: '#888', fontSize: 20 }}>
+                            [{currentWords[currentIndex].pronunciation}]
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
                   
                   {testType === 'audio-to-english' && (
                     <div style={{ fontSize: 24, marginBottom: 15, textAlign: 'center' }}>
                       <div style={{ color: '#666', fontSize: '0.8em', marginBottom: 5 }}>请听发音并输入单词</div>
-                      <SoundOutlined 
-                        onClick={() => playWordSound(currentWords[currentIndex].word)}
-                        style={{ fontSize: 36, cursor: 'pointer' }}
-                      />
+                      <div style={{ fontWeight: 'bold', marginBottom: 8 }}>
+                        {currentWords[currentIndex].pronunciation && (
+                          <span style={{ marginLeft: 10, color: '#888', fontSize: 20 }}>
+                            [{currentWords[currentIndex].pronunciation}]
+                          </span>
+                        )}
+                        <SoundOutlined 
+                          onClick={() => playWordSound(currentWords[currentIndex].word)}
+                          style={{ marginLeft: 10, fontSize: 28, cursor: 'pointer' }}
+                        />
+                      </div>
                       <div>点击图标播放单词发音</div>
                       <Button 
                         type="link" 
@@ -961,6 +986,11 @@ const VocabularyStudy: React.FC = () => {
                       <div style={{ color: '#666', fontSize: '0.8em', marginBottom: 5 }}>请选择正确的中文翻译</div>
                       <div style={{ fontWeight: 'bold' }}>
                         {currentWords[currentIndex].word}
+                        {currentWords[currentIndex].pronunciation && (
+                          <span style={{ marginLeft: 10, color: '#888', fontSize: 20 }}>
+                            [{currentWords[currentIndex].pronunciation}]
+                          </span>
+                        )}
                         <SoundOutlined 
                           onClick={() => playWordSound(currentWords[currentIndex].word)}
                           style={{ marginLeft: 10, cursor: 'pointer', fontSize: 20 }}

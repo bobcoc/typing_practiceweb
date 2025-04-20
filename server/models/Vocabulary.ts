@@ -76,22 +76,22 @@ const WordSetSchema = new Schema<IWordSet>({
 // 为单词集模型添加索引
 WordSetSchema.index({ name: 1, owner: 1 }, { unique: true });
 
-// 单词学习记录模式
-const WordRecordSchema = new Schema<IWordRecord>({
-  user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  word: { type: Schema.Types.ObjectId, ref: 'Word', required: true },
-  mode: { 
-    type: String, 
-    enum: ['chinese-to-english', 'audio-to-english', 'multiple-choice'],
-    required: true 
-  },
+const ModeStatsSchema = new Schema({
   streak: { type: Number, default: 0 },
   totalCorrect: { type: Number, default: 0 },
   totalWrong: { type: Number, default: 0 },
   mastered: { type: Boolean, default: false },
   inWrongBook: { type: Boolean, default: false },
-  lastTestedAt: { type: Date, default: Date.now },
-  lastMasteredAt: { type: Date },
+  lastTestedAt: Date,
+  lastMasteredAt: Date
+}, { _id: false });
+
+const WordRecordSchema = new Schema({
+  user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  word: { type: Schema.Types.ObjectId, ref: 'Word', required: true },
+  multipleChoice: { type: ModeStatsSchema, default: () => ({}) },
+  audioToEnglish: { type: ModeStatsSchema, default: () => ({}) },
+  chineseToEnglish: { type: ModeStatsSchema, default: () => ({}) },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -118,7 +118,7 @@ const VocabularyTestRecordSchema = new Schema<IVocabularyTestRecord>({
 // 创建和导出模型
 export const Word = mongoose.model<IWord>('Word', WordSchema);
 export const WordSet = mongoose.model<IWordSet>('WordSet', WordSetSchema);
-export const WordRecord = mongoose.model<IWordRecord>('WordRecord', WordRecordSchema);
+export const WordRecord = mongoose.model('WordRecord', WordRecordSchema);
 export const VocabularyTestRecord = mongoose.model<IVocabularyTestRecord>('VocabularyTestRecord', VocabularyTestRecordSchema);
 
 export default {

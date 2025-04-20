@@ -43,7 +43,7 @@ const upload = multer({
 // 获取所有单词集
 router.get('/word-sets', authMiddleware, async (req, res) => {
   try {
-    const wordSets = await WordSet.find({ owner: req.user._id })
+    const wordSets = await WordSet.find()
       .select('name description totalWords createdAt')
       .sort({ createdAt: -1 });
     
@@ -61,8 +61,7 @@ router.post('/word-sets', authMiddleware, async (req, res) => {
     
     // 检查是否已存在同名单词集
     const existingSet = await WordSet.findOne({ 
-      name: name,
-      owner: req.user._id 
+      name: name
     });
     
     if (existingSet) {
@@ -72,7 +71,6 @@ router.post('/word-sets', authMiddleware, async (req, res) => {
     const newWordSet = await WordSet.create({
       name,
       description,
-      owner: req.user._id,
       totalWords: 0
     });
     
@@ -96,8 +94,7 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     
     // 检查是否已存在同名单词集
     const existingSet = await WordSet.findOne({ 
-      name: name || path.basename(fileName, '.csv'),
-      owner: req.user._id 
+      name: name || path.basename(fileName, '.csv')
     });
     
     if (existingSet) {
@@ -109,7 +106,6 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     // 创建单词集
     const wordSet = await WordSet.create({
       name: name || path.basename(fileName, '.csv'),
-      owner: req.user._id,
       totalWords: 0
     });
     
@@ -167,7 +163,7 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
   }
 });
 
-// 获取学习单词（智能抽取算法）
+// 获取学习单词（智能抽取算法，嵌套结构版）
 router.get('/study-words/:wordSetId', authMiddleware, async (req, res) => {
   try {
     const { wordSetId } = req.params;
@@ -179,11 +175,8 @@ router.get('/study-words/:wordSetId', authMiddleware, async (req, res) => {
       }
     }
 
-    // 检查单词集是否存在并属于当前用户
-    const wordSet = await WordSet.findOne({
-      _id: wordSetId,
-      owner: req.user._id
-    });
+    // 检查单词集是否存在
+    const wordSet = await WordSet.findOne({ _id: wordSetId });
     if (!wordSet) {
       return res.status(404).json({ message: '未找到单词集' });
     }
@@ -192,12 +185,12 @@ router.get('/study-words/:wordSetId', authMiddleware, async (req, res) => {
     const allWords = await Word.find({ wordSet: wordSetId });
     const allWordIds = allWords.map(w => w._id.toString());
 
-    // 2. 获取该用户所有WordRecord
+    // 2. 获取该用户所有WordRecord（嵌套结构）
     const allRecords = await WordRecord.find({ user: req.user._id, word: { $in: allWordIds } });
-    // 以wordId+mode为key，方便查找
+    // 用 wordId 做 key
     const recordMap = new Map();
     allRecords.forEach(r => {
-      recordMap.set(r.word.toString() + '-' + r.mode, r);
+      recordMap.set(r.word.toString(), r);
     });
 
     // 3. 分类
@@ -208,48 +201,55 @@ router.get('/study-words/:wordSetId', authMiddleware, async (req, res) => {
 
     for (const word of allWords) {
       const wordId = word._id.toString();
-      // 该单词三种模式的记录
-      const records = [
-        recordMap.get(wordId + '-' + ('chinese-to-english' as const)),
-        recordMap.get(wordId + '-' + ('audio-to-english' as const)),
-        recordMap.get(wordId + '-' + ('multiple-choice' as const))
-      ];
+      const record = recordMap.get(wordId);
+
+      // 没有任何记录
+      if (!record) {
+        neverLearnedWords.push(word);
+        continue;
+      }
+
+      // 三种模式
+      const modes = ['chineseToEnglish', 'audioToEnglish', 'multipleChoice'];
+      const modeStats = modes.map(m => record[m] || {});
+
       // 判断三种模式是否都掌握
-      const allMastered = records.every(r => r && r.mastered);
+      const allMastered = modeStats.every(s => s.mastered);
+
       // 错词本优先
-      if (records.some(r => r && r.inWrongBook)) {
+      if (modeStats.some(s => s.inWrongBook)) {
         // 如果已经掌握，自动移除错词本
         if (allMastered) {
-          for (const r of records) {
-            if (r && r.inWrongBook) {
-              r.inWrongBook = false;
-              await r.save();
+          let changed = false;
+          modes.forEach(m => {
+            if (record[m]?.inWrongBook) {
+              record[m].inWrongBook = false;
+              changed = true;
             }
-          }
+          });
+          if (changed) await record.save();
         } else {
           wrongBookWords.push(word);
           continue;
         }
       }
-      if (!allMastered && records.some(r => r)) {
+
+      if (!allMastered && modeStats.some(s => Object.keys(s).length > 0)) {
         notMasteredWords.push(word);
         continue;
       }
+
       if (allMastered) {
         // 取三种模式最近一次掌握时间
-        const lastMasteredAt = records.reduce((latest: Date|null, r) => {
-          if (!latest && r && r.lastMasteredAt) return r.lastMasteredAt;
-          if (r && r.lastMasteredAt instanceof Date && latest instanceof Date && r.lastMasteredAt > latest) {
-            return r.lastMasteredAt;
+        const lastMasteredAt = modeStats.reduce((latest: Date|null, s) => {
+          if (!latest && s.lastMasteredAt) return s.lastMasteredAt;
+          if (s.lastMasteredAt instanceof Date && latest instanceof Date && s.lastMasteredAt > latest) {
+            return s.lastMasteredAt;
           }
           return latest;
         }, null);
         masteredWords.push({ word, lastMasteredAt });
         continue;
-      }
-      // 没有任何记录
-      if (records.every(r => !r)) {
-        neverLearnedWords.push(word);
       }
     }
 
@@ -260,11 +260,24 @@ router.get('/study-words/:wordSetId', authMiddleware, async (req, res) => {
 
     // 错词本优先
     let selectedWrongBook = wrongBookWords.slice(0, wrongBookQuota);
-    let selectedMastered = masteredWords
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    let eligibleMasteredWords = masteredWords.filter(item => 
+      item.lastMasteredAt && item.lastMasteredAt < oneWeekAgo
+    );
+    let selectedMastered = eligibleMasteredWords
       .sort((a, b) => (a.lastMasteredAt?.getTime() || 0) - (b.lastMasteredAt?.getTime() || 0))
       .slice(0, masteredQuota)
       .map(item => item.word);
-    let selectedNeverLearned = neverLearnedWords.slice(0, neverLearnedQuota);
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    let selectedNeverLearned = shuffle([...neverLearnedWords]).slice(0, neverLearnedQuota);
 
     // 补足不足部分
     let remain = targetCount - (selectedWrongBook.length + selectedMastered.length + selectedNeverLearned.length);
@@ -283,7 +296,7 @@ router.get('/study-words/:wordSetId', authMiddleware, async (req, res) => {
     }
     // 再补已掌握
     if (remain > 0) {
-      const moreMastered = masteredWords
+      const moreMastered = eligibleMasteredWords
         .sort((a, b) => (a.lastMasteredAt?.getTime() || 0) - (b.lastMasteredAt?.getTime() || 0))
         .slice(masteredQuota, masteredQuota + remain)
         .map(item => item.word);
@@ -322,7 +335,7 @@ router.get('/study-words/:wordSetId', authMiddleware, async (req, res) => {
   }
 });
 
-// 记录单词学习结果（新算法）
+// 记录单词学习结果（嵌套结构版，upsert防止重复）
 router.post('/word-record', (req, res, next) => {
   console.log('收到 /word-record 请求', req.method, req.body);
   next();
@@ -330,7 +343,6 @@ router.post('/word-record', (req, res, next) => {
   try {
     const { wordId, isCorrect, testType } = req.body;
     const userId = req.user._id;
-    const mode = testType as 'chinese-to-english' | 'audio-to-english' | 'multiple-choice';
 
     // 检查单词是否存在
     const word = await Word.findById(wordId);
@@ -338,78 +350,79 @@ router.post('/word-record', (req, res, next) => {
       return res.status(404).json({ message: '未找到单词' });
     }
 
-    // 查找或创建该用户-单词-模式的学习记录
-    let record = await WordRecord.findOne({ user: userId, word: wordId, mode });
-    if (!record) {
-      record = new WordRecord({
-        user: userId,
-        word: wordId,
-        mode,
-        streak: 0,
-        totalCorrect: 0,
-        totalWrong: 0,
-        mastered: false,
-        inWrongBook: false,
-        lastTestedAt: new Date(),
-      });
+    // 嵌套字段名映射
+    const modeMap = {
+      'chinese-to-english': 'chineseToEnglish',
+      'audio-to-english': 'audioToEnglish',
+      'multiple-choice': 'multipleChoice'
+    };
+    const modeKey = modeMap[testType];
+    if (!modeKey) {
+      return res.status(400).json({ message: '未知的测试类型' });
     }
+
+    // 先查当前记录
+    let record = await WordRecord.findOne({ user: userId, word: wordId });
+    let modeObj = record ? (record[modeKey] || {}) : {};
 
     // 更新 streak、totalCorrect、totalWrong
     if (isCorrect) {
-      record.streak += 1;
-      record.totalCorrect += 1;
+      modeObj.streak = (modeObj.streak || 0) + 1;
+      modeObj.totalCorrect = (modeObj.totalCorrect || 0) + 1;
     } else {
-      record.streak = 0;
-      record.totalWrong += 1;
+      modeObj.streak = 0;
+      modeObj.totalWrong = (modeObj.totalWrong || 0) + 1;
     }
-    record.lastTestedAt = new Date();
+    modeObj.lastTestedAt = new Date();
 
     // 判定是否掌握
-    if (!record.mastered && record.streak >= 3) {
-      record.mastered = true;
-      record.lastMasteredAt = new Date();
-      record.inWrongBook = false; // 掌握后自动移出错词本
+    if (!modeObj.mastered && modeObj.streak >= 1) {
+      modeObj.mastered = true;
+      modeObj.lastMasteredAt = new Date();
+      modeObj.inWrongBook = false; // 掌握后自动移出错词本
     }
 
     // 判定是否进入错词本
-    if (!record.mastered && record.totalWrong >= 5) {
-      record.inWrongBook = true;
+    if (!modeObj.mastered && modeObj.totalWrong >= 5) {
+      modeObj.inWrongBook = true;
     }
 
-    await record.save();
+    // 构造更新对象
+    const updateObj = {};
+    updateObj[modeKey] = modeObj;
+
+    record = await WordRecord.findOneAndUpdate(
+      { user: userId, word: wordId },
+      { $set: updateObj, $setOnInsert: { user: userId, word: wordId, createdAt: new Date() } },
+      { upsert: true, new: true }
+    );
 
     // 检查三种模式是否都已掌握
-    const allModes = ['chinese-to-english', 'audio-to-english', 'multiple-choice'];
-    const masteryRecords = await WordRecord.find({
-      user: userId,
-      word: wordId,
-      mastered: true
-    });
-    const masteredModes = masteryRecords.map(r => r.mode);
-    const isFullyMastered = allModes.every(m => masteredModes.includes(m));
+    const allModes = ['chineseToEnglish', 'audioToEnglish', 'multipleChoice'];
+    const isFullyMastered = allModes.every(m => record[m]?.mastered);
     let lastMasteredAt: Date | null = null;
     if (isFullyMastered) {
       // 取三种模式中最近一次掌握的时间
-      lastMasteredAt = masteryRecords.reduce((latest: Date | null, r) => {
-        if (!latest && r.lastMasteredAt) return r.lastMasteredAt;
-        if (r.lastMasteredAt instanceof Date && latest instanceof Date && r.lastMasteredAt > latest) {
-          return r.lastMasteredAt;
+      lastMasteredAt = allModes.reduce((latest: Date | null, m) => {
+        const t = record[m]?.lastMasteredAt;
+        if (!latest && t) return t;
+        if (t instanceof Date && latest instanceof Date && t > latest) {
+          return t;
         }
         return latest;
       }, null);
     }
 
     // 返回当前单词的所有模式掌握状态和是否在错词本
-    const allRecords = await WordRecord.find({ user: userId, word: wordId });
     const masteryStatus = {};
-    allRecords.forEach(r => {
-      masteryStatus[r.mode] = {
-        mastered: r.mastered,
-        streak: r.streak,
-        totalCorrect: r.totalCorrect,
-        totalWrong: r.totalWrong,
-        inWrongBook: r.inWrongBook,
-        lastMasteredAt: r.lastMasteredAt
+    allModes.forEach(m => {
+      masteryStatus[m] = {
+        mastered: record[m]?.mastered || false,
+        streak: record[m]?.streak || 0,
+        totalCorrect: record[m]?.totalCorrect || 0,
+        totalWrong: record[m]?.totalWrong || 0,
+        inWrongBook: record[m]?.inWrongBook || false,
+        lastMasteredAt: record[m]?.lastMasteredAt || null
       };
     });
 
@@ -418,7 +431,7 @@ router.post('/word-record', (req, res, next) => {
       masteryStatus,
       isFullyMastered,
       lastMasteredAt,
-      inWrongBook: allRecords.some(r => r.inWrongBook)
+      inWrongBook: allModes.some(m => record[m]?.inWrongBook)
     });
   } catch (error) {
     console.error('保存单词学习记录失败:', error);
@@ -433,8 +446,7 @@ router.post('/test-record', authMiddleware, async (req, res) => {
     
     // 检查单词集是否存在并属于当前用户
     const wordSet = await WordSet.findOne({
-      _id: wordSetId,
-      owner: req.user._id
+      _id: wordSetId
     });
     
     if (!wordSet) {
@@ -475,8 +487,7 @@ router.get('/word/:wordId', authMiddleware, async (req, res) => {
     
     // 检查用户是否有权限访问这个单词
     const wordSet = await WordSet.findOne({
-      _id: word.wordSet,
-      owner: req.user._id
+      _id: word.wordSet
     });
     
     if (!wordSet) {
@@ -507,48 +518,74 @@ router.get('/test-records', authMiddleware, async (req, res) => {
 // 排行榜接口：按掌握单词数和正确率排序
 router.get('/leaderboard', authMiddleware, async (req, res) => {
   try {
-    // 聚合每个用户的已掌握单词数和正确率
-    const leaderboard = await mongoose.model('WordRecord').aggregate([
-      {
-        $group: {
-          _id: '$user',
-          totalWordsLearned: {
-            $addToSet: {
-              $cond: [ { $eq: ['$isCorrect', true] }, '$word', null ]
-            }
-          },
-          correctCount: {
-            $sum: { $cond: [ { $eq: ['$isCorrect', true] }, 1, 0 ] }
-          },
-          totalCount: { $sum: 1 }
-        }
-      },
-      {
-        $project: {
-          userId: '$_id',
-          totalWordsLearned: { $size: {
-            $setDifference: ['$totalWordsLearned', [null]]
-          } },
-          accuracy: {
-            $cond: [ { $eq: ['$totalCount', 0] }, 0, { $divide: ['$correctCount', '$totalCount'] } ]
-          }
-        }
-      },
-      { $sort: { totalWordsLearned: -1, accuracy: -1 } },
-      { $limit: 50 }
-    ]);
+    // 1. 查出所有 WordRecord
+    const allRecords = await WordRecord.find({});
 
-    // 获取用户名
-    const userIds = leaderboard.map(item => item.userId);
+    // 2. 按 user+word 分组
+    const userWordMap = new Map();
+    for (const rec of allRecords) {
+      const key = rec.user.toString() + '-' + rec.word.toString();
+      if (!userWordMap.has(key)) {
+        userWordMap.set(key, { user: rec.user, word: rec.word, modes: {} });
+      }
+      const group = userWordMap.get(key);
+      group.modes.chineseToEnglish = rec.chineseToEnglish?.mastered;
+      group.modes.audioToEnglish = rec.audioToEnglish?.mastered;
+      group.modes.multipleChoice = rec.multipleChoice?.mastered;
+    }
+
+    // 3. 统计每个用户真正掌握的单词数
+    const userMasteredCount = {};
+    for (const group of userWordMap.values()) {
+      const { user, modes } = group;
+      if (modes.chineseToEnglish && modes.audioToEnglish && modes.multipleChoice) {
+        userMasteredCount[user] = (userMasteredCount[user] || 0) + 1;
+      }
+    }
+
+    // 4. 统计正确率（可选，简单统计所有模式的正确率）
+    const userStats = {};
+    for (const rec of allRecords) {
+      const userId = rec.user.toString();
+      if (!userStats[userId]) {
+        userStats[userId] = { correct: 0, total: 0 };
+      }
+      ['chineseToEnglish', 'audioToEnglish', 'multipleChoice'].forEach(mode => {
+        const m = rec[mode];
+        if (m) {
+          userStats[userId].correct += m.totalCorrect || 0;
+          userStats[userId].total += (m.totalCorrect || 0) + (m.totalWrong || 0);
+        }
+      });
+    }
+
+    // 5. 查询用户名
+    const userIds = Object.keys(userMasteredCount);
     const users = await mongoose.model('User').find({ _id: { $in: userIds } }, { username: 1 });
     const userMap = {};
     users.forEach(u => { userMap[u._id.toString()] = u.username; });
 
-    // 添加用户名和排名
+    // 6. 组装排行榜数组
+    const leaderboard = userIds.map(userId => ({
+      userId,
+      username: userMap[userId] || '未知用户',
+      totalWordsLearned: userMasteredCount[userId],
+      accuracy: userStats[userId] && userStats[userId].total > 0
+        ? Math.round((userStats[userId].correct / userStats[userId].total) * 100)
+        : 0
+    }));
+
+    // 7. 排序
+    leaderboard.sort((a, b) => {
+      if (b.totalWordsLearned !== a.totalWordsLearned) {
+        return b.totalWordsLearned - a.totalWordsLearned;
+      }
+      return b.accuracy - a.accuracy;
+    });
+
+    // 8. 添加排名
     leaderboard.forEach((item, idx) => {
-      item.username = userMap[item.userId.toString()] || '未知用户';
       item.rank = idx + 1;
-      item.accuracy = Math.round(item.accuracy * 100); // 百分比
     });
 
     res.json(leaderboard);
