@@ -1183,8 +1183,8 @@ const VocabularyStudy: React.FC = () => {
               },
               {
                 title: '用户名',
-                dataIndex: 'username',
-                key: 'username',
+                dataIndex: 'fullname',
+                key: 'fullname',
               },
               {
                 title: '已掌握单词数',
