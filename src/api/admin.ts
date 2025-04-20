@@ -95,79 +95,79 @@ export interface Word {
 
 export const adminApi = {
   getUsers: async (): Promise<User[]> => {
-    const response = await apiClient.get('/api/admin/users');
+    const response = await apiClient.get('/admin/users');
     return response.data;
   },
   createUser: async (userData: CreateUserData): Promise<User> => {
-    const response = await apiClient.post('/api/admin/users', userData);
+    const response = await apiClient.post('/admin/users', userData);
     return response.data;
   },
   updateUser: async (userId: string, userData: Partial<User>): Promise<User> => {
-    const response = await apiClient.put(`/api/admin/users/${userId}`, userData);
+    const response = await apiClient.put(`/admin/users/${userId}`, userData);
     return response.data;
   },
   deleteUser: async (userId: string): Promise<void> => {
-    await apiClient.delete(`/api/admin/users/${userId}`);
+    await apiClient.delete(`/admin/users/${userId}`);
   },
   // Code example methods
   getCodeExamples: async (): Promise<CodeExample[]> => {
-    const response = await apiClient.get('/api/code-examples');
+    const response = await apiClient.get('/code-examples');
     return response.data;
   },
 
   createCodeExample: async (codeData: Omit<CodeExample, '_id'>): Promise<CodeExample> => {
-    const response = await apiClient.post('/api/code-examples', codeData);
+    const response = await apiClient.post('/code-examples', codeData);
     return response.data;
   },
 
   updateCodeExample: async (id: string, codeData: Partial<CodeExample>): Promise<CodeExample> => {
-    const response = await apiClient.put(`/api/code-examples/${id}`, codeData);
+    const response = await apiClient.put(`/code-examples/${id}`, codeData);
     return response.data;
   },
 
   deleteCodeExample: async (id: string): Promise<void> => {
-    await apiClient.delete(`/api/code-examples/${id}`);
+    await apiClient.delete(`/code-examples/${id}`);
   },
 
   // 获取所有练习记录
   getPracticeRecords: async (params?: { date?: string; userId?: string }): Promise<PracticeRecord[]> => {
-    const response = await apiClient.get('/api/practice-records/all', { params });
+    const response = await apiClient.get('/practice-records/all', { params });
     return response.data;
   },
 
   // OAuth2 相关方法
   getOAuth2Clients: async (): Promise<OAuth2Client[]> => {
-    const response = await apiClient.get('/api/admin/oauth2/clients');
+    const response = await apiClient.get('/admin/oauth2/clients');
     return response.data;
   },
 
   createOAuth2Client: async (data: CreateOAuth2ClientData): Promise<OAuth2Client> => {
-    const response = await apiClient.post('/api/admin/oauth2/clients', data);
+    const response = await apiClient.post('/admin/oauth2/clients', data);
     return response.data;
   },
 
   updateOAuth2Client: async (id: string, clientData: Partial<OAuth2Client>): Promise<OAuth2Client> => {
-    const response = await apiClient.put(`/api/admin/oauth2/clients/${id}`, clientData);
+    const response = await apiClient.put(`/admin/oauth2/clients/${id}`, clientData);
     return response.data;
   },
 
   deleteOAuth2Client: async (id: string): Promise<void> => {
-    await apiClient.delete(`/api/admin/oauth2/clients/${id}`);
+    await apiClient.delete(`/admin/oauth2/clients/${id}`);
   },
 
   // 词汇管理相关方法
   getVocabularyWordSets: async (): Promise<WordSet[]> => {
-    const response = await apiClient.get('/api/admin/vocabulary/word-sets');
+    const response = await apiClient.get('/admin/vocabulary/word-sets');
     return response.data;
   },
 
   getVocabularyWordSetDetails: async (id: string): Promise<{ wordSet: WordSet, words: Word[] }> => {
-    const response = await apiClient.get(`/api/admin/vocabulary/word-sets/${id}/words`);
+    const response = await apiClient.get(`/admin/vocabulary/word-sets/${id}/words`);
     return response.data;
   },
 
   uploadVocabularyFile: async (formData: FormData): Promise<{ message: string, wordSet: WordSet }> => {
-    const response = await apiClient.post('/api/admin/vocabulary/upload', formData, {
+    const response = await apiClient.post('/admin/vocabulary/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -176,7 +176,7 @@ export const adminApi = {
   },
 
   deleteVocabularyWordSet: async (id: string): Promise<{ message: string }> => {
-    const response = await apiClient.delete(`/api/admin/vocabulary/word-sets/${id}`);
+    const response = await apiClient.delete(`/admin/vocabulary/word-sets/${id}`);
     return response.data;
   },
 };
