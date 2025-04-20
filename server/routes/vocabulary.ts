@@ -561,14 +561,14 @@ router.get('/leaderboard', authMiddleware, async (req, res) => {
 
     // 5. 查询用户名
     const userIds = Object.keys(userMasteredCount);
-    const users = await mongoose.model('User').find({ _id: { $in: userIds } }, { username: 1 });
+    const users = await mongoose.model('User').find({ _id: { $in: userIds } }, { fullname: 1 });
     const userMap = {};
-    users.forEach(u => { userMap[u._id.toString()] = u.username; });
+    users.forEach(u => { userMap[u._id.toString()] = u.fullname; });
 
     // 6. 组装排行榜数组
     const leaderboard = userIds.map(userId => ({
       userId,
-      username: userMap[userId] || '未知用户',
+      fullname: userMap[userId] || '未知用户',
       totalWordsLearned: userMasteredCount[userId],
       accuracy: userStats[userId] && userStats[userId].total > 0
         ? Math.round((userStats[userId].correct / userStats[userId].total) * 100)
