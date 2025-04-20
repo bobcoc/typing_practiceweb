@@ -323,7 +323,10 @@ router.get('/study-words/:wordSetId', authMiddleware, async (req, res) => {
 });
 
 // 记录单词学习结果（新算法）
-router.post('/word-record', authMiddleware, async (req, res) => {
+router.post('/word-record', (req, res, next) => {
+  console.log('收到 /word-record 请求', req.method, req.body);
+  next();
+}, authMiddleware, async (req, res) => {
   try {
     const { wordId, isCorrect, testType } = req.body;
     const userId = req.user._id;

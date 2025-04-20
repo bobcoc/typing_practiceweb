@@ -392,7 +392,7 @@ const VocabularyStudy: React.FC = () => {
     // 记录学习记录
     try {
       await api.post(API_PATHS.VOCABULARY.WORD_RECORD, {
-        wordId: currentWord.id,
+        wordId: currentWord._id,
         isCorrect,
         testType
       });
