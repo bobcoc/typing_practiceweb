@@ -18,6 +18,7 @@ import StudentSearch from './components/StudentSearch';
 import VocabularyStudy from './components/VocabularyStudy';
 import { Button } from 'antd';
 import { message } from 'antd';
+import TypingTabs from './components/TypingTabs';
 
 // 创建一个包装组件来处理认证
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -83,16 +84,14 @@ const App: React.FC = () => {
         <Routes>
           {/* 公共路由 - 不需要登录就能访问 */}
           <Route path="/" element={<LandingPage />} />
-          <Route path="/typing" element={<TypingPractice />} />
+          <Route path="/typing" element={<TypingTabs />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
 
           {/* 需要登录的路由 */}
           {user ? (
             <>
               <Route path="/practice/:level" element={<Practice />} />
-              <Route path="/practice-history" element={<PracticeHistory />} />
               <Route path="/change-password" element={<ChangePassword />} />
               <Route path="/vocabulary-study" element={<VocabularyStudy />} />
               {user.isAdmin && (
@@ -106,7 +105,6 @@ const App: React.FC = () => {
             // 访问需要登录的页面时重定向到登录页
             <>
               <Route path="/practice/*" element={<Navigate to="/login" replace />} />
-              <Route path="/practice-history" element={<Navigate to="/login" replace />} />
               <Route path="/vocabulary-study" element={<Navigate to="/login" replace />} />
               <Route path="/admin/*" element={<Navigate to="/login" replace />} />
             </>

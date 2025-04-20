@@ -83,30 +83,19 @@ const NavBar: React.FC = () => {
         key: 'd1kt',
         label: <a href="https://m.d1kt.cn" target="_blank" rel="noopener noreferrer">第一课堂课程中心</a>,
       },
+      // 打字练习分组
       {
         key: '/typing',
         label: <Link to="/typing">打字练习</Link>,
       },
-      // 添加词汇学习的菜单项
+      // 词汇学习菜单项
       {
         key: '/vocabulary-study',
         label: <Link to="/vocabulary-study">词汇学习</Link>,
       },
     ];
 
-    // 在打字练习相关页面显示这些菜单项
-    const typingRelatedItems = isTypingRelatedPage(currentPath) ? [
-      {
-        key: '/leaderboard',
-        label: <Link to="/leaderboard">排行榜</Link>,
-      },
-      ...(user ? [{
-        key: '/practice-history',
-        label: <Link to="/practice-history">练习历史</Link>,
-      }] : []),
-    ] : [];
-
-    // 在词汇学习相关页面显示这些菜单项
+    // 词汇学习相关页面的历史菜单（如有需要可继续分组）
     const vocabularyRelatedItems = isVocabularyRelatedPage(currentPath) ? [
       ...(user ? [{
         key: '/practice-history',
@@ -115,7 +104,6 @@ const NavBar: React.FC = () => {
     ] : [];
 
     const authenticatedItems = user ? [
-      ...typingRelatedItems,
       ...vocabularyRelatedItems,
       ...(user.isAdmin ? [{
         key: '/admin',
@@ -147,6 +135,12 @@ const NavBar: React.FC = () => {
   
     return [...baseItems, ...authenticatedItems];
   };
+
+  // 选中逻辑：如果当前路径是/typing、/leaderboard、/practice-history，则高亮/typing-group和对应子项
+  let selectedKeys: string[] = [window.location.pathname];
+  if (["/typing", "/leaderboard", "/practice-history"].includes(window.location.pathname)) {
+    selectedKeys = [window.location.pathname, '/typing-group'];
+  }
 
   return (
     <Header className="navbar-header" style={{ 
@@ -192,7 +186,7 @@ const NavBar: React.FC = () => {
 
         <Menu 
           mode="horizontal" 
-          selectedKeys={[window.location.pathname]}
+          selectedKeys={selectedKeys}
           items={getMenuItems()}
           style={{
             background: 'transparent',
