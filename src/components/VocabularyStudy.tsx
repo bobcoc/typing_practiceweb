@@ -1029,11 +1029,12 @@ const VocabularyStudy: React.FC = () => {
                       disabled={showAnswer}
                       style={{ marginBottom: 15 }}
                       onPressEnter={e => {
-                        e.stopPropagation(); // 防止冒泡
+                        e.stopPropagation();
                         submitAnswer();
                       }}
                       autoFocus
                       size="large"
+                      onPaste={e => e.preventDefault()}
                     />
                   )}
                   
