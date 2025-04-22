@@ -100,6 +100,12 @@ const VocabularyStudy: React.FC = () => {
   // 测试输入框ref
   const inputRef = useRef<any>(null);
 
+  // 新增 state
+  const [studyWords, setStudyWords] = useState<Word[]>([]);
+  const [studyIndex, setStudyIndex] = useState(0);
+  const [testWords, setTestWords] = useState<Word[]>([]);
+  const [testIndex, setTestIndex] = useState(0);
+
   // 获取所有单词集
   const fetchWordSets = async () => {
     try {
@@ -181,15 +187,12 @@ const VocabularyStudy: React.FC = () => {
       console.log('获取到的学习单词:', response);
       
       if (response && response.length > 0) {
-        // 打乱单词顺序
         const shuffledWords = shuffleArray(response);
-        setCurrentWords(shuffledWords);
-        setCurrentIndex(0);
-        // 如果在学习单词标签页，直接开始学习
+        setStudyWords(shuffledWords);
+        setStudyIndex(0);
         setActiveTab('study');
         message.success(`成功加载 ${shuffledWords.length} 个单词`);
       } else {
-        console.warn('未获取到单词数据或数据为空');
         message.warning('未获取到单词数据，请重试');
       }
     } catch (error) {
@@ -282,35 +285,26 @@ const VocabularyStudy: React.FC = () => {
 
   // 开始测试
   const startTest = () => {
-    if (currentWords.length === 0) {
+    if (studyWords.length === 0) {
       message.error('请先加载单词');
       return;
     }
-    
+    const shuffled = shuffleArray([...studyWords]);
+    setTestWords(shuffled);
+    setTestIndex(0);
     setTestStarted(true);
-    setCurrentIndex(0);
+    setTestFinished(false);
     setUserAnswer('');
     setShowAnswer(false);
     setTestResults([]);
-    setTestFinished(false);
-    
-    // 如果是多选题模式，生成选项
-    if (testType === 'multiple-choice') {
-      generateMultipleChoiceOptions(0);
-    }
-    
-    // 如果是听力模式，自动播放单词
-    if (testType === 'audio-to-english') {
-      setTimeout(() => {
-        playWordSound(currentWords[0].word);
-      }, 500);
-    }
+    setActiveTab('test');
   };
 
   // 生成多选题选项
-  const generateMultipleChoiceOptions = (index: number) => {
-    const correctTranslation = currentWords[index].translation;
-    let availableOptions = currentWords
+  const generateMultipleChoiceOptions = (index: number, wordsArr?: Word[]) => {
+    const arr = wordsArr || testWords;
+    const correctTranslation = arr[index].translation;
+    let availableOptions = arr
       .filter(w => w.translation !== correctTranslation)
       .map(w => w.translation);
     
@@ -354,9 +348,9 @@ const VocabularyStudy: React.FC = () => {
 
   // 提交答案
   const submitAnswer = async () => {
-    if (!testStarted || currentWords.length === 0) return;
+    if (!testStarted || testWords.length === 0) return;
 
-    const currentWord = currentWords[currentIndex];
+    const currentWord = testWords[testIndex];
     let isCorrect = false;
     let correctAnswer = '';
 
@@ -374,7 +368,6 @@ const VocabularyStudy: React.FC = () => {
         break;
     }
 
-    // 添加到测试结果
     setTestResults(prev => [...prev, {
       word: currentWord.word,
       userAnswer,
@@ -382,7 +375,6 @@ const VocabularyStudy: React.FC = () => {
       isCorrect
     }]);
 
-    // 更新统计信息
     setStudyStats(prev => ({
       ...prev,
       totalWords: prev.totalWords + 1,
@@ -407,29 +399,24 @@ const VocabularyStudy: React.FC = () => {
       message.error(`错误! 正确答案是: ${correctAnswer}`);
     }
 
-    // 显示答案
     setShowAnswer(true);
 
-    // 延迟进入下一题
     setTimeout(() => {
-      if (currentIndex < currentWords.length - 1) {
-        setCurrentIndex(currentIndex + 1);
+      if (testIndex < testWords.length - 1) {
+        setTestIndex(testIndex + 1);
         setUserAnswer('');
         setShowAnswer(false);
-        
-        // 如果是多选题模式，生成下一题的选项
+        // 多选题生成选项
         if (testType === 'multiple-choice') {
-          generateMultipleChoiceOptions(currentIndex + 1);
+          generateMultipleChoiceOptions(testIndex + 1);
         }
-        
-        // 如果是听力模式，自动播放下一个单词
+        // 听力自动播放
         if (testType === 'audio-to-english') {
           setTimeout(() => {
-            playWordSound(currentWords[currentIndex + 1].word);
+            playWordSound(testWords[testIndex + 1].word);
           }, 500);
         }
       } else {
-        // 测试完成
         finishTest();
       }
     }, 1500);
@@ -474,13 +461,14 @@ const VocabularyStudy: React.FC = () => {
 
   // 重新开始测试
   const restartTest = () => {
-    setTestStarted(false);
+    const shuffled = shuffleArray([...testWords]);
+    setTestWords(shuffled);
+    setTestIndex(0);
+    setTestStarted(false); // 回到模式选择界面
     setTestFinished(false);
-    setCurrentIndex(0);
     setUserAnswer('');
     setShowAnswer(false);
     setTestResults([]);
-    setActiveTab('test');
   };
 
   // 获取学习记录
@@ -571,34 +559,46 @@ const VocabularyStudy: React.FC = () => {
 
   // 自动播放单词发音：currentIndex变化时
   useEffect(() => {
-    // 学习单词界面自动播放
-    if (
-      activeTab === 'study' &&
-      currentWords.length > 0 &&
-      currentIndex >= 0 &&
-      currentIndex < currentWords.length
-    ) {
-      playWordSound(currentWords[currentIndex].word);
+    if (activeTab === 'study' && studyWords.length > 0) {
+      playWordSound(studyWords[studyIndex].word);
     }
-    // 测试模式界面自动播放
-    else if (
-      activeTab === 'test' &&
-      testStarted && !testFinished &&
-      currentWords.length > 0 &&
-      currentIndex >= 0 &&
-      currentIndex < currentWords.length
-    ) {
-      playWordSound(currentWords[currentIndex].word);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, currentWords, testStarted, testFinished, activeTab]);
+  }, [activeTab, studyIndex, studyWords]);
 
   // 自动聚焦输入框（仅在测试模式下需要输入时）
   useEffect(() => {
-    if (testStarted && !testFinished && (testType === 'chinese-to-english' || testType === 'audio-to-english')) {
+    if (
+      testStarted &&
+      !testFinished &&
+      (testType === 'chinese-to-english' || testType === 'audio-to-english')
+    ) {
       inputRef.current?.focus();
     }
-  }, [currentIndex, testStarted, testType, testFinished]);
+  }, [testIndex, testStarted, testType, testFinished]);
+
+  // 切换题目时自动生成选项
+  useEffect(() => {
+    if (
+      testStarted &&
+      !testFinished &&
+      testType === 'multiple-choice' &&
+      testWords.length > 0
+    ) {
+      generateMultipleChoiceOptions(testIndex);
+    }
+  }, [testIndex, testType, testStarted, testFinished, testWords]);
+
+  // 自动播放第一个听力单词
+  useEffect(() => {
+    if (
+      testStarted &&
+      !testFinished &&
+      testType === 'audio-to-english' &&
+      testWords.length > 0 &&
+      testIndex === 0 // 只在第一题
+    ) {
+      playWordSound(testWords[0].word);
+    }
+  }, [testStarted, testType, testWords, testFinished, testIndex]);
 
   // Tab 切换
   const items: TabsProps['items'] = [
@@ -705,21 +705,21 @@ const VocabularyStudy: React.FC = () => {
             </Card>
           </div>
           
-          {currentWords.length > 0 && (
+          {studyWords.length > 0 && (
             <div style={{ width: '100%', maxWidth: 600, textAlign: 'center' }}>
               <Card
                 title={
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>单词学习</span>
                     <span style={{ fontSize: '0.9em', color: '#666' }}>
-                      进度: {currentIndex + 1} / {currentWords.length}
+                      进度: {studyIndex + 1} / {studyWords.length}
                     </span>
                   </div>
                 }
                 style={{ marginBottom: 20 }}
               >
                 <Progress 
-                  percent={Math.round(((currentIndex + 1) / currentWords.length) * 100)} 
+                  percent={Math.round(((studyIndex + 1) / studyWords.length) * 100)} 
                   status="active" 
                   strokeColor={{
                     '0%': '#108ee9',
@@ -729,54 +729,58 @@ const VocabularyStudy: React.FC = () => {
   
                 <div style={{ marginTop: 20 }}>
                   <div style={{ fontSize: 32, marginBottom: 10 }}>
-                    {currentWords[currentIndex].word}
-                    {currentWords[currentIndex].pronunciation && (
+                    <span
+                      style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none' }}
+                      onCopy={e => e.preventDefault()}
+                    >
+                      {studyWords[studyIndex].word}
+                    </span>
+                    {studyWords[studyIndex].pronunciation && (
                       <span style={{ marginLeft: 10, color: '#888', fontSize: 22 }}>
-                        [{currentWords[currentIndex].pronunciation}]
+                        [{studyWords[studyIndex].pronunciation}]
                       </span>
                     )}
                     <SoundOutlined 
-                      onClick={() => playWordSound(currentWords[currentIndex].word)}
+                      onClick={() => playWordSound(studyWords[studyIndex].word)}
                       style={{ marginLeft: 10, cursor: 'pointer', fontSize: 24 }}
                     />
                   </div>
                   <div style={{ fontSize: 20, color: '#666' }}>
-                    {currentWords[currentIndex].translation}
+                    {studyWords[studyIndex].translation}
                   </div>
-                  {currentWords[currentIndex].example && (
+                  {studyWords[studyIndex].example && (
                     <div style={{ marginTop: 15, fontStyle: 'italic', color: '#888' }}>
-                      例句: {currentWords[currentIndex].example}
+                      例句: {studyWords[studyIndex].example}
                     </div>
                   )}
   
-                  {currentWords[currentIndex].masteryLevel !== undefined && (
+                  {studyWords[studyIndex].masteryLevel !== undefined && (
                     <div style={{ marginTop: 15 }}>
                       <Tag color={
-                        currentWords[currentIndex].masteryLevel === 0 ? 'default' :
-                        currentWords[currentIndex].masteryLevel === 1 ? 'processing' : 'success'
+                        studyWords[studyIndex].masteryLevel === 0 ? 'default' :
+                        studyWords[studyIndex].masteryLevel === 1 ? 'processing' : 'success'
                       }>
                         {
-                          currentWords[currentIndex].masteryLevel === 0 ? '未学习' :
-                          currentWords[currentIndex].masteryLevel === 1 ? '学习中' : '已掌握'
+                          studyWords[studyIndex].masteryLevel === 0 ? '未学习' :
+                          studyWords[studyIndex].masteryLevel === 1 ? '学习中' : '已掌握'
                         }
                       </Tag>
-                      {(currentWords[currentIndex].correctCount !== undefined && 
-                        currentWords[currentIndex].incorrectCount !== undefined) && (
+                      {(studyWords[studyIndex].correctCount !== undefined && 
+                        studyWords[studyIndex].incorrectCount !== undefined) && (
                         <span style={{ color: '#888', marginLeft: 10, fontSize: '0.9em' }}>
-                          正确: {currentWords[currentIndex].correctCount} / 
-                          错误: {currentWords[currentIndex].incorrectCount}
+                          正确: {studyWords[studyIndex].correctCount} / 
+                          错误: {studyWords[studyIndex].incorrectCount}
                         </span>
                       )}
                     </div>
                   )}
                 </div>
               </Card>
-              
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Button 
                   icon={<CaretLeftOutlined />} 
-                  onClick={handlePrevWord}
-                  disabled={currentIndex === 0}
+                  onClick={() => setStudyIndex(studyIndex - 1)}
+                  disabled={studyIndex === 0}
                 >
                   上一个
                 </Button>
@@ -784,16 +788,19 @@ const VocabularyStudy: React.FC = () => {
                   <Button
                     type="default"
                     icon={<ReloadOutlined />}
-                    onClick={() => setCurrentWords(shuffleArray([...currentWords]))}
+                    onClick={() => {
+                      const reshuffled = shuffleArray([...studyWords]);
+                      setStudyWords(reshuffled);
+                      setStudyIndex(0);
+                    }}
                   >
                     重新洗牌
                   </Button>
                   <Button 
                     type="primary"
                     onClick={() => {
-                      setActiveTab('test');
-                      setTestStarted(false);
-                      setTestFinished(false);
+                      setActiveTab('test');      // 切换到测试Tab
+                      setTestStarted(false);     // 强制回到模式选择界面
                     }}
                   >
                     开始测试
@@ -801,8 +808,8 @@ const VocabularyStudy: React.FC = () => {
                 </Space>
                 <Button 
                   icon={<CaretRightOutlined />} 
-                  onClick={handleNextWord}
-                  disabled={currentIndex === currentWords.length - 1}
+                  onClick={() => setStudyIndex(studyIndex + 1)}
+                  disabled={studyIndex === studyWords.length - 1}
                 >
                   下一个
                 </Button>
@@ -840,20 +847,34 @@ const VocabularyStudy: React.FC = () => {
                 </div>
                 <Button 
                   type="primary" 
-                  onClick={startTest}
-                  disabled={currentWords.length === 0}
+                  onClick={() => {
+                    // 只有这里才初始化测试
+                    const shuffled = shuffleArray([...studyWords]);
+                    setTestWords(shuffled);
+                    setTestIndex(0);
+                    setTestStarted(true);
+                    setTestFinished(false);
+                    setUserAnswer('');
+                    setShowAnswer(false);
+                    setTestResults([]);
+                    // 如果是选择翻译，生成选项
+                    if (testType === 'multiple-choice') {
+                      generateMultipleChoiceOptions(0, shuffled);
+                    }
+                  }}
+                  disabled={studyWords.length === 0}
                   style={{ 
                     width: '100%',
-                    background: currentWords.length === 0 ? '#f5f5f5' : undefined,
-                    color: currentWords.length === 0 ? '#d9d9d9' : undefined,
-                    cursor: currentWords.length === 0 ? 'not-allowed' : 'pointer'
+                    background: studyWords.length === 0 ? '#f5f5f5' : undefined,
+                    color: studyWords.length === 0 ? '#d9d9d9' : undefined,
+                    cursor: studyWords.length === 0 ? 'not-allowed' : 'pointer'
                   }}
                 >
                   开始测试
                 </Button>
               </Card>
-              <div style={{ textAlign: 'center', color: currentWords.length === 0 ? '#ff4d4f' : '#999' }}>
-                {currentWords.length === 0 ? (
+              <div style={{ textAlign: 'center', color: studyWords.length === 0 ? '#ff4d4f' : '#999' }}>
+                {studyWords.length === 0 ? (
                   <div>
                     <p style={{ fontWeight: 'bold' }}>请先从"学习单词"标签页中选择单词集并开始学习</p>
                     <Button type="link" onClick={() => setActiveTab('study')}>
@@ -861,7 +882,7 @@ const VocabularyStudy: React.FC = () => {
                     </Button>
                   </div>
                 ) : (
-                  <p>测试将包含 {currentWords.length} 个单词</p>
+                  <p>测试将包含 {studyWords.length} 个单词</p>
                 )}
               </div>
             </div>
@@ -937,12 +958,12 @@ const VocabularyStudy: React.FC = () => {
                     '选择正确翻译'
                   }</span>
                   <span style={{ fontSize: '0.9em', color: '#666' }}>
-                    进度: {currentIndex + 1} / {currentWords.length}
+                    进度: {testIndex + 1} / {testWords.length}
                   </span>
                 </div>
               }>
                 <Progress 
-                  percent={Math.round(((currentIndex + 1) / currentWords.length) * 100)} 
+                  percent={Math.round(((testIndex + 1) / testWords.length) * 100)} 
                   status="active"
                   strokeColor={{
                     '0%': '#108ee9',
@@ -955,11 +976,11 @@ const VocabularyStudy: React.FC = () => {
                     <div style={{ fontSize: 24, marginBottom: 15, textAlign: 'center' }}>
                       <div style={{ color: '#666', fontSize: '0.8em', marginBottom: 5 }}>请输入对应的英文单词</div>
                       <div style={{ fontWeight: 'bold' }}>
-                        {currentWords[currentIndex].translation}
+                        {testWords[testIndex].translation}
                       </div>
-                      {currentWords[currentIndex].pronunciation && (
+                      {testWords[testIndex].pronunciation && (
                         <div style={{ color: '#888', fontSize: 20, marginTop: 5 }}>
-                          [{currentWords[currentIndex].pronunciation}]
+                          [{testWords[testIndex].pronunciation}]
                         </div>
                       )}
                     </div>
@@ -969,20 +990,20 @@ const VocabularyStudy: React.FC = () => {
                     <div style={{ fontSize: 24, marginBottom: 15, textAlign: 'center' }}>
                       <div style={{ color: '#666', fontSize: '0.8em', marginBottom: 5 }}>请听发音并输入单词</div>
                       <div style={{ fontWeight: 'bold', marginBottom: 8 }}>
-                        {currentWords[currentIndex].pronunciation && (
+                        {testWords[testIndex].pronunciation && (
                           <span style={{ marginLeft: 10, color: '#888', fontSize: 20 }}>
-                            [{currentWords[currentIndex].pronunciation}]
+                            [{testWords[testIndex].pronunciation}]
                           </span>
                         )}
                         <SoundOutlined 
-                          onClick={() => playWordSound(currentWords[currentIndex].word)}
+                          onClick={() => playWordSound(testWords[testIndex].word)}
                           style={{ marginLeft: 10, fontSize: 28, cursor: 'pointer' }}
                         />
                       </div>
                       <div>点击图标播放单词发音</div>
                       <Button 
                         type="link" 
-                        onClick={() => playWordSound(currentWords[currentIndex].word)}
+                        onClick={() => playWordSound(testWords[testIndex].word)}
                         style={{ marginTop: 5 }}
                       >
                         再次播放
@@ -994,15 +1015,15 @@ const VocabularyStudy: React.FC = () => {
                     <div style={{ fontSize: 24, marginBottom: 15, textAlign: 'center' }}>
                       <div style={{ color: '#666', fontSize: '0.8em', marginBottom: 5 }}>请选择正确的中文翻译</div>
                       <div style={{ fontWeight: 'bold' }}>
-                        {currentWords[currentIndex].word}
+                        {testWords[testIndex].word}
                         <SoundOutlined 
-                          onClick={() => playWordSound(currentWords[currentIndex].word)}
+                          onClick={() => playWordSound(testWords[testIndex].word)}
                           style={{ marginLeft: 10, cursor: 'pointer', fontSize: 20 }}
                         />
                       </div>
-                      {currentWords[currentIndex].pronunciation && (
+                      {testWords[testIndex].pronunciation && (
                         <div style={{ color: '#888', fontSize: 20, marginTop: 5 }}>
-                          [{currentWords[currentIndex].pronunciation}]
+                          [{testWords[testIndex].pronunciation}]
                         </div>
                       )}
                     </div>
@@ -1054,8 +1075,8 @@ const VocabularyStudy: React.FC = () => {
                         {testResults[testResults.length - 1]?.isCorrect ? '✓ 回答正确' : '✗ 回答错误'}
                       </div>
                       <div>正确答案: {testType === 'multiple-choice' 
-                        ? currentWords[currentIndex].translation 
-                        : currentWords[currentIndex].word}
+                        ? testWords[testIndex].translation 
+                        : testWords[testIndex].word}
                       </div>
                       <div>你的答案: {userAnswer}</div>
                     </div>
