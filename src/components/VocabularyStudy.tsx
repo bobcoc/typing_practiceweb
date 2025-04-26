@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, Input, Progress, Modal, message, Tabs, Radio, Spin, Select, Table, Tag, InputNumber, Space } from 'antd';
-import { SoundOutlined, CaretLeftOutlined, CaretRightOutlined, TrophyOutlined, HistoryOutlined, ReloadOutlined } from '@ant-design/icons';
+import { SoundOutlined, CaretLeftOutlined, CaretRightOutlined, TrophyOutlined, HistoryOutlined, ReloadOutlined, SettingOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError, authEvents } from '../api/apiClient';
 import { API_PATHS } from '../config';
@@ -105,6 +105,11 @@ const VocabularyStudy: React.FC = () => {
   const [studyIndex, setStudyIndex] = useState(0);
   const [testWords, setTestWords] = useState<Word[]>([]);
   const [testIndex, setTestIndex] = useState(0);
+
+  // 添加声音相关的状态
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [voiceSettingsVisible, setVoiceSettingsVisible] = useState(false);
 
   // 获取所有单词集
   const fetchWordSets = async () => {
@@ -251,10 +256,57 @@ const VocabularyStudy: React.FC = () => {
     });
   };
 
-  // 播放单词发音
+  // 获取可用的语音列表
+  useEffect(() => {
+    const fetchVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      // 过滤出英文语音
+      const englishVoices = voices.filter(voice => voice.lang.includes('en'));
+      setAvailableVoices(englishVoices.length > 0 ? englishVoices : voices);
+      
+      // 尝试从localStorage获取上次选择的声音
+      const savedVoiceName = localStorage.getItem('selectedVoiceName');
+      if (savedVoiceName) {
+        const savedVoice = voices.find(v => v.name === savedVoiceName);
+        if (savedVoice) {
+          setSelectedVoice(savedVoice);
+        } else if (voices.length > 0) {
+          // 如果找不到保存的声音，使用第一个可用的声音
+          setSelectedVoice(voices[0]);
+        }
+      } else if (englishVoices.length > 0) {
+        // 默认选择第一个英文声音
+        setSelectedVoice(englishVoices[0]);
+      } else if (voices.length > 0) {
+        // 如果没有英文声音，使用第一个可用的声音
+        setSelectedVoice(voices[0]);
+      }
+    };
+
+    // 初始获取
+    fetchVoices();
+    
+    // 监听voiceschanged事件
+    window.speechSynthesis.onvoiceschanged = fetchVoices;
+    
+    // 组件卸载时清除事件监听
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
+  // 保存选择的声音到localStorage
+  const saveSelectedVoice = (voice: SpeechSynthesisVoice) => {
+    localStorage.setItem('selectedVoiceName', voice.name);
+    setSelectedVoice(voice);
+    setVoiceSettingsVisible(false);
+    message.success(`已选择语音: ${voice.name}`);
+  };
+
+  // 修改播放声音函数，使用选择的声音
   const playWordSound = (word: string) => {
     if (!('speechSynthesis' in window)) {
-      message.warning('您的浏览器不支持语音合成功能');
+      message.info('您的浏览器不支持语音合成功能');
       return;
     }
 
@@ -263,6 +315,11 @@ const VocabularyStudy: React.FC = () => {
     utterance.rate = 0.9;
     utterance.pitch = 1;
     utterance.volume = 1;
+    
+    // 使用选择的声音
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
 
     window.speechSynthesis.speak(utterance);
   };
@@ -1218,6 +1275,61 @@ const VocabularyStudy: React.FC = () => {
     },
   ];
 
+  // 渲染声音设置弹窗
+  const renderVoiceSettings = () => {
+    return (
+      <Modal
+        title="选择播放角色"
+        open={voiceSettingsVisible}
+        onCancel={() => setVoiceSettingsVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setVoiceSettingsVisible(false)}>
+            关闭
+          </Button>
+        ]}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <p>选择想要的语音角色:</p>
+          <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+            {availableVoices.map((voice) => (
+              <div 
+                key={voice.name} 
+                style={{
+                  padding: '10px', 
+                  margin: '5px 0', 
+                  border: '1px solid #f0f0f0',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  background: selectedVoice?.name === voice.name ? '#e6f7ff' : 'white'
+                }}
+                onClick={() => saveSelectedVoice(voice)}
+              >
+                <div style={{ fontWeight: 'bold' }}>{voice.name}</div>
+                <div style={{ fontSize: '12px', color: '#666' }}>
+                  {voice.lang} {voice.localService ? ' (本地)' : ' (在线)'}
+                  {voice.default ? ' (默认)' : ''}
+                </div>
+                <Button 
+                  size="small" 
+                  type="text" 
+                  icon={<SoundOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const utterance = new SpeechSynthesisUtterance('Hello, this is a sample of my voice.');
+                    utterance.voice = voice;
+                    window.speechSynthesis.speak(utterance);
+                  }}
+                >
+                  试听
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Modal>
+    );
+  };
+
   if (loading) {
     return (
       <Card>
@@ -1232,7 +1344,19 @@ const VocabularyStudy: React.FC = () => {
 
   return (
     <Card title="英语单词背诵">
+      <div style={{ textAlign: 'right', marginBottom: 16 }}>
+        <Button 
+          icon={<SettingOutlined />} 
+          onClick={() => setVoiceSettingsVisible(true)}
+        >
+          选择播放角色
+        </Button>
+      </div>
+      
       <Tabs activeKey={activeTab} items={items} onChange={setActiveTab} />
+      
+      {/* 添加声音设置弹窗 */}
+      {renderVoiceSettings()}
       
       <Modal
         title="测试结果"
