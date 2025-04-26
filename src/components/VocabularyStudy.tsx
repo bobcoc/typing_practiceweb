@@ -310,18 +310,43 @@ const VocabularyStudy: React.FC = () => {
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(word);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    
-    // 使用选择的声音
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-    }
+    try {
+      // 先尝试取消所有挂起的发音
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(word);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      
+      // 使用选择的声音
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
 
-    window.speechSynthesis.speak(utterance);
+      // 添加播放失败处理
+      utterance.onerror = (event) => {
+        console.error('语音播放失败:', event);
+        message.error('当前语音引擎播放失败，将尝试使用默认语音');
+        
+        // 尝试使用系统默认语音
+        const defaultUtterance = new SpeechSynthesisUtterance(word);
+        window.speechSynthesis.speak(defaultUtterance);
+        
+        // 重置语音选择
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          setSelectedVoice(voices[0]);
+          localStorage.removeItem('selectedVoiceName'); // 清除之前保存的选择
+        }
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.error('语音合成错误:', error);
+      message.error('语音播放异常，请刷新页面后重试');
+    }
   };
 
   // 切换到下一个单词
@@ -1283,6 +1308,43 @@ const VocabularyStudy: React.FC = () => {
         open={voiceSettingsVisible}
         onCancel={() => setVoiceSettingsVisible(false)}
         footer={[
+          <Button key="diagnose" type="primary" onClick={() => {
+            const result = diagnoseVoiceIssue();
+            message.info(result);
+          }}>
+            诊断语音问题
+          </Button>,
+          <Button key="reset" type="danger" onClick={() => {
+            // 取消所有挂起的语音
+            window.speechSynthesis.cancel();
+            
+            // 清除localStorage中保存的语音选择
+            localStorage.removeItem('selectedVoiceName');
+            
+            // 重新获取默认语音
+            const voices = window.speechSynthesis.getVoices();
+            const englishVoices = voices.filter(voice => voice.lang.includes('en'));
+            
+            if (englishVoices.length > 0) {
+              setSelectedVoice(englishVoices[0]);
+            } else if (voices.length > 0) {
+              setSelectedVoice(voices[0]);
+            } else {
+              setSelectedVoice(null);
+            }
+            
+            message.success('语音引擎已重置，请尝试播放');
+            
+            // 尝试播放测试声音
+            try {
+              const testUtterance = new SpeechSynthesisUtterance('Reset complete');
+              window.speechSynthesis.speak(testUtterance);
+            } catch (error) {
+              console.error('重置后测试播放失败:', error);
+            }
+          }}>
+            重置语音引擎
+          </Button>,
           <Button key="close" onClick={() => setVoiceSettingsVisible(false)}>
             关闭
           </Button>
@@ -1328,6 +1390,30 @@ const VocabularyStudy: React.FC = () => {
         </div>
       </Modal>
     );
+  };
+
+  // 诊断功能
+  const diagnoseVoiceIssue = () => {
+    try {
+      // 检查语音合成API是否可用
+      if (!('speechSynthesis' in window)) {
+        return "您的浏览器不支持语音合成功能";
+      }
+      
+      // 检查可用语音
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || voices.length === 0) {
+        return "系统没有发现可用的语音包";
+      }
+      
+      // 尝试使用默认语音播放
+      const testUtterance = new SpeechSynthesisUtterance("Test");
+      window.speechSynthesis.speak(testUtterance);
+      
+      return `系统发现${voices.length}个语音包，已尝试播放测试音频`;
+    } catch (error) {
+      return `诊断过程发生错误: ${error.message}`;
+    }
   };
 
   if (loading) {
