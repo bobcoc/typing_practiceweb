@@ -379,6 +379,14 @@ const VocabularyStudy: React.FC = () => {
     setUserAnswer('');
     setShowAnswer(false);
     setTestResults([]);
+    // 重置统计信息
+    setStudyStats({
+      totalWords: 0,
+      correctWords: 0,
+      accuracy: 0,
+      startTime: new Date(),
+      duration: 0
+    });
     setActiveTab('test');
   };
 
@@ -450,24 +458,33 @@ const VocabularyStudy: React.FC = () => {
         break;
     }
 
-    setTestResults(prev => [...prev, {
-      word: currentWord.word,
-      userAnswer,
-      correctAnswer,
-      isCorrect
-    }]);
+    // 更新测试结果数组
+    const updatedResults = [
+      ...testResults,
+      {
+        word: currentWord.word,
+        userAnswer,
+        correctAnswer,
+        isCorrect
+      }
+    ];
+    setTestResults(updatedResults);
 
+    // 更新学习统计信息
+    const correctCount = updatedResults.filter(r => r.isCorrect).length;
+    const totalCount = updatedResults.length;
+    
     setStudyStats(prev => ({
       ...prev,
-      totalWords: prev.totalWords + 1,
-      correctWords: prev.correctWords + (isCorrect ? 1 : 0),
-      accuracy: ((prev.correctWords + (isCorrect ? 1 : 0)) / (prev.totalWords + 1)) * 100
+      totalWords: totalCount,
+      correctWords: correctCount,
+      accuracy: (correctCount / totalCount) * 100
     }));
 
     // 记录学习记录
     try {
       await api.post(API_PATHS.VOCABULARY.WORD_RECORD, {
-        wordId: currentWord._id,
+        wordId: currentWord._id || currentWord.id,
         isCorrect,
         testType
       });
@@ -499,35 +516,51 @@ const VocabularyStudy: React.FC = () => {
           }, 500);
         }
       } else {
-        finishTest();
+        // 最后一题，使用本地更新的结果，避免异步状态更新问题
+        finishTestWithResults(updatedResults);
       }
     }, 1500);
   };
 
-  // 完成测试
-  const finishTest = async () => {
+  // 使用指定结果完成测试
+  const finishTestWithResults = async (finalResults: any[]) => {
     try {
       setTestFinished(true);
       
       // 获取服务器时间
       const { serverTime } = await api.get<{ serverTime: number }>(API_PATHS.SYSTEM.SERVER_TIME);
       
-      // 更新统计信息
-      setStudyStats(prev => ({
-        ...prev,
-        endTime: new Date(serverTime)
-      }));
+      const correctCount = finalResults.filter(r => r.isCorrect).length;
+      const totalCount = finalResults.length;
+
+      // 添加调试信息
+      console.log('测试完成状态(带结果):', {
+        finalResultsLength: finalResults.length,
+        testWordsLength: testWords.length,
+        correctCount,
+        totalCount,
+        currentStudyStats: studyStats
+      });
+
+      // 直接使用传入的测试结果计算
+      const updatedStats = {
+        totalWords: totalCount,
+        correctWords: correctCount,
+        accuracy: totalCount > 0 ? (correctCount / totalCount) * 100 : 0,
+        startTime: studyStats.startTime,
+        endTime: new Date(serverTime),
+        duration: (serverTime - studyStats.startTime.getTime()) / 1000
+      };
       
-      // 提交测试记录
+      // 更新统计信息
+      setStudyStats(updatedStats);
+      
+      // 提交测试记录 - 使用计算好的最新数据
       await api.post(API_PATHS.VOCABULARY.TEST_RECORD, {
         wordSetId: selectedWordSet,
         testType,
-        stats: {
-          ...studyStats,
-          endTime: new Date(serverTime),
-          duration: (serverTime - studyStats.startTime.getTime()) / 1000
-        },
-        results: testResults // 发送详细的测试结果，包括每道题的回答情况
+        stats: updatedStats,
+        results: finalResults // 发送详细的测试结果，包括每道题的回答情况
       });
       
       message.success('测试完成，记录已保存');
@@ -541,6 +574,12 @@ const VocabularyStudy: React.FC = () => {
     }
   };
 
+  // 完成测试 - 兼容原来的调用方式
+  const finishTest = async () => {
+    // 使用当前的测试结果完成测试
+    await finishTestWithResults([...testResults]);
+  };
+
   // 重新开始测试
   const restartTest = () => {
     const shuffled = shuffleArray([...testWords]);
@@ -551,6 +590,14 @@ const VocabularyStudy: React.FC = () => {
     setUserAnswer('');
     setShowAnswer(false);
     setTestResults([]);
+    // 重置统计信息
+    setStudyStats({
+      totalWords: 0,
+      correctWords: 0,
+      accuracy: 0,
+      startTime: new Date(),
+      duration: 0
+    });
   };
 
   // 获取学习记录
@@ -939,6 +986,14 @@ const VocabularyStudy: React.FC = () => {
                     setUserAnswer('');
                     setShowAnswer(false);
                     setTestResults([]);
+                    // 重置统计信息
+                    setStudyStats({
+                      totalWords: 0,
+                      correctWords: 0,
+                      accuracy: 0,
+                      startTime: new Date(),
+                      duration: 0
+                    });
                     // 如果是选择翻译，生成选项
                     if (testType === 'multiple-choice') {
                       generateMultipleChoiceOptions(0, shuffled);

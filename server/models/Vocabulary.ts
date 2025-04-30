@@ -76,22 +76,30 @@ const WordSetSchema = new Schema<IWordSet>({
 // 为单词集模型添加索引
 WordSetSchema.index({ name: 1, owner: 1 }, { unique: true });
 
+// 简化的嵌套模式统计
 const ModeStatsSchema = new Schema({
   streak: { type: Number, default: 0 },
   totalCorrect: { type: Number, default: 0 },
   totalWrong: { type: Number, default: 0 },
   mastered: { type: Boolean, default: false },
   inWrongBook: { type: Boolean, default: false },
-  lastTestedAt: Date,
-  lastMasteredAt: Date
+  lastTestedAt: Date
 }, { _id: false });
 
+// 简化后的主记录模式
 const WordRecordSchema = new Schema({
   user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   word: { type: Schema.Types.ObjectId, ref: 'Word', required: true },
+  
+  // 各模式的基础统计数据
   multipleChoice: { type: ModeStatsSchema, default: () => ({}) },
   audioToEnglish: { type: ModeStatsSchema, default: () => ({}) },
   chineseToEnglish: { type: ModeStatsSchema, default: () => ({}) },
+  
+  // 只在顶层保留整体掌握状态
+  isFullyMastered: { type: Boolean, default: false },
+  lastFullyMasteredAt: Date,
+  
   createdAt: { type: Date, default: Date.now }
 });
 
