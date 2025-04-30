@@ -16,6 +16,7 @@ import LandingPage from './components/LandingPage';
 import TypingPractice from './components/TypingPractice';
 import StudentSearch from './components/StudentSearch';
 import VocabularyStudy from './components/VocabularyStudy';
+import UserWordPassExport from './components/UserWordPassExport';
 import { Button } from 'antd';
 import { message } from 'antd';
 import TypingTabs from './components/TypingTabs';
@@ -111,6 +112,7 @@ const App: React.FC = () => {
           )}
           
           <Route path="/student-search" element={<StudentSearch />} />
+          <Route path="/user-word-pass" element={<UserWordPassExport />} />
           
           {/* 处理未匹配的路径 */}
           <Route path="*" element={<Navigate to="/" replace />} />

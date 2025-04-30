@@ -15,6 +15,7 @@ import systemRoutes from './routes/system';
 import oauth2Routes from './routes/oauth2.routes';
 import visitorRoutes from './routes/visitor';
 import vocabularyRoutes from './routes/vocabulary';
+import userWordPassRouter from './routes/userWordPass';
 // 加载环境变量
 dotenv.config();
 
@@ -67,6 +68,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/visitor', visitorRoutes);
 app.use('/api/vocabulary', vocabularyRoutes);
+app.use('/api', userWordPassRouter);
 // 错误处理中间件
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
