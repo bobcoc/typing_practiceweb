@@ -25,7 +25,6 @@ const UserWordPassExport: React.FC = () => {
   };
 
   const columns = [
-    { title: '用户名', dataIndex: 'username', key: 'username' },
     { title: '姓名', dataIndex: 'fullname', key: 'fullname' },
     { title: '通过单词数', dataIndex: 'passCount', key: 'passCount' },
   ];
@@ -44,6 +43,7 @@ const UserWordPassExport: React.FC = () => {
         columns={columns}
         rowKey="username"
         style={{ marginTop: 20 }}
+        pagination={{ pageSize: 30 }}
       />
     </div>
   );
