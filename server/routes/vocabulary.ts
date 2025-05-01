@@ -356,7 +356,7 @@ router.post('/word-record', (req, res, next) => {
     modeObj.lastTestedAt = new Date();
 
     // 判定是否掌握
-    if (!modeObj.mastered && modeObj.streak >= 1) {
+    if (modeObj.streak >= 1) {
       modeObj.mastered = true;
       modeObj.lastMasteredAt = new Date();
       modeObj.inWrongBook = false; // 掌握后自动移出错词本
