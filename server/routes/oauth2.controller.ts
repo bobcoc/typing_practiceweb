@@ -22,6 +22,16 @@ export class OAuth2Controller {
   // 授权端点
   async authorize(req: CustomRequest, res: Response) {
     try {
+      // 调试日志：输出请求头、cookie、session、originalUrl
+      console.log('--- OAuth2 authorize 调试信息 ---');
+      console.log('req.headers:', req.headers);
+      // 如果有cookie中间件
+      if (req.cookies) {
+        console.log('req.cookies:', req.cookies);
+      }
+      console.log('req.session:', req.session);
+      console.log('req.originalUrl:', req.originalUrl);
+
       // 支持JWT自动登录
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith('Bearer ')) {
