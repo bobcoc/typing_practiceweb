@@ -4,6 +4,8 @@ import { User } from '../models/User';
 import { generateRandomString } from '../utils/crypto';
 import { Session } from 'express-session';
 import fetch from 'node-fetch';
+import jwt from 'jsonwebtoken';
+import { config } from '../config';
 
 // 添加 session 接口声明
 interface CustomSession extends Session {
@@ -20,6 +22,20 @@ export class OAuth2Controller {
   // 授权端点
   async authorize(req: CustomRequest, res: Response) {
     try {
+      // 支持JWT自动登录
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        try {
+          const decoded = jwt.verify(token, config.JWT_SECRET);
+          // 伪造session，让后续逻辑认为已登录
+          req.session.userId = decoded._id;
+          req.session.isAuthenticated = true;
+        } catch (e) {
+          // token无效，忽略，走原有未登录逻辑
+        }
+      }
+
       const { client_id, redirect_uri, scope, response_type, state } = req.query;
 
       // 如果用户已登录，直接进行 OAuth 授权
