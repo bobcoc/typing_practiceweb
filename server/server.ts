@@ -69,6 +69,17 @@ app.use('/api/system', systemRoutes);
 app.use('/api/visitor', visitorRoutes);
 app.use('/api/vocabulary', vocabularyRoutes);
 app.use('/api', userWordPassRouter);
+
+// 添加调试日志中间件
+app.use((req, res, next) => {
+  console.log('Incoming request:', {
+    method: req.method,
+    path: req.path,
+    originalUrl: req.originalUrl
+  });
+  next();
+});
+
 // 错误处理中间件
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
