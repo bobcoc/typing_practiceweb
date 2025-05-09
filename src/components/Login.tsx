@@ -66,7 +66,7 @@ const Login: React.FC = () => {
       message.success('登录成功');
 
       // 如果有 redirect 参数且是 OAuth2 相关的路径，则跳转
-      if (redirectUrl && redirectUrl.includes('/oauth2/authorize')) {
+      if (redirectUrl && redirectUrl.includes('oauth2/authorize')) {
         console.log('Original redirect URL:', redirectUrl);
         // 直接使用原始的重定向 URL
         console.log('Redirecting to OAuth flow:', redirectUrl);
