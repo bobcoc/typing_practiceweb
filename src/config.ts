@@ -26,7 +26,7 @@ export const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
 // API 路径配置 - 在实际使用时会自动添加前缀
 export const API_PATHS = {
   AUTH: '/auth',
-  AUTH2: '/oauth2',
+  AUTH2: '/api/oauth2',
   KEYWORDS: '/keywords',
   CODE_EXAMPLES: '/code-examples',
   PRACTICE_TYPES: '/practice-types',
