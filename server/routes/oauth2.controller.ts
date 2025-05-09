@@ -113,7 +113,8 @@ export class OAuth2Controller {
         return res.redirect(redirectUrl.toString());
       } else {
         // 如果用户未登录，重定向到主站登录页面
-        const loginUrl = `/login?redirect=/api${encodeURIComponent(req.originalUrl)}`;
+        const redirectPath = '/api' + req.originalUrl;
+        const loginUrl = `/login?redirect=${encodeURIComponent(redirectPath)}`;
         return res.redirect(loginUrl);
       }
     } catch (error: any) {
