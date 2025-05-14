@@ -26,11 +26,6 @@ const NavBar: React.FC = () => {
     return typingPaths.some(p => path.startsWith(p));
   };
 
-  // 添加一个函数来检查是否为词汇学习相关页面
-  const isVocabularyRelatedPage = (path: string): boolean => {
-    return path.startsWith('/vocabulary-study');
-  };
-
   useEffect(() => {
     // 统一处理用户状态更新
     const updateUserState = () => {
@@ -122,17 +117,7 @@ const NavBar: React.FC = () => {
         label: <Link to="/vocabulary-study">词汇学习</Link>,
       },
     ];
-
-    // 词汇学习相关页面的历史菜单（如有需要可继续分组）
-    const vocabularyRelatedItems = isVocabularyRelatedPage(currentPath) ? [
-      ...(user ? [{
-        key: '/practice-history',
-        label: <Link to="/practice-history">学习历史</Link>,
-      }] : []),
-    ] : [];
-
     const authenticatedItems = user ? [
-      ...vocabularyRelatedItems,
       ...(user.isAdmin ? [{
         key: '/admin',
         label: <Link to="/admin">管理后台</Link>,
