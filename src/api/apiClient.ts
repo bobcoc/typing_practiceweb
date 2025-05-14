@@ -90,6 +90,10 @@ apiClient.interceptors.response.use(
             window.localStorage.removeItem('token');
             window.localStorage.removeItem('user');
             
+            // 清除认证相关 cookie
+            document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure;';
+            document.cookie = 'connect.sid=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure;';
+            
             // 创建认证错误
             const authError = new ApiError(
               responseData.error || '认证已过期，请重新登录',
@@ -110,6 +114,10 @@ apiClient.interceptors.response.use(
           // 清除认证信息
           window.localStorage.removeItem('token');
           window.localStorage.removeItem('user');
+          
+          // 清除认证相关 cookie
+          document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure;';
+          document.cookie = 'connect.sid=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure;';
           
           // 创建认证错误
           const authError = new ApiError(

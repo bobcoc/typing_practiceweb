@@ -7,6 +7,15 @@ import fetch from 'node-fetch';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 
+// JWT Payload 类型定义
+interface UserPayload {
+  _id: string;
+  username: string;
+  fullname: string;
+  email: string;
+  isAdmin: boolean;
+}
+
 // 添加 session 接口声明
 interface CustomSession extends Session {
   userId?: string;
@@ -22,127 +31,143 @@ export class OAuth2Controller {
   // 授权端点
   async authorize(req: CustomRequest, res: Response) {
     try {
-      // 调试日志：输出请求头、cookie、session、originalUrl
+      // 调试日志：输出请求信息
       console.log('--- OAuth2 authorize 调试信息 ---');
       console.log('req.headers:', req.headers);
-      // 如果有cookie中间件
-      if (req.cookies) {
-        console.log('req.cookies:', req.cookies);
-      }
-      console.log('req.session:', req.session);
       console.log('req.originalUrl:', req.originalUrl);
-
-      // 支持JWT自动登录
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
-        try {
-          const decoded = jwt.verify(token, config.JWT_SECRET);
-          // 伪造session，让后续逻辑认为已登录
-          req.session.userId = decoded._id;
-          req.session.isAuthenticated = true;
-        } catch (e) {
-          // token无效，忽略，走原有未登录逻辑
-        }
-      }
 
       const { client_id, redirect_uri, scope, response_type, state } = req.query;
 
-      // 如果用户已登录，直接进行 OAuth 授权
-      if (req.session.userId && req.session.isAuthenticated) {
-        // 添加用户会话检查
-        if (!req.session.userId || !req.session.isAuthenticated) {
-          console.log('User not authenticated:', {
-            sessionId: req.session.id,
-            userId: req.session.userId,
-            isAuthenticated: req.session.isAuthenticated
-          });
-          
-          // 保存当前 OAuth 请求参数，以便登录后重定向回来
-          const currentUrl = req.originalUrl;
-          return res.redirect(`/login?redirect=${encodeURIComponent(currentUrl)}`);
-        }
+      // 统一使用 JWT 认证，从多个来源获取 token
+      let token: string | undefined;
+      let currentUser: UserPayload | null = null;
 
-        // 从会话中获取用户信息
-        const user = await User.findById(req.session.userId);
-        if (!user) {
-          console.log('User not found in database:', req.session.userId);
-          return res.status(401).json({ error: 'user_not_found' });
-        }
-
-        // 验证客户端
-        const client = await OAuth2Client.findOne({ clientId: client_id });
-        if (!client) {
-          return res.status(400).json({ error: 'invalid_client' });
-        }
-
-        console.log('OAuth2 authorize start:', {
-          user: user.username,
-          clientId: client_id
+      // 1. 检查 Authorization 头
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+      
+      // 2. 检查 cookie（如果存在）
+      if (!token && req.headers.cookie) {
+        const cookies: Record<string, string> = {};
+        req.headers.cookie.split(';').forEach(cookie => {
+          const parts = cookie.trim().split('=');
+          if (parts.length === 2) {
+            cookies[parts[0]] = parts[1];
+          }
         });
-
-        // 查找现有的用户关联
-        const existingLink = await OAuth2Client.findOne({
-          clientId: client_id,
-          'linkedUsers.username': user!.username
-        });
-
-        console.log('OAuth2 link check:', {
-          username: user.username,
-          exists: !!existingLink,
-          linkDetails: existingLink
-        });
-
-        // 只在没有现有关联时创建新的关联
-        if (!existingLink) {
-          console.log('Creating new OAuth link');
-          await OAuth2Client.updateOne(
-            { clientId: client_id },
-            {
-              $addToSet: {
-                linkedUsers: {
-                  userId: user._id,
-                  username: user.username,
-                  email: user.email
-                }
-              }
-            }
-          );
-        } else {
-          console.log('Using existing OAuth link - proceeding with authorization');
+        
+        // 尝试从 cookie 中获取 token
+        if (cookies.token) {
+          token = cookies.token;
         }
+      }
 
-        // 生成授权码
-        const code = generateRandomString(32);
-        const authCode = new OAuth2AuthorizationCode({
-          code,
-          clientId: client_id,
-          userId: user!._id,
-          redirectUri: redirect_uri,
-          scope: (typeof scope === 'string' ? scope.split(' ') : []) || [],
-          expiresAt: new Date(Date.now() + 10 * 60 * 1000)
-        });
-
-        await authCode.save();
-        console.log('Generated auth code:', { code, userId: user!._id });
-
-        // 重定向回 Moodle
-        if (!redirect_uri || typeof redirect_uri !== 'string') {
-          return res.status(400).json({ error: 'invalid_redirect_uri' });
+      // 3. 验证 token 并获取用户信息
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, config.JWT_SECRET);
+          if (typeof decoded === 'object' && decoded !== null && '_id' in decoded) {
+            // 伪造session，让后续逻辑认为已登录
+            req.session.userId = decoded._id as string;
+            req.session.isAuthenticated = true;
+            currentUser = decoded as UserPayload;
+            console.log('JWT验证成功，用户信息:', {
+              userId: currentUser._id,
+              username: currentUser.username
+            });
+          }
+        } catch (error) {
+          console.log('JWT验证失败:', error);
         }
+      }
 
-        const redirectUrl = new URL(redirect_uri);
-        redirectUrl.searchParams.set('code', code);
-        redirectUrl.searchParams.set('state', state?.toString() || '');
-
-        console.log('Redirecting to:', redirectUrl.toString());
-        return res.redirect(redirectUrl.toString());
-      } else {
-        // 如果用户未登录，重定向到主站登录页面
+      // 如果用户未登录，重定向到登录页面
+      if (!currentUser) {
+        console.log('用户未登录，重定向到登录页');
         const redirectPath = '/api' + req.originalUrl;
         const loginUrl = `/login?redirect=${encodeURIComponent(redirectPath)}`;
         return res.redirect(loginUrl);
       }
+
+      // 用户已登录，继续OAuth2授权流程
+      console.log('用户已登录，继续OAuth2授权流程');
+
+      // 从数据库中获取完整用户信息
+      const user = await User.findById(currentUser._id);
+      if (!user) {
+        console.log('数据库中未找到用户:', currentUser._id);
+        return res.status(401).json({ error: 'user_not_found' });
+      }
+
+      // 验证客户端
+      const client = await OAuth2Client.findOne({ clientId: client_id });
+      if (!client) {
+        return res.status(400).json({ error: 'invalid_client' });
+      }
+
+      console.log('OAuth2 authorize start:', {
+        user: user.username,
+        clientId: client_id
+      });
+
+      // 查找现有的用户关联
+      const existingLink = await OAuth2Client.findOne({
+        clientId: client_id,
+        'linkedUsers.username': user.username
+      });
+
+      console.log('OAuth2 link check:', {
+        username: user.username,
+        exists: !!existingLink,
+        linkDetails: existingLink
+      });
+
+      // 只在没有现有关联时创建新的关联
+      if (!existingLink) {
+        console.log('Creating new OAuth link');
+        await OAuth2Client.updateOne(
+          { clientId: client_id },
+          {
+            $addToSet: {
+              linkedUsers: {
+                userId: user._id,
+                username: user.username,
+                email: user.email
+              }
+            }
+          }
+        );
+      } else {
+        console.log('Using existing OAuth link - proceeding with authorization');
+      }
+
+      // 生成授权码
+      const code = generateRandomString(32);
+      const authCode = new OAuth2AuthorizationCode({
+        code,
+        clientId: client_id,
+        userId: user._id,
+        redirectUri: redirect_uri,
+        scope: (typeof scope === 'string' ? scope.split(' ') : []) || [],
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+      });
+
+      await authCode.save();
+      console.log('Generated auth code:', { code, userId: user._id });
+
+      // 重定向回客户端
+      if (!redirect_uri || typeof redirect_uri !== 'string') {
+        return res.status(400).json({ error: 'invalid_redirect_uri' });
+      }
+
+      const redirectUrl = new URL(redirect_uri);
+      redirectUrl.searchParams.set('code', code);
+      redirectUrl.searchParams.set('state', state?.toString() || '');
+
+      console.log('Redirecting to:', redirectUrl.toString());
+      return res.redirect(redirectUrl.toString());
     } catch (error: any) {
       console.error('OAuth2 authorize error:', error);
       throw error;

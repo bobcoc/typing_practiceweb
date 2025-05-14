@@ -59,8 +59,17 @@ const Login: React.FC = () => {
         password
       });
       
+      // 保存 token 到 localStorage
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
+      
+      // 同时保存 token 到 cookie，确保跨域请求也能携带 token
+      // secure 表示只在 HTTPS 下发送，根据环境设置
+      // 设置 cookie 最大有效期为 7 天
+      const secure = window.location.protocol === 'https:' ? '; secure' : '';
+      const maxAge = 60 * 60 * 24 * 7; // 7天，单位：秒
+      document.cookie = `token=${response.token}; path=/; max-age=${maxAge}${secure}`;
+      
       window.dispatchEvent(new Event('user-login'));
       
       message.success('登录成功');
@@ -68,7 +77,7 @@ const Login: React.FC = () => {
       // 如果有 redirect 参数且是 OAuth2 相关的路径，则跳转
       if (redirectUrl && redirectUrl.includes('oauth2/authorize')) {
         console.log('Original redirect URL:', redirectUrl);
-        // 直接使用原始的重定向 URL
+        // 直接使用原始的重定向 URL，在 cookie 中已经有 token 了
         console.log('Redirecting to OAuth flow:', redirectUrl);
         window.location.href = redirectUrl;
       } else {

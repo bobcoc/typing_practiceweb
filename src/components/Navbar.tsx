@@ -63,13 +63,41 @@ const NavBar: React.FC = () => {
     };
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    // 触发登出事件
-    window.dispatchEvent(new Event('user-logout'));
-    message.success('已退出登录');
-    navigate('/login', { replace: true });
+  const handleLogout = async () => {
+    try {
+      // 调用后端登出接口
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      // 清除 localStorage 中的数据
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      
+      // 清除 cookie 中的 token
+      document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure;';
+      document.cookie = 'connect.sid=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure;';
+      
+      // 触发登出事件
+      window.dispatchEvent(new Event('user-logout'));
+      message.success('已退出登录');
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('登出失败:', error);
+      message.error('登出过程中发生错误');
+      
+      // 即使后端请求失败，也要清除本地数据
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure;';
+      document.cookie = 'connect.sid=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; secure;';
+      window.dispatchEvent(new Event('user-logout'));
+      navigate('/login', { replace: true });
+    }
   };
 
   // 使用 MenuProps['items'] 作为类型

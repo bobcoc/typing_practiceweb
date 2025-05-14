@@ -251,8 +251,46 @@ const changePasswordHandler: RouteHandler = async (req, res) => {
     });
   }
 };
-// 注册路由
+
+// 登出处理函数
+const logoutHandler: RouteHandler = async (req: CustomRequest, res) => {
+  try {
+    console.log('Logout request received');
+    
+    // 清除 session
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destruction error:', err);
+          return res.status(500).json({ message: '登出失败' });
+        }
+        
+        // 清除 cookie
+        res.clearCookie('connect.sid');
+        
+        console.log('Logout successful');
+        res.json({ success: true, message: '登出成功' });
+      });
+    } else {
+      console.log('No session to destroy');
+      res.json({ success: true, message: '登出成功' });
+    }
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ message: '登出失败' });
+  }
+};
+
+// 登录路由
 router.post('/login', loginHandler);
+
+// 注册路由
 router.post('/register', registerHandler);
+
+// 登出路由
+router.post('/logout', logoutHandler);
+
+// 修改密码路由
 router.post('/change-password', authMiddleware, changePasswordHandler);
+
 export default router;
