@@ -1,5 +1,8 @@
 // src/api/admin.ts
 import apiClient from './apiClient';
+import axios from 'axios';
+import { api } from './apiClient'; // 确保路径正确
+
 export type PracticeLevel = 'keyword' | 'basic' | 'intermediate' | 'advanced';
 export interface User {
   _id: string;
@@ -178,6 +181,16 @@ export const adminApi = {
   deleteVocabularyWordSet: async (id: string): Promise<{ message: string }> => {
     const response = await apiClient.delete(`/admin/vocabulary/word-sets/${id}`);
     return response.data;
+  },
+
+  // 获取单词集单词的方法
+  getWordsByWordSetId: async (wordSetId: string) => {
+    return api.get(`/vocabulary/word-set/${wordSetId}/words`);
+  },
+
+  // 更新单词的方法
+  updateWords: async (words: any[]) => {
+    return api.put('/vocabulary/words', { words });
   },
 };
 

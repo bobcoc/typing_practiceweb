@@ -602,4 +602,82 @@ router.get('/leaderboard', authMiddleware, async (req, res) => {
   }
 });
 
+// 获取单词集详细信息
+router.get('/word-set/:id', authMiddleware, async (req, res) => {
+  try {
+    const wordSet = await WordSet.findById(req.params.id);
+    if (!wordSet) {
+      return res.status(404).json({ message: '未找到单词集' });
+    }
+    res.json(wordSet);
+  } catch (error) {
+    console.error('获取单词集详细信息失败:', error);
+    res.status(500).json({ message: '获取单词集详细信息失败' });
+  }
+});
+
+// 更新单词集
+router.put('/word-set/:id', authMiddleware, async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const wordSet = await WordSet.findByIdAndUpdate(
+      req.params.id,
+      { name, description },
+      { new: true }
+    );
+    if (!wordSet) {
+      return res.status(404).json({ message: '未找到单词集' });
+    }
+    res.json(wordSet);
+  } catch (error) {
+    console.error('更新单词集失败:', error);
+    res.status(500).json({ message: '更新单词集失败' });
+  }
+});
+
+// 获取单词集中的单词
+router.get('/word-set/:id/words', authMiddleware, async (req, res) => {
+  try {
+    const wordSetId = req.params.id;
+    console.log('Received request for wordSetId:', wordSetId); // 打印请求的 wordSetId
+
+    // 检查数据库中是否存在该单词集
+    const wordSetExists = await WordSet.exists({ _id: wordSetId });
+    console.log('WordSet exists:', wordSetExists); // 打印单词集是否存在
+
+    if (!wordSetExists) {
+      console.log('WordSet not found for wordSetId:', wordSetId);
+      return res.status(404).json({ message: '请求的资源不存在' });
+    }
+
+    // 查询单词集中的单词
+    const words = await Word.find({ wordSet: wordSetId });
+    console.log('Words found:', words.length); // 打印找到的单词数量
+
+    if (!words || words.length === 0) {
+      console.log('No words found for wordSetId:', wordSetId); // 打印未找到的情况
+      return res.status(404).json({ message: '请求的资源不存在' });
+    }
+
+    res.json(words);
+  } catch (error) {
+    console.error('获取单词失败:', error);
+    res.status(500).json({ message: '获取单词失败' });
+  }
+});
+
+// 更新单词
+router.put('/words', authMiddleware, async (req, res) => {
+  try {
+    const { words } = req.body;
+    for (const word of words) {
+      await Word.findByIdAndUpdate(word._id, word);
+    }
+    res.json({ message: '单词更新成功' });
+  } catch (error) {
+    console.error('更新单词失败:', error);
+    res.status(500).json({ message: '更新单词失败' });
+  }
+});
+
 export default router; 

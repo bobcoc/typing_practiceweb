@@ -39,6 +39,16 @@ interface UploadFormValues {
   description?: string;
 }
 
+// 添加 Word 类型定义
+interface Word {
+  _id: string;
+  word: string;
+  translation: string;
+  pronunciation?: string;
+  example?: string;
+  wordSet: string;
+}
+
 const AdminVocabularyManager: React.FC = () => {
   const [wordSets, setWordSets] = useState<WordSetLocal[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,6 +58,10 @@ const AdminVocabularyManager: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>('');
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingWordSet, setEditingWordSet] = useState<WordSetLocal | null>(null);
+  const [words, setWords] = useState<Word[]>([]);
+  const [filteredWords, setFilteredWords] = useState<Word[]>([]);
 
   // 获取单词集列表
   const fetchWordSets = async () => {
@@ -71,6 +85,20 @@ const AdminVocabularyManager: React.FC = () => {
   useEffect(() => {
     fetchWordSets();
   }, []);
+
+  // 获取单词集中的单词
+  const fetchWords = async (wordSetId: string) => {
+    console.log('开始获取单词列表，wordSetId:', wordSetId);
+    try {
+      const data = await adminApi.getWordsByWordSetId(wordSetId);
+      console.log('获取到的单词列表数据:', data); // 添加调试日志
+      setWords(data);
+      setFilteredWords([]); // 清空过滤的单词列表
+    } catch (error) {
+      message.error('获取单词失败');
+      console.error('获取单词失败:', error);
+    }
+  };
 
   // 上传前检查文件
   const checkFile = (file: File): boolean => {
@@ -155,6 +183,46 @@ const AdminVocabularyManager: React.FC = () => {
     }
   };
 
+  // 打开编辑模态框
+  const openEditModal = async (wordSet: WordSetLocal) => {
+    console.log('打开编辑模态框，wordSet:', wordSet);
+    setEditingWordSet(wordSet);
+    setEditModalVisible(true);
+    await fetchWords(wordSet._id);
+  };
+
+  // 提交编辑
+  const handleEditSubmit = async (values: WordSetLocal) => {
+    try {
+      setLoading(true);
+      await adminApi.updateVocabularyWordSet(editingWordSet._id, values);
+      message.success('更新成功');
+      setEditModalVisible(false);
+      fetchWordSets();
+    } catch (error) {
+      message.error('更新失败');
+      console.error('更新失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 提交单词编辑
+  const handleWordEditSubmit = async (updatedWords: any[]) => {
+    try {
+      setLoading(true);
+      await adminApi.updateWords(updatedWords);
+      message.success('单词更新成功');
+      setEditModalVisible(false);
+      fetchWordSets();
+    } catch (error) {
+      message.error('单词更新失败');
+      console.error('单词更新失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 过滤数据
   const filteredWordSets = wordSets.filter(
     wordSet => 
@@ -200,6 +268,7 @@ const AdminVocabularyManager: React.FC = () => {
       key: 'action',
       render: (_, record) => (
         <Space size="middle">
+          <Button onClick={() => openEditModal(record)}>编辑</Button>
           <Popconfirm
             title="确定要删除这个单词集吗?"
             onConfirm={() => handleDelete(record._id)}
@@ -312,6 +381,161 @@ const AdminVocabularyManager: React.FC = () => {
               上传
             </Button>
           </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="编辑单词集"
+        open={editModalVisible}
+        onCancel={() => setEditModalVisible(false)}
+        footer={null}
+        width="90vw"
+        style={{ 
+          top: 20,
+          maxHeight: '90vh',
+          overflow: 'auto'
+        }}
+      >
+        {/* 添加调试信息 */}
+        <div>
+          <p>单词总数: {words.length}</p>
+          <p>过滤后单词数: {filteredWords.length}</p>
+        </div>
+
+        <Form
+          initialValues={editingWordSet}
+          onFinish={handleEditSubmit}
+          layout="vertical"
+        >
+          <Form.Item
+            name="name"
+            label="单词集名称"
+            rules={[{ required: true, message: '请输入单词集名称' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="description"
+            label="描述"
+          >
+            <Input.TextArea />
+          </Form.Item>
+          
+          <div style={{ marginBottom: 16 }}>
+            <Input.Search
+              placeholder="搜索单词..."
+              onSearch={value => {
+                const filtered = words.filter(w => 
+                  w.word.toLowerCase().includes(value.toLowerCase()) ||
+                  w.translation.toLowerCase().includes(value.toLowerCase()) ||
+                  w.pronunciation?.toLowerCase().includes(value.toLowerCase())
+                );
+                setFilteredWords(filtered);
+              }}
+              style={{ width: 300 }}
+            />
+          </div>
+
+          <Table
+            dataSource={filteredWords.length > 0 ? filteredWords : words}
+            columns={[
+              {
+                title: '单词',
+                dataIndex: 'word',
+                key: 'word',
+                width: '12%',
+                render: (text: string, record: Word) => (
+                  <Input
+                    value={text}
+                    onChange={(e) => {
+                      const newWords = words.map(w => 
+                        w._id === record._id ? { ...w, word: e.target.value } : w
+                      );
+                      setWords(newWords);
+                    }}
+                  />
+                ),
+              },
+              {
+                title: '翻译',
+                dataIndex: 'translation',
+                key: 'translation',
+                width: '30%',
+                render: (text, record) => (
+                  <Input.TextArea
+                    value={text}
+                    autoSize={{ minRows: 1, maxRows: 3 }}
+                    onChange={(e) => {
+                      const newWords = words.map(w => 
+                        w._id === record._id ? { ...w, translation: e.target.value } : w
+                      );
+                      setWords(newWords);
+                    }}
+                  />
+                ),
+              },
+              {
+                title: '发音',
+                dataIndex: 'pronunciation',
+                key: 'pronunciation',
+                width: '12%',
+                render: (text, record) => (
+                  <Input
+                    value={text}
+                    placeholder="请输入发音"
+                    onChange={(e) => {
+                      const newWords = words.map(w => 
+                        w._id === record._id ? { ...w, pronunciation: e.target.value } : w
+                      );
+                      setWords(newWords);
+                    }}
+                  />
+                ),
+              },
+              {
+                title: '例句',
+                dataIndex: 'example',
+                key: 'example',
+                width: '46%',
+                render: (text, record) => (
+                  <Input.TextArea
+                    value={text}
+                    placeholder="请输入例句"
+                    autoSize={{ minRows: 1, maxRows: 3 }}
+                    onChange={(e) => {
+                      const newWords = words.map(w => 
+                        w._id === record._id ? { ...w, example: e.target.value } : w
+                      );
+                      setWords(newWords);
+                    }}
+                  />
+                ),
+              },
+            ]}
+            rowKey="_id"
+            pagination={{
+              pageSize: 50,
+              showSizeChanger: true,
+              showQuickJumper: true,
+            }}
+            scroll={{ y: 'calc(80vh - 300px)' }}
+          />
+          <div style={{ 
+            textAlign: 'right', 
+            marginTop: 16,
+            position: 'sticky',
+            bottom: 0,
+            padding: '16px 0',
+            background: '#fff',
+            borderTop: '1px solid #f0f0f0'
+          }}>
+            <Button onClick={() => setEditModalVisible(false)} style={{ marginRight: 8 }}>
+              取消
+            </Button>
+            <Button type="primary" onClick={() => handleWordEditSubmit(words)} loading={loading}>
+              保存
+            </Button>
+          </div>
         </Form>
       </Modal>
     </div>
