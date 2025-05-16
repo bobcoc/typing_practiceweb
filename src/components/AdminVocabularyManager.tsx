@@ -62,6 +62,7 @@ const AdminVocabularyManager: React.FC = () => {
   const [editingWordSet, setEditingWordSet] = useState<WordSetLocal | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [filteredWords, setFilteredWords] = useState<Word[]>([]);
+  const [pageSize, setPageSize] = useState<number>(50);
 
   // 获取单词集列表
   const fetchWordSets = async () => {
@@ -514,9 +515,13 @@ const AdminVocabularyManager: React.FC = () => {
             ]}
             rowKey="_id"
             pagination={{
-              pageSize: 50,
+              pageSize: pageSize,
               showSizeChanger: true,
               showQuickJumper: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+              onShowSizeChange: (current, size) => {
+                setPageSize(size);
+              }
             }}
             scroll={{ y: 'calc(80vh - 300px)' }}
           />
