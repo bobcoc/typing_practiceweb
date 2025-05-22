@@ -212,7 +212,24 @@ const AdminVocabularyManager: React.FC = () => {
   const handleWordEditSubmit = async (updatedWords: any[]) => {
     try {
       setLoading(true);
-      await adminApi.updateWords(updatedWords);
+      // 只发送修改过的单词
+      const modifiedWords = updatedWords.filter(word => {
+        const originalWord = words.find(w => w._id === word._id);
+        return originalWord && (
+          word.word !== originalWord.word ||
+          word.translation !== originalWord.translation ||
+          word.pronunciation !== originalWord.pronunciation ||
+          word.example !== originalWord.example
+        );
+      });
+
+      if (modifiedWords.length === 0) {
+        message.info('没有修改任何内容');
+        setEditModalVisible(false);
+        return;
+      }
+
+      await adminApi.updateWords(modifiedWords);
       message.success('单词更新成功');
       setEditModalVisible(false);
       fetchWordSets();
