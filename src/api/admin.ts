@@ -190,7 +190,7 @@ export const adminApi = {
 
   // 更新单词的方法
   updateWords: async (words: any[]) => {
-    return api.put('/vocabulary/words', { words });
+    return api.put('/api/vocabulary/words', { words });
   },
 };
 

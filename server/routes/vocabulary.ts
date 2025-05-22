@@ -670,8 +670,16 @@ router.get('/word-set/:id/words', authMiddleware, async (req, res) => {
 router.put('/words', authMiddleware, async (req, res) => {
   try {
     const { words } = req.body;
+    console.log('Received words to update:', words); // 添加调试日志
+
     for (const word of words) {
-      await Word.findByIdAndUpdate(word._id, word);
+      const { _id, word: wordText, translation, pronunciation, example } = word;
+      await Word.findByIdAndUpdate(_id, {
+        word: wordText,
+        translation,
+        pronunciation,
+        example
+      });
     }
     res.json({ message: '单词更新成功' });
   } catch (error) {
