@@ -447,7 +447,7 @@ const AdminVocabularyManager: React.FC = () => {
                 width: '12%',
                 render: (text: string, record: Word) => (
                   <Input
-                    value={text}
+                    defaultValue={text}
                     onChange={(e) => {
                       const newWords = words.map(w => 
                         w._id === record._id ? { ...w, word: e.target.value } : w
@@ -464,7 +464,7 @@ const AdminVocabularyManager: React.FC = () => {
                 width: '30%',
                 render: (text, record) => (
                   <Input.TextArea
-                    value={text}
+                    defaultValue={text}
                     autoSize={{ minRows: 1, maxRows: 3 }}
                     onChange={(e) => {
                       const newWords = words.map(w => 
@@ -482,7 +482,7 @@ const AdminVocabularyManager: React.FC = () => {
                 width: '12%',
                 render: (text, record) => (
                   <Input
-                    value={text}
+                    defaultValue={text}
                     placeholder="请输入发音"
                     onChange={(e) => {
                       const newWords = words.map(w => 
@@ -500,7 +500,7 @@ const AdminVocabularyManager: React.FC = () => {
                 width: '46%',
                 render: (text, record) => (
                   <Input.TextArea
-                    value={text}
+                    defaultValue={text}
                     placeholder="请输入例句"
                     autoSize={{ minRows: 1, maxRows: 3 }}
                     onChange={(e) => {
