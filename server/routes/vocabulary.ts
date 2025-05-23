@@ -670,16 +670,24 @@ router.get('/word-set/:id/words', authMiddleware, async (req, res) => {
 router.put('/words', authMiddleware, async (req, res) => {
   try {
     const { words } = req.body;
-    console.log('Received words to update:', words); // 添加调试日志
+    console.log('Received words to update:', JSON.stringify(words, null, 2)); // 更详细的日志
 
     for (const word of words) {
       const { _id, word: wordText, translation, pronunciation, example } = word;
-      await Word.findByIdAndUpdate(_id, {
-        word: wordText,
-        translation,
-        pronunciation,
-        example
-      });
+      console.log(`Updating word ${_id}:`, { wordText, translation, pronunciation, example }); // 每个单词的更新日志
+      
+      const updatedWord = await Word.findByIdAndUpdate(
+        _id,
+        {
+          word: wordText,
+          translation,
+          pronunciation,
+          example
+        },
+        { new: true } // 返回更新后的文档
+      );
+      
+      console.log('Updated word result:', updatedWord); // 更新结果日志
     }
     res.json({ message: '单词更新成功' });
   } catch (error) {

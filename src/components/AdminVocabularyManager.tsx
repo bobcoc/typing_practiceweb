@@ -223,6 +223,8 @@ const AdminVocabularyManager: React.FC = () => {
         );
       });
 
+      console.log('修改过的单词:', modifiedWords); // 添加调试日志
+
       if (modifiedWords.length === 0) {
         message.info('没有修改任何内容');
         setEditModalVisible(false);
@@ -232,10 +234,14 @@ const AdminVocabularyManager: React.FC = () => {
       await adminApi.updateWords(modifiedWords);
       message.success('单词更新成功');
       setEditModalVisible(false);
-      fetchWordSets();
+      // 重新加载单词列表
+      if (editingWordSet) {
+        const response = await adminApi.getVocabularyWordSetDetails(editingWordSet._id);
+        setWords(response.words);
+      }
     } catch (error) {
-      message.error('单词更新失败');
-      console.error('单词更新失败:', error);
+      console.error('更新单词失败:', error);
+      message.error('更新单词失败');
     } finally {
       setLoading(false);
     }
