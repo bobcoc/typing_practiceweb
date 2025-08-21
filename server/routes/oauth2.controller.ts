@@ -294,7 +294,7 @@ export class OAuth2Controller {
       console.log('userInfo', userInfo);
 
       console.log('Token scopes:', token.scope);
-
+      console.log('最终返回的 userInfo:', userInfo);
       res.json(userInfo);
     } catch (error) {
       res.status(500).json({ error: 'server_error6' });
