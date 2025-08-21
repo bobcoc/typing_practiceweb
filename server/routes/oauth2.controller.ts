@@ -202,6 +202,9 @@ export class OAuth2Controller {
           return res.status(400).json({ error: 'invalid_grant' });
         }
 
+        // 查找用户
+        const user = await User.findById(authCode.userId);
+
         // 生成访问令牌
         const accessToken = generateRandomString(32);
         const token = new OAuth2AccessToken({
@@ -215,12 +218,35 @@ export class OAuth2Controller {
         await token.save();
         console.log('Generated access token:', accessToken);
 
+        // 生成 id_token（只要 scope 里有 openid）
+        let id_token;
+        if (authCode.scope.includes('openid')) {
+          const jwt = require('jsonwebtoken');
+          id_token = jwt.sign(
+            {
+              sub: user._id.toString(),
+              name: user.username,
+              fullname: user.fullname,
+              email: user.email,
+              // 可根据需要添加其它 claim
+            },
+            process.env.OPENID_SESSION_SECRET || 'your-secret-keyq', // 用于签名的密钥
+            {
+              algorithm: 'HS256',
+              expiresIn: '1h',
+              issuer: process.env.OPENID_ISSUER || 'https://d1kt.cn',
+              audience: client_id,
+            }
+          );
+        }
+
         // 返回令牌响应
         return res.json({
           access_token: accessToken,
           token_type: 'Bearer',
           expires_in: 3600,
-          scope: authCode.scope.join(' ')
+          scope: authCode.scope.join(' '),
+          ...(id_token ? { id_token } : {}),
         });
       }
 
