@@ -62,9 +62,9 @@ app.get('/.well-known/openid-configuration', (req, res) => {
   const issuer = process.env.ISSUER || 'https://d1kt.cn'; // 你的主域名
   res.json({
     issuer,
-    authorization_endpoint: issuer + '/api/oauth2/authorize',
-    token_endpoint: issuer + '/api/oauth2/token',
-    userinfo_endpoint: issuer + '/api/oauth2/userinfo',
+    authorization_endpoint: issuer + '/api/api/oauth2/authorize',
+    token_endpoint: issuer + '/api/api/oauth2/token',
+    userinfo_endpoint: issuer + '/api/api/oauth2/userinfo',
     response_types_supported: ['code'],
     subject_types_supported: ['public'],
     id_token_signing_alg_values_supported: ['HS256'],
