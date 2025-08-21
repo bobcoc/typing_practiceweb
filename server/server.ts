@@ -57,6 +57,22 @@ mongoose.connect(MONGODB_URI)
   });
 
 // 路由配置
+// OIDC Discovery 路由
+app.get('/.well-known/openid-configuration', (req, res) => {
+  const issuer = process.env.ISSUER || 'https://d1kt.cn'; // 你的主域名
+  res.json({
+    issuer,
+    authorization_endpoint: issuer + '/api/oauth2/authorize',
+    token_endpoint: issuer + '/api/oauth2/token',
+    userinfo_endpoint: issuer + '/api/oauth2/userinfo',
+    response_types_supported: ['code'],
+    subject_types_supported: ['public'],
+    id_token_signing_alg_values_supported: ['HS256'],
+    scopes_supported: ['openid', 'profile', 'email', 'firstname', 'lastname', 'username'],
+    token_endpoint_auth_methods_supported: ['client_secret_post'],
+    claims_supported: ['sub', 'name', 'fullname', 'email', 'firstname', 'lastname', 'username'],
+  });
+});
 app.use('/api/practice-types', practiceTypesRouter);
 app.use('/api/code-examples', codeExamplesRouter);
 app.use('/api/auth', authRouter);
