@@ -47,6 +47,8 @@ const KMeansDemo: React.FC = () => {
   const [showCentroidCoordinates, setShowCentroidCoordinates] = useState<boolean>(false);
   const [showLabels, setShowLabels] = useState<boolean>(false);
   const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [isRunningRound, setIsRunningRound] = useState<boolean>(false); // 是否正在运行一轮
+  const [isRunningToEnd, setIsRunningToEnd] = useState<boolean>(false); // 是否正在运行到结束
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [distanceLines, setDistanceLines] = useState<DistanceLine[]>([]); // 当前正在显示的临时距离线
   const [assignedLines, setAssignedLines] = useState<DistanceLine[]>([]); // 已分配的永久连线
@@ -60,8 +62,7 @@ const KMeansDemo: React.FC = () => {
   const [snapshotInfo, setSnapshotInfo] = useState<string>(''); // 快照信息
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1); // 动画速度倍数
   const [previousAssignments, setPreviousAssignments] = useState<Map<number, number>>(new Map()); // 上一轮的点到质心分配关系
-  const [messageText, setMessageText] = useState<string>('准备就绪'); // 消息报告区文本
-  const [messageType, setMessageType] = useState<'info' | 'success' | 'warning' | 'error'>('info'); // 消息类型
+
 
   const CANVAS_WIDTH = 800;
   const CANVAS_HEIGHT = 600;
@@ -71,6 +72,33 @@ const KMeansDemo: React.FC = () => {
   useEffect(() => {
     drawCanvas();
   }, [points, centroids, showPointCoordinates, showCentroidCoordinates, showLabels, distanceLines, assignedLines, processingPointIndex]);
+
+  // 隐藏navbar和footer
+  useEffect(() => {
+    // 隐藏navbar - 使用多个选择器确保能找到
+    const navbar = document.querySelector('nav') || 
+                   document.querySelector('.navbar-header') || 
+                   document.querySelector('header.ant-layout-header');
+    if (navbar) {
+      (navbar as HTMLElement).style.display = 'none';
+    }
+    
+    // 隐藏footer
+    const footer = document.querySelector('footer');
+    if (footer) {
+      (footer as HTMLElement).style.display = 'none';
+    }
+
+    // 组件卸载时恢复显示
+    return () => {
+      if (navbar) {
+        (navbar as HTMLElement).style.display = '';
+      }
+      if (footer) {
+        (footer as HTMLElement).style.display = '';
+      }
+    };
+  }, []);
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
@@ -188,11 +216,7 @@ const KMeansDemo: React.FC = () => {
     });
   };
 
-  // 显示消息(不弹出,仅在消息区显示)
-  const showMessage = (text: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
-    setMessageText(text);
-    setMessageType(type);
-  };
+
 
   // 生成随机点
   const generateRandomPoints = () => {
@@ -206,12 +230,12 @@ const KMeansDemo: React.FC = () => {
     setPoints(newPoints);
     setCentroids([]);
     resetAlgorithm();
-    showMessage('已生成随机点', 'success');
+
   };
 
   // 鼠标按下：添加点或开始拖动
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (isRunning) return;
+    if (isRunning || isRunningRound || isRunningToEnd) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -258,10 +282,10 @@ const KMeansDemo: React.FC = () => {
           // 如果质心已满，自动切换到普通点模式
           if (centroids.length + 1 >= k) {
             setAddMode('point');
-            showMessage(`已添加 ${k} 个质心，自动切换到添加普通点模式`, 'success');
+
           }
         } else {
-          showMessage(`已达到最大质心数量 ${k}，请切换到普通点模式`, 'warning');
+
         }
       } else {
         // 添加普通点
@@ -305,7 +329,7 @@ const KMeansDemo: React.FC = () => {
   // 鼠标释放时停止拖动
   const handleCanvasMouseUp = () => {
     if (draggingCentroidIndex >= 0) {
-      showMessage(`质心C${draggingCentroidIndex + 1}已移动到新位置`, 'success');
+
       setDraggingCentroidIndex(-1);
       // 清空已分配的连线,点会自动变回灰色
       setAssignedLines([]);
@@ -343,7 +367,7 @@ const KMeansDemo: React.FC = () => {
     setDraggingPointIndex(-1); // 停止拖动普通点
     setDraggingCentroidIndex(-1); // 停止拖动质心
     setPreviousAssignments(new Map()); // 清空历史分配记录
-    showMessage('准备就绪', 'info');
+
   };
 
   // 计算距离
@@ -352,22 +376,36 @@ const KMeansDemo: React.FC = () => {
   };
 
   // 执行一步K-Means算法
-  const executeStep = async () => {
+  const executeStep = async (
+    autoMode: boolean = false,
+    currentProcessingIndex?: number,
+    currentAssignedLines?: DistanceLine[]
+  ): Promise<{ completed: boolean; newIndex: number; newAssignedLines: DistanceLine[] }> => {
+    // 如果传入了当前状态，使用传入的值；否则使用state中的值
+    const _processingPointIndex = currentProcessingIndex !== undefined ? currentProcessingIndex : processingPointIndex;
+    const _assignedLines = currentAssignedLines !== undefined ? currentAssignedLines : assignedLines;
+    
+    console.log('\nexecuteStep 调用, autoMode:', autoMode);
+    console.log('当前 processingPointIndex:', _processingPointIndex);
+    console.log('当前 assignedLines.length:', _assignedLines.length);
+    
     if (centroids.length !== k) {
-      showMessage(`请先设置 ${k} 个质心点！`, 'warning');
-      return;
+      return { completed: false, newIndex: _processingPointIndex, newAssignedLines: _assignedLines };
     }
 
     if (points.length === 0) {
-      showMessage('请先添加数据点！', 'warning');
-      return;
+      return { completed: false, newIndex: _processingPointIndex, newAssignedLines: _assignedLines };
     }
 
-    setIsRunning(true);
+    if (!autoMode) {
+      setIsRunning(true);
+    }
 
     // 阶段1: 为每个点分配最近的质心
-    if (processingPointIndex < points.length - 1) {
-      const nextIndex = processingPointIndex + 1;
+    if (_processingPointIndex < points.length - 1) {
+      const nextIndex = _processingPointIndex + 1;
+      console.log('  -> 阶段1: 分配点到质心');
+      console.log('  -> 即将处理点索引:', nextIndex);
       setProcessingPointIndex(nextIndex);
 
       // 计算当前点到所有质心的距离
@@ -401,14 +439,24 @@ const KMeansDemo: React.FC = () => {
         distance: distances[closestCentroid].distance,
         isAssigned: true
       };
-      setAssignedLines([...assignedLines, assignedLine]);
+      const newAssignedLines = [..._assignedLines, assignedLine];
+      console.log('  -> 添加连线: 点', nextIndex, '-> 质心', closestCentroid);
+      console.log('  -> 当前 assignedLines 数量:', newAssignedLines.length);
+      setAssignedLines(newAssignedLines);
+      
+      // 非自动模式下，执行完一步后重置isRunning
+      if (!autoMode) {
+        setIsRunning(false);
+      }
+      return { completed: false, newIndex: nextIndex, newAssignedLines };
 
-    } else if (processingPointIndex === points.length - 1) {
+    } else if (_processingPointIndex === points.length - 1) {
+      console.log('  -> 阶段2: 所有点处理完毕，检查聚类是否收敛');
       // 阶段2: 所有点处理完毕，检查聚类是否收敛
       
       // 创建当前轮次的分配关系映射
       const currentAssignments = new Map<number, number>();
-      assignedLines.forEach(line => {
+      _assignedLines.forEach(line => {
         currentAssignments.set(line.pointIndex, line.centroidIndex);
       });
       
@@ -435,19 +483,22 @@ const KMeansDemo: React.FC = () => {
       
       if (!assignmentsChanged) {
         // 聚类簇没有变化,算法收敛
-        showMessage(`K-Means算法收敛!经过 ${iteration + 1} 次迭代后聚类完成`, 'success');
+        console.log('  -> 算法收敛！');
         setAlgorithmComplete(true);
         setIsRunning(false);
+        setIsRunningRound(false);
+        setIsRunningToEnd(false);
         // 算法完成,保持所有连线显示
+        return { completed: true, newIndex: _processingPointIndex, newAssignedLines: _assignedLines }; // 返回true表示算法已完成
       } else {
         // 聚类簇发生变化,需要继续迭代
-        showMessage(`第 ${iteration + 1} 次迭代:重新计算质心...`, 'info');
+        console.log('  -> 聚类簇发生变化，需要继续迭代');
         
         const newCentroids = [...centroids];
 
         for (let i = 0; i < k; i++) {
-          // 通过assignedLines找到属于该簇的点
-          const clusterPointIndices = assignedLines
+          // 通过_assignedLines找到属于该簇的点
+          const clusterPointIndices = _assignedLines
             .filter(line => line.centroidIndex === i)
             .map(line => line.pointIndex);
           const clusterPoints = clusterPointIndices.map(idx => points[idx]);
@@ -471,11 +522,133 @@ const KMeansDemo: React.FC = () => {
         
         // 继续下一轮迭代
         // 清空已分配的连线(点会自动变回灰色,因为没有连线了)
+        console.log('  -> 重置状态: assignedLines清空, processingPointIndex重置为-1');
         setAssignedLines([]);
         setProcessingPointIndex(-1);
         setIteration(iteration + 1);
         setCurrentStep(0);
-        showMessage('质心已更新,所有点重置为灰色,开始新一轮迭代...', 'info');
+        
+        // 非自动模式下，重置isRunning
+        if (!autoMode) {
+          setIsRunning(false);
+        }
+        return { completed: false, newIndex: -1, newAssignedLines: [] }; // 返回-1表示新一轮开始
+      }
+    }
+    
+    // 非自动模式下，重置isRunning
+    if (!autoMode) {
+      setIsRunning(false);
+    }
+    console.log('executeStep 结束，返回 processingPointIndex:', _processingPointIndex);
+    return { completed: false, newIndex: _processingPointIndex, newAssignedLines: _assignedLines }; // 默认返回当前索引
+  };
+
+  // 运行一轮：将当前轮所有点都分配给最近的质心
+  const runOneRound = async () => {
+    if (centroids.length !== k) {
+      return;
+    }
+
+    if (points.length === 0) {
+      return;
+    }
+
+    setIsRunningRound(true);
+    setIsRunning(true);
+
+    console.log('=== runOneRound 开始 ===');
+    console.log('初始状态: processingPointIndex =', processingPointIndex);
+    console.log('初始状态: assignedLines.length =', assignedLines.length);
+    console.log('初始状态: points.length =', points.length);
+
+    try {
+      let stepCount = 0;
+      let currentProcessingIndex = processingPointIndex; // 本地追踪处理索引
+      let currentAssignedLinesLocal = [...assignedLines]; // 本地追踪已分配连线
+      const totalPoints = points.length;
+      
+      // 持续执行 executeStep 直到所有点都连上了质心
+      while (currentAssignedLinesLocal.length < totalPoints) {
+        stepCount++;
+        console.log(`\n--- 第 ${stepCount} 次循环 ---`);
+        console.log('循环前: currentProcessingIndex =', currentProcessingIndex);
+        console.log('循环前: currentAssignedLinesLocal.length =', currentAssignedLinesLocal.length);
+        console.log('循环前: totalPoints =', totalPoints);
+        
+        const result = await executeStep(true, currentProcessingIndex, currentAssignedLinesLocal);
+        
+        console.log('executeStep 返回结果:', result);
+        
+        if (result.completed) {
+          // 算法已完成
+          console.log('算法已完成，退出循环');
+          return;
+        }
+        
+        // 更新本地状态
+        currentProcessingIndex = result.newIndex;
+        currentAssignedLinesLocal = result.newAssignedLines;
+        console.log('更新后: currentProcessingIndex =', currentProcessingIndex);
+        console.log('更新后: currentAssignedLinesLocal.length =', currentAssignedLinesLocal.length);
+        
+        // 等待短时间再执行下一步
+        await new Promise(resolve => setTimeout(resolve, 50 / speedMultiplier));
+      }
+      
+      console.log('=== runOneRound 完成 ===');
+    } finally {
+      setIsRunningRound(false);
+      setIsRunning(false);
+    }
+  };
+
+  // 运行到结束：持续运行直到算法收敛
+  const runToEnd = async () => {
+    if (centroids.length !== k) {
+      return;
+    }
+
+    if (points.length === 0) {
+      return;
+    }
+
+    setIsRunningToEnd(true);
+    setIsRunning(true);
+
+    try {
+      let maxIterations = 100; // 防止无限循环
+      let iterCount = 0;
+
+      while (iterCount < maxIterations && !algorithmComplete) {
+        // 检查是否所有点都已分配
+        if (processingPointIndex === points.length - 1 && assignedLines.length === points.length) {
+          // 所有点已分配，执行一步来检查收敛和更新质心
+          const result = await executeStep(true);
+          if (result.completed) {
+            // 算法已完成
+            return;
+          }
+          // 重置处理索引，开始新轮次
+          await new Promise(resolve => setTimeout(resolve, 500 / speedMultiplier));
+        } else {
+          // 还有未处理的点，继续分配
+          const result = await executeStep(true);
+          if (result.completed) {
+            // 算法已完成
+            return;
+          }
+          // 等待短时间再执行下一步
+          await new Promise(resolve => setTimeout(resolve, 50 / speedMultiplier));
+        }
+        
+        iterCount++;
+      }
+    } finally {
+      setIsRunningToEnd(false);
+      setIsRunning(false);
+      if (!algorithmComplete) {
+
       }
     }
   };
@@ -510,7 +683,7 @@ const KMeansDemo: React.FC = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'KMeans数据');
     XLSX.writeFile(wb, 'kmeans_data.xlsx');
-    showMessage('数据已导出到Excel文件', 'success');
+
   };
 
   // 从Excel读取
@@ -545,9 +718,9 @@ const KMeansDemo: React.FC = () => {
         setPoints(newPoints);
         setCentroids(newCentroids);
         resetAlgorithm();
-        showMessage('数据已从Excel文件导入', 'success');
+
       } catch (error) {
-        showMessage('文件读取失败,请确保格式正确', 'error');
+
       }
     };
     reader.readAsArrayBuffer(file);
@@ -558,11 +731,6 @@ const KMeansDemo: React.FC = () => {
   const handleModeChange = (checked: boolean) => {
     const newMode = checked ? 'centroid' : 'point';
     setAddMode(newMode);
-    if (newMode === 'centroid' && centroids.length >= k) {
-      showMessage(`已达到最大质心数量 ${k},请先删除或调整K值`, 'warning');
-    } else {
-      showMessage(checked ? '切换到添加质心模式' : '切换到添加普通点模式', 'info');
-    }
   };
 
   // 倍速滑动条的标记（均匀分布）
@@ -593,20 +761,25 @@ const KMeansDemo: React.FC = () => {
       ? `收敛完成(迭代${iteration}次)`
       : `进行中(迭代${iteration}次,处理点${processingPointIndex + 1}/${points.length})`;
     setSnapshotInfo(info);
-    showMessage('画布快照已保存!', 'success');
+
   };
 
   // 清除快照
   const clearSnapshot = () => {
     setSavedSnapshot(null);
     setSnapshotInfo('');
-    showMessage('快照已清除', 'info');
+
   };
 
   // 获取状态文本
   const getStatusText = () => {
     if (iteration === 0 && !isRunning && !algorithmComplete) {
       return '等待开始';
+    }
+    
+    // 如果算法已完成（收敛），显示收敛信息
+    if (algorithmComplete) {
+      return `第${iteration + 1}轮迭代，已经收敛，迭代结束`;
     }
     
     let baseStatus = `第${iteration + 1}轮迭代`;
@@ -623,34 +796,15 @@ const KMeansDemo: React.FC = () => {
       }
     }
     
-    baseStatus += ` ${algorithmComplete ? '已完成' : isRunning ? '运行中' : '等待继续'}`;
+    baseStatus += ` ${isRunning ? '运行中' : '等待继续'}`;
     return baseStatus;
   };
 
-  // 获取消息样式
-  const getMessageStyle = () => {
-    const baseStyle = {
-      padding: '8px 16px',
-      borderRadius: '4px',
-      fontSize: '14px',
-      fontWeight: 500 as const
-    };
-    
-    switch (messageType) {
-      case 'success':
-        return { ...baseStyle, backgroundColor: '#f6ffed', color: '#52c41a', border: '1px solid #b7eb8f' };
-      case 'warning':
-        return { ...baseStyle, backgroundColor: '#fffbe6', color: '#faad14', border: '1px solid #ffe58f' };
-      case 'error':
-        return { ...baseStyle, backgroundColor: '#fff2f0', color: '#ff4d4f', border: '1px solid #ffccc7' };
-      default:
-        return { ...baseStyle, backgroundColor: '#e6f7ff', color: '#1890ff', border: '1px solid #91d5ff' };
-    }
-  };
+
 
   return (
     <ConfigProvider>
-      <div className="kmeans-demo-container" style={{ padding: '24px', backgroundColor: '#fff', minHeight: '100vh' }}>
+      <div className="kmeans-demo-container" style={{ padding: '24px', backgroundColor: '#fff', minHeight: '100vh', margin: 0 }}>
       <Card title="K-Means 聚类算法演示" bordered={false}>
         <Row gutter={[16, 16]}>
           <Col span={24}>
@@ -662,12 +816,12 @@ const KMeansDemo: React.FC = () => {
                   max={200} 
                   value={numPoints} 
                   onChange={(val) => setNumPoints(val || 50)}
-                  disabled={isRunning}
+                  disabled={isRunning || isRunningRound || isRunningToEnd}
                 />
                 <Button 
                   type="primary" 
                   onClick={generateRandomPoints}
-                  disabled={isRunning}
+                  disabled={isRunning || isRunningRound || isRunningToEnd}
                 >
                   生成随机点
                 </Button>
@@ -684,7 +838,7 @@ const KMeansDemo: React.FC = () => {
                     setCentroids([]);
                     resetAlgorithm();
                   }}
-                  disabled={isRunning}
+                  disabled={isRunning || isRunningRound || isRunningToEnd}
                 />
               </Space>
 
@@ -716,7 +870,7 @@ const KMeansDemo: React.FC = () => {
                   unCheckedChildren={<><DotChartOutlined /> 普通点</>}
                   checked={addMode === 'centroid'}
                   onChange={handleModeChange}
-                  disabled={isRunning}
+                  disabled={isRunning || isRunningRound || isRunningToEnd}
                 />
                 {addMode === 'centroid' && (
                   <span style={{ color: '#1890ff', fontSize: '12px' }}>
@@ -742,23 +896,29 @@ const KMeansDemo: React.FC = () => {
 
               <Button 
                 type="primary" 
-                icon={isRunning ? <PauseOutlined /> : <PlayCircleOutlined />}
-                onClick={executeStep}
-                disabled={algorithmComplete || centroids.length !== k}
+                icon={<PlayCircleOutlined />}
+                onClick={() => executeStep(false)}
+                disabled={algorithmComplete || centroids.length !== k || isRunning}
               >
                 执行一步
               </Button>
 
               <Button 
-                icon={<ClearOutlined />}
-                onClick={() => {
-                  setPoints([]);
-                  setCentroids([]);
-                  resetAlgorithm();
-                }}
-                disabled={isRunning}
+                type="primary" 
+                onClick={runOneRound}
+                disabled={algorithmComplete || centroids.length !== k || isRunning}
+                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
               >
-                清空画布
+                🔄 运行一轮
+              </Button>
+
+              <Button 
+                type="primary" 
+                onClick={runToEnd}
+                disabled={algorithmComplete || centroids.length !== k || isRunning}
+                style={{ backgroundColor: '#1890ff', borderColor: '#1890ff' }}
+              >
+                ⚡ 运行到结束
               </Button>
 
               <Button 
@@ -769,20 +929,18 @@ const KMeansDemo: React.FC = () => {
               </Button>
 
               <Button 
-                type="default"
                 onClick={saveSnapshot}
-                style={{ backgroundColor: '#52c41a', color: 'white', borderColor: '#52c41a' }}
+                style={{ backgroundColor: '#faad14', color: 'white', borderColor: '#faad14' }}
               >
                 📸 保存快照
               </Button>
 
-              {savedSnapshot && (
-                <Button 
-                  danger
-                  onClick={clearSnapshot}
-                >
-                  清除快照
-                </Button>
+              {savedSnapshot && snapshotInfo && (
+                <Space style={{ padding: '4px 12px', backgroundColor: '#f0f5ff', borderRadius: '4px', border: '1px solid #91d5ff' }}>
+                  <span style={{ fontSize: '12px', color: '#1890ff' }}>
+                    📸 快照: {snapshotInfo}
+                  </span>
+                </Space>
               )}
 
               <Upload
@@ -790,7 +948,7 @@ const KMeansDemo: React.FC = () => {
                 accept=".xlsx,.xls"
                 showUploadList={false}
               >
-                <Button icon={<UploadOutlined />} disabled={isRunning}>
+                <Button icon={<UploadOutlined />} disabled={isRunning || isRunningRound || isRunningToEnd}>
                   读Excel
                 </Button>
               </Upload>
@@ -801,9 +959,7 @@ const KMeansDemo: React.FC = () => {
                 </span>
               </Space>
 
-              <div style={getMessageStyle()}>
-                📢 {messageText}
-              </div>
+
             </Space>
           </Col>
 
@@ -817,10 +973,16 @@ const KMeansDemo: React.FC = () => {
                 onMouseMove={handleCanvasMouseMove}
                 onMouseUp={handleCanvasMouseUp}
                 onMouseLeave={handleCanvasMouseUp}
-                onContextMenu={handleCanvasRightClick}
+                onContextMenu={(e) => {
+                  if (!isRunning && !isRunningRound && !isRunningToEnd) {
+                    handleCanvasRightClick(e);
+                  } else {
+                    e.preventDefault();
+                  }
+                }}
                 style={{
                   border: '2px solid #d9d9d9',
-                  cursor: isRunning 
+                  cursor: isRunning || isRunningRound || isRunningToEnd
                     ? 'not-allowed' 
                     : (draggingCentroidIndex >= 0 || draggingPointIndex >= 0) 
                       ? 'grabbing' 
@@ -834,37 +996,39 @@ const KMeansDemo: React.FC = () => {
 
           {savedSnapshot && (
             <Col span={12}>
-              <Card 
-                size="small" 
-                title="已保存的快照" 
-                extra={<span style={{ fontSize: '12px', color: '#666' }}>{snapshotInfo}</span>}
-                style={{ height: '100%' }}
-              >
-                <div style={{ textAlign: 'center' }}>
-                  <img 
-                    src={savedSnapshot} 
-                    alt="Saved Snapshot" 
-                    style={{ 
-                      maxWidth: '100%', 
-                      border: '2px solid #52c41a',
-                      borderRadius: '4px',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                    }} 
-                  />
-                </div>
-              </Card>
+              <div style={{ textAlign: 'center' }}>
+                <img 
+                  src={savedSnapshot} 
+                  alt="Saved Snapshot" 
+                  style={{ 
+                    width: CANVAS_WIDTH,
+                    height: CANVAS_HEIGHT,
+                    border: '2px solid #52c41a',
+                    borderRadius: '4px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  }} 
+                />
+              </div>
             </Col>
           )}
 
           <Col span={24}>
             <Card size="small" title="操作提示">
-              <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                <li><strong>添加点</strong>：使用顶部的模式开关切换添加普通点或质心，点击画布添加</li>
-                <li><strong>拖动调整</strong>：点击并拖动任何点（普通点或质心）来调整位置</li>
-                <li><strong>执行算法</strong>：点击"执行一步"按钮逐步演示K-Means算法过程</li>
-                <li><strong>右键清空</strong>：右键点击画布可清空所有内容</li>
-                <li><strong>保存对比</strong>：使用"📸 保存快照"按钮保存当前状态，方便对比调整前后的效果</li>
-              </ul>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                    <li><strong>添加点</strong>：使用顶部的模式开关切换添加普通点或质心，点击画布添加</li>
+                    <li><strong>拖动调整</strong>：点击并拖动任何点（普通点或质心）来调整位置</li>
+                    <li><strong>执行算法</strong>：点击“执行一步”按钮逐步演示K-Means算法过程</li>
+                  </ul>
+                </Col>
+                <Col span={12}>
+                  <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                    <li><strong>右键清空</strong>：右键点击画布可清空所有内容</li>
+                    <li><strong>保存对比</strong>：使用“📸 保存快照”按钮保存当前状态，方便对比调整前后的效果</li>
+                  </ul>
+                </Col>
+              </Row>
             </Card>
           </Col>
         </Row>
