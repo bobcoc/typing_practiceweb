@@ -1,0 +1,5 @@
+/* K-Means Demo 组件专用样式 - 消息从底部弹出 */
+.kmeans-demo-container .ant-message {
+  top: auto !important;
+  bottom: 50px !important;
+}
