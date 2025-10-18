@@ -283,14 +283,18 @@ const KMeansDemo: React.FC = () => {
           // 如果质心已满，自动切换到普通点模式
           if (centroids.length + 1 >= k) {
             setAddMode('point');
-
+            message.info('质心已满，自动切换到普通点模式');
           }
         } else {
-
+          message.warning(`质心数量已达到上限 (${k})`);
         }
       } else {
-        // 添加普通点
-        setPoints([...points, { x, y }]);
+        // 添加普通点（检查数量限制）
+        if (points.length < numPoints) {
+          setPoints([...points, { x, y }]);
+        } else {
+          message.warning(`普通点数量已达到上限 (${numPoints})`);
+        }
       }
     }
   };
@@ -784,10 +788,16 @@ const KMeansDemo: React.FC = () => {
 
         setPoints(newPoints);
         setCentroids(newCentroids);
+        
+        // 根据读入的数据自动设置点数量和K值
+        setNumPoints(newPoints.length);
+        setK(newCentroids.length);
+        
         resetAlgorithm();
+        message.success(`成功读取 ${newPoints.length} 个数据点和 ${newCentroids.length} 个质心`);
 
       } catch (error) {
-
+        message.error('读取Excel文件失败，请检查文件格式');
       }
     };
     reader.readAsArrayBuffer(file);
@@ -1201,9 +1211,13 @@ const KMeansDemo: React.FC = () => {
                   onChange={handleModeChange}
                   disabled={isRunning || isRunningRound || isRunningToEnd}
                 />
-                {addMode === 'centroid' && (
+                {addMode === 'centroid' ? (
                   <span style={{ color: '#1890ff', fontSize: '12px' }}>
                     ({centroids.length}/{k})
+                  </span>
+                ) : (
+                  <span style={{ color: '#52c41a', fontSize: '12px' }}>
+                    ({points.length}/{numPoints})
                   </span>
                 )}
               </Space>
