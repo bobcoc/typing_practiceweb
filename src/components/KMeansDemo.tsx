@@ -62,6 +62,7 @@ const KMeansDemo: React.FC = () => {
   const [snapshotInfo, setSnapshotInfo] = useState<string>(''); // 快照信息
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1); // 动画速度倍数
   const [previousAssignments, setPreviousAssignments] = useState<Map<number, number>>(new Map()); // 上一轮的点到质心分配关系
+  const [clusteringScore, setClusteringScore] = useState<number | null>(null); // 聚类分数（WCSS）
 
 
   const CANVAS_WIDTH = 800;
@@ -367,6 +368,7 @@ const KMeansDemo: React.FC = () => {
     setDraggingPointIndex(-1); // 停止拖动普通点
     setDraggingCentroidIndex(-1); // 停止拖动质心
     setPreviousAssignments(new Map()); // 清空历史分配记录
+    setClusteringScore(null); // 清空聚类分数
 
   };
 
@@ -603,13 +605,15 @@ const KMeansDemo: React.FC = () => {
     }
   };
 
-  // 运行到结束：持续运行直到算法收敛
-  const runToEnd = async () => {
+  // 运行到结束：直接计算最终结果（无动画）
+  const runToEnd = () => {
     if (centroids.length !== k) {
+      message.warning('请先生成质心！');
       return;
     }
 
     if (points.length === 0) {
+      message.warning('请先生成或添加数据点！');
       return;
     }
 
@@ -617,39 +621,102 @@ const KMeansDemo: React.FC = () => {
     setIsRunning(true);
 
     try {
-      let maxIterations = 100; // 防止无限循环
+      let currentCentroids = [...centroids];
+      let prevAssignments = new Map<number, number>();
+      let maxIterations = 100;
       let iterCount = 0;
+      let converged = false;
 
-      while (iterCount < maxIterations && !algorithmComplete) {
-        // 检查是否所有点都已分配
-        if (processingPointIndex === points.length - 1 && assignedLines.length === points.length) {
-          // 所有点已分配，执行一步来检查收敛和更新质心
-          const result = await executeStep(true);
-          if (result.completed) {
-            // 算法已完成
-            return;
+      // 迭代直到收敛
+      while (!converged && iterCount < maxIterations) {
+        // 1. 为每个点分配最近的质心
+        const currentAssignments = new Map<number, number>();
+        const newAssignedLines: DistanceLine[] = [];
+
+        points.forEach((point, pointIndex) => {
+          // 计算到所有质心的距离
+          let minDistance = Infinity;
+          let closestCentroidIndex = 0;
+
+          currentCentroids.forEach((centroid, centroidIndex) => {
+            const distance = calculateDistance(point, centroid);
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestCentroidIndex = centroidIndex;
+            }
+          });
+
+          // 记录分配关系
+          currentAssignments.set(pointIndex, closestCentroidIndex);
+          newAssignedLines.push({
+            pointIndex,
+            centroidIndex: closestCentroidIndex,
+            distance: minDistance,
+            isAssigned: true
+          });
+        });
+
+        // 2. 检查是否收敛（分配关系不再变化）
+        if (iterCount > 0) {
+          converged = true;
+          for (let i = 0; i < points.length; i++) {
+            if (prevAssignments.get(i) !== currentAssignments.get(i)) {
+              converged = false;
+              break;
+            }
           }
-          // 重置处理索引，开始新轮次
-          await new Promise(resolve => setTimeout(resolve, 500 / speedMultiplier));
-        } else {
-          // 还有未处理的点，继续分配
-          const result = await executeStep(true);
-          if (result.completed) {
-            // 算法已完成
-            return;
-          }
-          // 等待短时间再执行下一步
-          await new Promise(resolve => setTimeout(resolve, 50 / speedMultiplier));
         }
-        
+
+        if (converged) {
+          // 收敛，更新最终状态
+          setAssignedLines(newAssignedLines);
+          setPreviousAssignments(currentAssignments);
+          setAlgorithmComplete(true);
+          setProcessingPointIndex(-1);
+          
+          // 计算聚类分数（WCSS: Within-Cluster Sum of Squares）
+          const totalScore = newAssignedLines.reduce((sum, line) => sum + line.distance, 0);
+          setClusteringScore(totalScore);
+          
+          message.success(`算法收敛！总共迭代 ${iterCount} 轮，聚类分数: ${totalScore.toFixed(2)}`);
+          break;
+        }
+
+        // 3. 更新质心位置
+        const newCentroids = currentCentroids.map((centroid, centroidIndex) => {
+          const clusterPoints = points.filter((_, pointIndex) => 
+            currentAssignments.get(pointIndex) === centroidIndex
+          );
+
+          if (clusterPoints.length > 0) {
+            const newX = clusterPoints.reduce((sum, p) => sum + p.x, 0) / clusterPoints.length;
+            const newY = clusterPoints.reduce((sum, p) => sum + p.y, 0) / clusterPoints.length;
+            return { ...centroid, x: newX, y: newY };
+          }
+          return centroid;
+        });
+
+        currentCentroids = newCentroids;
+        prevAssignments = new Map(currentAssignments);
         iterCount++;
+
+        // 更新迭代次数显示
+        setIteration(iterCount);
       }
+
+      // 更新最终的质心位置
+      setCentroids(currentCentroids);
+
+      if (!converged && iterCount >= maxIterations) {
+        message.warning(`达到最大迭代次数 (${maxIterations})，算法停止`);
+      }
+
+    } catch (error) {
+      console.error('运行到结束时出错:', error);
+      message.error('运行过程中出现错误');
     } finally {
       setIsRunningToEnd(false);
       setIsRunning(false);
-      if (!algorithmComplete) {
-
-      }
     }
   };
 
@@ -757,9 +824,17 @@ const KMeansDemo: React.FC = () => {
     
     const dataUrl = canvas.toDataURL('image/png');
     setSavedSnapshot(dataUrl);
-    const info = algorithmComplete 
-      ? `收敛完成(迭代${iteration}次)`
-      : `进行中(迭代${iteration}次,处理点${processingPointIndex + 1}/${points.length})`;
+    
+    // 构建快照信息
+    let info = '';
+    if (algorithmComplete) {
+      // 收敛完成：显示迭代次数和聚类分数
+      const scoreText = clusteringScore !== null ? `，分数${clusteringScore.toFixed(2)}` : '';
+      info = `收敛完成(迭代${iteration + 1}次${scoreText})`;
+    } else {
+      // 进行中：显示迭代次数和当前处理进度
+      info = `进行中(迭代${iteration + 1}次,处理点${processingPointIndex + 1}/${points.length})`;
+    }
     setSnapshotInfo(info);
 
   };
@@ -779,7 +854,8 @@ const KMeansDemo: React.FC = () => {
     
     // 如果算法已完成（收敛），显示收敛信息
     if (algorithmComplete) {
-      return `第${iteration + 1}轮迭代，已经收敛，迭代结束`;
+      const scoreText = clusteringScore !== null ? `，聚类分数: ${clusteringScore.toFixed(2)}` : '';
+      return `第${iteration + 1}轮迭代，已经收敛，迭代结束${scoreText}`;
     }
     
     let baseStatus = `第${iteration + 1}轮迭代`;
