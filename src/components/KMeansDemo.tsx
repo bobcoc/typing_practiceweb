@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Button, InputNumber, Checkbox, Upload, message, Space, Card, Row, Col, ConfigProvider, Switch, Slider } from 'antd';
-import { DownloadOutlined, UploadOutlined, ClearOutlined, PlayCircleOutlined, PauseOutlined, AimOutlined, DotChartOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { DownloadOutlined, UploadOutlined, ClearOutlined, PlayCircleOutlined, PauseOutlined, AimOutlined, DotChartOutlined, ThunderboltOutlined, FileImageOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import './KMeansDemo.css';
 
@@ -846,6 +846,259 @@ const KMeansDemo: React.FC = () => {
 
   };
 
+  // 绘制自定义配置的画布（用于保存作业）
+  const drawCustomCanvas = (
+    ctx: CanvasRenderingContext2D,
+    pointsData: Point[],
+    centroidsData: Centroid[],
+    assignedLinesData: DistanceLine[],
+    config: {
+      showLabels: boolean;
+      showCentroidCoords: boolean;
+      showScore: boolean;
+      score?: number;
+      title?: string;
+    }
+  ) => {
+    const width = CANVAS_WIDTH;
+    const height = CANVAS_HEIGHT;
+
+    // 清空画布
+    ctx.fillStyle = '#f5f5f5';
+    ctx.fillRect(0, 0, width, height);
+
+    // 绘制标题
+    if (config.title) {
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(config.title, width / 2, 25);
+      ctx.textAlign = 'left'; // 重置对齐方式
+    }
+
+    // 显示分数（在标题下方）
+    if (config.showScore && config.score !== undefined) {
+      ctx.fillStyle = '#ff4d4f';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(`聚类分数: ${config.score.toFixed(2)}`, width / 2, 45);
+      ctx.textAlign = 'left';
+    }
+
+    // 绘制已分配的连线
+    assignedLinesData.forEach((line) => {
+      const point = pointsData[line.pointIndex];
+      const centroid = centroidsData[line.centroidIndex];
+      
+      ctx.strokeStyle = centroid.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(point.x, point.y);
+      ctx.lineTo(centroid.x, centroid.y);
+      ctx.stroke();
+    });
+
+    // 绘制普通点
+    pointsData.forEach((point, index) => {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, POINT_RADIUS, 0, Math.PI * 2);
+      
+      const assignedLine = assignedLinesData.find(line => line.pointIndex === index);
+      if (assignedLine) {
+        ctx.fillStyle = centroidsData[assignedLine.centroidIndex]?.color || '#666';
+      } else {
+        ctx.fillStyle = '#666';
+      }
+      ctx.fill();
+
+      // 显示标签
+      if (config.showLabels) {
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 12px Arial';
+        const label = String.fromCharCode(65 + index);
+        ctx.fillText(label, point.x + 8, point.y - 8);
+      }
+    });
+
+    // 绘制质心
+    centroidsData.forEach((centroid, index) => {
+      ctx.beginPath();
+      ctx.arc(centroid.x, centroid.y, POINT_RADIUS * 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = centroid.color;
+      ctx.fill();
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 14px Arial';
+      ctx.fillText(`C${index + 1}`, centroid.x - 8, centroid.y - 15);
+
+      // 显示质心坐标
+      if (config.showCentroidCoords) {
+        ctx.fillStyle = '#000';
+        ctx.font = '10px Arial';
+        ctx.fillText(`(${Math.round(centroid.x)}, ${Math.round(centroid.y)})`, centroid.x + 12, centroid.y + 20);
+      }
+    });
+  };
+
+  // 保存作业：生成包含原始图和收敛图的合成图片
+  const saveHomework = async () => {
+    // 1. 检查运行条件
+    if (centroids.length !== k) {
+      message.error('请先生成所有质心！');
+      return;
+    }
+
+    if (points.length === 0) {
+      message.error('请先生成或添加数据点！');
+      return;
+    }
+
+    try {
+      message.loading({ content: '正在生成作业图片...', key: 'homework', duration: 0 });
+
+      // 2. 保存原始状态
+      const originalPoints = [...points];
+      const originalCentroids = [...centroids];
+      const originalAssignedLines = [...assignedLines];
+      const originalAlgorithmComplete = algorithmComplete;
+      const originalIteration = iteration;
+      const originalScore = clusteringScore;
+
+      // 3. 运行到收敛（复用runToEnd的逻辑）
+      let currentCentroids = [...centroids];
+      let prevAssignments = new Map<number, number>();
+      let maxIterations = 100;
+      let iterCount = 0;
+      let converged = false;
+      let finalAssignedLines: DistanceLine[] = [];
+      let finalScore = 0;
+
+      while (!converged && iterCount < maxIterations) {
+        const currentAssignments = new Map<number, number>();
+        const newAssignedLines: DistanceLine[] = [];
+
+        points.forEach((point, pointIndex) => {
+          let minDistance = Infinity;
+          let closestCentroidIndex = 0;
+
+          currentCentroids.forEach((centroid, centroidIndex) => {
+            const distance = calculateDistance(point, centroid);
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestCentroidIndex = centroidIndex;
+            }
+          });
+
+          currentAssignments.set(pointIndex, closestCentroidIndex);
+          newAssignedLines.push({
+            pointIndex,
+            centroidIndex: closestCentroidIndex,
+            distance: minDistance,
+            isAssigned: true
+          });
+        });
+
+        if (iterCount > 0) {
+          converged = true;
+          for (let i = 0; i < points.length; i++) {
+            if (prevAssignments.get(i) !== currentAssignments.get(i)) {
+              converged = false;
+              break;
+            }
+          }
+        }
+
+        if (converged) {
+          finalAssignedLines = newAssignedLines;
+          finalScore = newAssignedLines.reduce((sum, line) => sum + line.distance, 0);
+          break;
+        }
+
+        const newCentroids = currentCentroids.map((centroid, centroidIndex) => {
+          const clusterPoints = points.filter((_, pointIndex) => 
+            currentAssignments.get(pointIndex) === centroidIndex
+          );
+
+          if (clusterPoints.length > 0) {
+            const newX = clusterPoints.reduce((sum, p) => sum + p.x, 0) / clusterPoints.length;
+            const newY = clusterPoints.reduce((sum, p) => sum + p.y, 0) / clusterPoints.length;
+            return { ...centroid, x: newX, y: newY };
+          }
+          return centroid;
+        });
+
+        currentCentroids = newCentroids;
+        prevAssignments = new Map(currentAssignments);
+        iterCount++;
+      }
+
+      // 4. 创建合成画布（左右两张图）
+      const compositeCanvas = document.createElement('canvas');
+      const padding = 40; // 图片间隔
+      const titleHeight = 50; // 标题高度
+      compositeCanvas.width = CANVAS_WIDTH * 2 + padding;
+      compositeCanvas.height = CANVAS_HEIGHT + titleHeight;
+      const compositeCtx = compositeCanvas.getContext('2d');
+
+      if (!compositeCtx) {
+        throw new Error('无法创建画布上下文');
+      }
+
+      // 绘制白色背景
+      compositeCtx.fillStyle = '#ffffff';
+      compositeCtx.fillRect(0, 0, compositeCanvas.width, compositeCanvas.height);
+
+      // 绘制总标题
+      compositeCtx.fillStyle = '#000';
+      compositeCtx.font = 'bold 20px Arial';
+      compositeCtx.textAlign = 'center';
+      compositeCtx.fillText('K-Means 聚类算法作业', compositeCanvas.width / 2, 30);
+
+      // 左图：收敛图（显示标签、质心坐标和连线）
+      compositeCtx.save();
+      compositeCtx.translate(0, titleHeight);
+      drawCustomCanvas(compositeCtx, points, currentCentroids, finalAssignedLines, {
+        showLabels: true,
+        showCentroidCoords: true,
+        showScore: false,
+        title: `收敛结果(迭代${iterCount}次)`
+      });
+      compositeCtx.restore();
+
+      // 右图：原始图（显示标签、质心坐标和分数）
+      compositeCtx.save();
+      compositeCtx.translate(CANVAS_WIDTH + padding, titleHeight);
+      drawCustomCanvas(compositeCtx, originalPoints, originalCentroids, [], {
+        showLabels: true,
+        showCentroidCoords: true,
+        showScore: true,
+        score: finalScore,
+        title: '原始数据'
+      });
+      compositeCtx.restore();
+
+      // 5. 下载图片
+      const dataUrl = compositeCanvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      link.download = `kmeans-homework-${timestamp}.png`;
+      link.href = dataUrl;
+      link.click();
+
+      message.success({ content: '作业图片已生成并下载！', key: 'homework', duration: 2 });
+
+      // 6. 恢复原始状态（不改变当前界面）
+      // 注意：我们不改变当前状态，保持用户当前的操作环境
+      
+    } catch (error) {
+      console.error('保存作业时出错:', error);
+      message.error({ content: '生成作业图片失败！', key: 'homework', duration: 2 });
+    }
+  };
+
   // 获取状态文本
   const getStatusText = () => {
     if (iteration === 0 && !isRunning && !algorithmComplete) {
@@ -1011,6 +1264,16 @@ const KMeansDemo: React.FC = () => {
                 📸 保存快照
               </Button>
 
+              <Button 
+                type="primary"
+                icon={<FileImageOutlined />}
+                onClick={saveHomework}
+                disabled={isRunning || isRunningRound || isRunningToEnd}
+                style={{ backgroundColor: '#13c2c2', borderColor: '#13c2c2' }}
+              >
+                📝 保存作业
+              </Button>
+
               {savedSnapshot && snapshotInfo && (
                 <Space style={{ padding: '4px 12px', backgroundColor: '#f0f5ff', borderRadius: '4px', border: '1px solid #91d5ff' }}>
                   <span style={{ fontSize: '12px', color: '#1890ff' }}>
@@ -1091,17 +1354,23 @@ const KMeansDemo: React.FC = () => {
           <Col span={24}>
             <Card size="small" title="操作提示">
               <Row gutter={16}>
-                <Col span={12}>
+                <Col span={8}>
                   <ul style={{ margin: 0, paddingLeft: '20px' }}>
                     <li><strong>添加点</strong>：使用顶部的模式开关切换添加普通点或质心，点击画布添加</li>
                     <li><strong>拖动调整</strong>：点击并拖动任何点（普通点或质心）来调整位置</li>
                     <li><strong>执行算法</strong>：点击“执行一步”按钮逐步演示K-Means算法过程</li>
                   </ul>
                 </Col>
-                <Col span={12}>
+                <Col span={8}>
                   <ul style={{ margin: 0, paddingLeft: '20px' }}>
                     <li><strong>右键清空</strong>：右键点击画布可清空所有内容</li>
                     <li><strong>保存对比</strong>：使用“📸 保存快照”按钮保存当前状态，方便对比调整前后的效果</li>
+                  </ul>
+                </Col>
+                <Col span={8}>
+                  <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                    <li><strong>📝 保存作业</strong>：自动运行到收敛，生成包含原始图和收敛图的对比图片，并自动下载</li>
+                    <li><strong>作业图片</strong>：左侧显示原始数据（带标签、质心坐标），右侧显示收敛结果（含聚类分数）</li>
                   </ul>
                 </Col>
               </Row>
