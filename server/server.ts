@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
+import path from 'path';
 import practiceTypesRouter from './routes/practiceTypes';
 import codeExamplesRouter from './routes/codeExamples';
 import authRouter from './routes/auth';
@@ -25,6 +26,10 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
+
+// 静态文件服务 - 优先处理 public 目录下的静态文件
+app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, '../build')));
 
 // MongoDB 连接
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/typeskill';
@@ -57,6 +62,11 @@ mongoose.connect(MONGODB_URI)
   });
 
 // 路由配置
+// 特殊静态 HTML 文件路由 - 在 API 路由之前处理
+app.get('/xf/xf.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/xf/xf.html'));
+});
+
 // OIDC Discovery 路由
 app.get('/.well-known/openid-configuration', (req, res) => {
   const issuer = process.env.ISSUER || 'https://d1kt.cn'; // 你的主域名
@@ -85,6 +95,16 @@ app.use('/api/system', systemRoutes);
 app.use('/api/visitor', visitorRoutes);
 app.use('/api/vocabulary', vocabularyRoutes);
 app.use('/api', userWordPassRouter);
+
+// SPA 回退路由 - 必须放在所有路由之后
+app.get('*', (req, res, next) => {
+  // 如果是 API 请求或静态资源，跳过
+  if (req.path.startsWith('/api/') || req.path.includes('.')) {
+    return next();
+  }
+  // 否则返回 React 应用的 index.html
+  res.sendFile(path.join(__dirname, '../build/index.html'));
+});
 
 // 添加调试日志中间件
 app.use((req, res, next) => {
