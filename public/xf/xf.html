@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>消防站点选址优化</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 20px;
+        }
+        
+        .left-panel {
+            flex: 1;
+            min-width: 300px;
+            padding: 20px;
+        }
+        
+        .right-panel {
+            flex: 2;
+            min-width: 500px;
+            padding: 20px;
+        }
+        
+        .canvas-container {
+            position: relative;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #f9f9f9;
+            margin-bottom: 20px;
+        }
+        
+        canvas {
+            display: block;
+            background-color: white;
+            cursor: crosshair;
+            width: 100%;
+        }
+        
+        .instructions {
+            background-color: #e8f4fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        
+        .instructions ol {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .settings {
+            background-color: #f0f8ff;
+            border: 1px solid #cce5ff;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .setting-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .setting-label {
+            width: 150px;
+            font-weight: 500;
+        }
+        
+        .setting-input {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 60px;
+            text-align: center;
+        }
+        
+        .setting-note {
+            font-size: 0.85rem;
+            color: #666;
+            margin-left: 10px;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .primary-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .primary-btn:hover {
+            background-color: #45a049;
+        }
+        
+        .secondary-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        .secondary-btn:hover {
+            background-color: #d32f2f;
+        }
+        
+        .info-btn {
+            background-color: #2196F3;
+            color: white;
+        }
+        
+        .info-btn:hover {
+            background-color: #0b7dda;
+        }
+        
+        .warning-btn {
+            background-color: #ff9800;
+            color: white;
+        }
+        
+        .warning-btn:hover {
+            background-color: #e68900;
+        }
+        
+        .warning-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .stations-list {
+            margin-top: 20px;
+        }
+        
+        .station-item {
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .station-number {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background-color: #ff6b6b;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            margin-right: 10px;
+        }
+        
+        .coordinates {
+            font-family: monospace;
+            color: #666;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9rem;
+            border-top: 1px solid #eee;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                flex-direction: column;
+            }
+            
+            .left-panel, .right-panel {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>消防站点选址优化</h1>
+            <p class="subtitle">交互式消防站点规划工具</p>
+        </header>
+        
+        <div class="content">
+            <div class="left-panel">
+                <div class="instructions">
+                    <h3>使用说明：</h3>
+                    <ol>
+                        <li>在画布上<strong>单击右键</strong>放置消防站点</li>
+                        <li><strong>按住左键拖动</strong>可以在地图上绘制区域</li>
+                        <li>使用下方按钮清除站点或绘图</li>
+                    </ol>
+                </div>
+                
+                <div class="settings">
+                    <h3>站点设置</h3>
+                    <div class="setting-item">
+                        <label class="setting-label">最大站点数量:</label>
+                        <input type="number" id="maxStationsInput" class="setting-input" min="1" max="5" value="2">
+                        <span class="setting-note">(1-5)</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">当前站点数量:</span>
+                        <span id="currentStationsCount">0</span>
+                        <span class="setting-note">/ <span id="maxStationsDisplay">2</span></span>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="warning-btn" id="undoBtn" disabled>撤销站点</button>
+                    <button class="secondary-btn" id="clearStationsBtn">清除站点</button>
+                    <button class="secondary-btn" id="clearDrawingBtn">清除绘图</button>
+                    <button class="info-btn" id="resetBtn">重置</button>
+                </div>
+                
+                <div class="stations-list">
+                    <h3>已放置站点</h3>
+                    <div id="stationsContainer">
+                        <p id="noStationsMsg">尚未放置任何站点</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="right-panel">
+                <div class="canvas-container">
+                    <canvas id="mainCanvas" width="800" height="600"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>消防站点选址优化工具 | 可视化消防站点布局规划</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取DOM元素
+            const canvas = document.getElementById('mainCanvas');
+            const ctx = canvas.getContext('2d');
+            const clearStationsBtn = document.getElementById('clearStationsBtn');
+            const clearDrawingBtn = document.getElementById('clearDrawingBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const undoBtn = document.getElementById('undoBtn');
+            const stationsContainer = document.getElementById('stationsContainer');
+            const noStationsMsg = document.getElementById('noStationsMsg');
+            const maxStationsInput = document.getElementById('maxStationsInput');
+            const currentStationsCount = document.getElementById('currentStationsCount');
+            const maxStationsDisplay = document.getElementById('maxStationsDisplay');
+            
+            // 状态变量
+            let stations = [];
+            let isDrawing = false;
+            let lastX = 0;
+            let lastY = 0;
+            let drawingData = [];
+            let backgroundImage = null;
+            let maxStations = 2;
+            
+            // 初始化画布
+            initializeCanvas();
+            
+            // 画布鼠标事件处理
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            
+            // 右键放置站点
+            canvas.addEventListener('contextmenu', function(e) {
+                e.preventDefault(); // 阻止默认右键菜单
+                
+                if (stations.length < maxStations) {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    // 添加新站点
+                    stations.push({x, y});
+                    drawStation(x, y, stations.length);
+                    updateStationsList();
+                    updateStationsCount();
+                    updateUndoButton();
+                } else {
+                    alert(`已达到最大站点数量限制（${maxStations}个）`);
+                }
+            });
+            
+            // 最大站点数量输入事件
+            maxStationsInput.addEventListener('change', function() {
+                let value = parseInt(this.value);
+                
+                if (isNaN(value) || value < 1) {
+                    value = 1;
+                } else if (value > 5) {
+                    value = 5;
+                }
+                
+                this.value = value;
+                maxStations = value;
+                maxStationsDisplay.textContent = value;
+                
+                // 如果当前站点数量超过新的最大值，移除多余的站点
+                if (stations.length > maxStations) {
+                    stations = stations.slice(0, maxStations);
+                    redrawCanvas();
+                    updateStationsList();
+                    updateStationsCount();
+                    updateUndoButton();
+                }
+            });
+            
+            // 按钮事件处理
+            clearStationsBtn.addEventListener('click', clearStations);
+            clearDrawingBtn.addEventListener('click', clearDrawing);
+            resetBtn.addEventListener('click', resetAll);
+            undoBtn.addEventListener('click', undoLastStation);
+            
+            // 初始化画布
+            function initializeCanvas() {
+                // 创建背景图片
+                backgroundImage = new Image();
+                backgroundImage.onload = function() {
+                    // 调整画布大小以适应图片
+                    canvas.width = backgroundImage.width;
+                    canvas.height = backgroundImage.height;
+                    
+                    // 绘制背景图片
+                    ctx.drawImage(backgroundImage, 0, 0);
+                };
+                
+                // 设置背景图片源 - 这里使用一个示例地图
+                // 在实际应用中，您可以将此URL替换为您本地图片的路径
+                backgroundImage.src = '背景图.png';
+                
+                // 如果背景图片加载失败，使用默认背景
+                backgroundImage.onerror = function() {
+                    canvas.width = 800;
+                    canvas.height = 600;
+                    
+                    // 设置画布背景
+                    ctx.fillStyle = '#e9f5ff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 绘制网格
+                    drawGrid();
+                    
+                    // 绘制标题
+                    ctx.fillStyle = '#333';
+                    ctx.font = 'bold 24px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('消防站点选址优化', canvas.width/2, 40);
+                    
+                    // 绘制说明
+                    ctx.font = '16px Arial';
+                    ctx.fillText('右键放置消防站点 | 左键拖动绘制区域', canvas.width/2, canvas.height - 30);
+                };
+            }
+            
+            // 绘制网格
+            function drawGrid() {
+                ctx.strokeStyle = '#d0e0f0';
+                ctx.lineWidth = 1;
+                
+                // 绘制垂直线
+                for (let x = 0; x <= canvas.width; x += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, canvas.height);
+                    ctx.stroke();
+                }
+                
+                // 绘制水平线
+                for (let y = 0; y <= canvas.height; y += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.stroke();
+                }
+            }
+            
+            // 绘图函数
+            function startDrawing(e) {
+                // 只响应左键点击
+                if (e.button !== 0) return;
+                
+                isDrawing = true;
+                const rect = canvas.getBoundingClientRect();
+                lastX = e.clientX - rect.left;
+                lastY = e.clientY - rect.top;
+                
+                // 开始新的绘图路径
+                drawingData.push([]);
+                drawingData[drawingData.length - 1].push({x: lastX, y: lastY});
+            }
+            
+            function draw(e) {
+                if (!isDrawing) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                // 绘制线条 - 修改为灰色 (#888888)
+                // 如需修改绘图颜色，请更改此处的strokeStyle值
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = '#888888'; // 绘图颜色 - 灰色
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+                
+                // 保存绘图数据
+                drawingData[drawingData.length - 1].push({x, y});
+                
+                lastX = x;
+                lastY = y;
+            }
+            
+            function stopDrawing() {
+                isDrawing = false;
+            }
+            
+            // 绘制消防站点 - 修改为三角形内显示数字
+            function drawStation(x, y, number) {
+                // 三角形边长 - 增大尺寸
+                const sideLength = 30; // 增大三角形尺寸
+                const height = sideLength * Math.sqrt(3) / 2;
+                
+                // 计算三角形顶点坐标（等边三角形，顶点朝上）
+                const topX = x;
+                const topY = y - height / 2;
+                const leftX = x - sideLength / 2;
+                const leftY = y + height / 2;
+                const rightX = x + sideLength / 2;
+                const rightY = y + height / 2;
+                
+                // 绘制三角形
+                ctx.beginPath();
+                ctx.moveTo(topX, topY);
+                ctx.lineTo(leftX, leftY);
+                ctx.lineTo(rightX, rightY);
+                ctx.closePath();
+                
+                // 填充三角形
+                ctx.fillStyle = '#ff6b6b';
+                ctx.fill();
+                
+                // 绘制三角形边框
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 绘制站点编号 - 位置下移，确保数字清晰可见
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(number, x, y + 2); // 将数字下移2像素
+            }
+            
+            // 更新站点列表
+            function updateStationsList() {
+                if (stations.length === 0) {
+                    noStationsMsg.style.display = 'block';
+                    stationsContainer.innerHTML = '';
+                    stationsContainer.appendChild(noStationsMsg);
+                } else {
+                    noStationsMsg.style.display = 'none';
+                    
+                    let html = '';
+                    stations.forEach((station, index) => {
+                        html += `
+                            <div class="station-item">
+                                <div>
+                                    <span class="station-number">${index + 1}</span>
+                                    站点 ${index + 1}
+                                </div>
+                                <div class="coordinates">(${Math.round(station.x)}, ${Math.round(station.y)})</div>
+                            </div>
+                        `;
+                    });
+                    
+                    stationsContainer.innerHTML = html;
+                }
+            }
+            
+            // 更新站点计数
+            function updateStationsCount() {
+                currentStationsCount.textContent = stations.length;
+            }
+            
+            // 更新撤销按钮状态
+            function updateUndoButton() {
+                undoBtn.disabled = stations.length === 0;
+            }
+            
+            // 撤销最后一个站点
+            function undoLastStation() {
+                if (stations.length > 0) {
+                    stations.pop();
+                    redrawCanvas();
+                    updateStationsList();
+                    updateStationsCount();
+                    updateUndoButton();
+                }
+            }
+            
+            // 清除站点
+            function clearStations() {
+                stations = [];
+                redrawCanvas();
+                updateStationsList();
+                updateStationsCount();
+                updateUndoButton();
+            }
+            
+            // 清除绘图
+            function clearDrawing() {
+                drawingData = [];
+                redrawCanvas();
+            }
+            
+            // 重置所有
+            function resetAll() {
+                stations = [];
+                drawingData = [];
+                maxStationsInput.value = 2;
+                maxStations = 2;
+                maxStationsDisplay.textContent = 2;
+                redrawCanvas();
+                updateStationsList();
+                updateStationsCount();
+                updateUndoButton();
+            }
+            
+            // 重绘画布
+            function redrawCanvas() {
+                // 清除画布
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 重新绘制背景
+                if (backgroundImage && backgroundImage.complete) {
+                    ctx.drawImage(backgroundImage, 0, 0);
+                } else {
+                    // 设置画布背景
+                    ctx.fillStyle = '#e9f5ff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 绘制网格
+                    drawGrid();
+                    
+                    // 绘制标题
+                    ctx.fillStyle = '#333';
+                    ctx.font = 'bold 24px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('消防站点选址优化', canvas.width/2, 40);
+                    
+                    // 绘制说明
+                    ctx.font = '16px Arial';
+                    ctx.fillText('右键放置消防站点 | 左键拖动绘制区域', canvas.width/2, canvas.height - 30);
+                }
+                
+                // 重绘所有绘图 - 修改为灰色 (#888888)
+                drawingData.forEach(path => {
+                    if (path.length > 1) {
+                        ctx.beginPath();
+                        ctx.moveTo(path[0].x, path[0].y);
+                        
+                        for (let i = 1; i < path.length; i++) {
+                            ctx.lineTo(path[i].x, path[i].y);
+                        }
+                        
+                        ctx.strokeStyle = '#888888'; // 绘图颜色 - 灰色
+                        ctx.lineWidth = 2;
+                        ctx.lineCap = 'round';
+                        ctx.stroke();
+                    }
+                });
+                
+                // 重绘所有站点
+                stations.forEach((station, index) => {
+                    drawStation(station.x, station.y, index + 1);
+                });
+            }
+            
+            // 初始化站点计数和撤销按钮状态
+            updateStationsCount();
+            updateUndoButton();
+        });
+    </script>
+</body>
+</html>
