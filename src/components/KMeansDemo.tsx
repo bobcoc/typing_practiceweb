@@ -62,11 +62,10 @@ const KMeansDemo: React.FC = () => {
   const [snapshotInfo, setSnapshotInfo] = useState<string>(''); // 快照信息
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1); // 动画速度倍数
   const [previousAssignments, setPreviousAssignments] = useState<Map<number, number>>(new Map()); // 上一轮的点到质心分配关系
-  const [clusteringScore, setClusteringScore] = useState<number | null>(null); // 聚类分数（WCSS）
 
 
-  const CANVAS_WIDTH = 800;
-  const CANVAS_HEIGHT = 600;
+  const CANVAS_WIDTH = 720;
+  const CANVAS_HEIGHT = 540;
   const POINT_RADIUS = 5;
 
   // 绘制画布
@@ -372,8 +371,6 @@ const KMeansDemo: React.FC = () => {
     setDraggingPointIndex(-1); // 停止拖动普通点
     setDraggingCentroidIndex(-1); // 停止拖动质心
     setPreviousAssignments(new Map()); // 清空历史分配记录
-    setClusteringScore(null); // 清空聚类分数
-
   };
 
   // 计算距离
@@ -678,11 +675,7 @@ const KMeansDemo: React.FC = () => {
           setAlgorithmComplete(true);
           setProcessingPointIndex(-1);
           
-          // 计算聚类分数（WCSS: Within-Cluster Sum of Squares）
-          const totalScore = newAssignedLines.reduce((sum, line) => sum + line.distance, 0);
-          setClusteringScore(totalScore);
-          
-          message.success(`算法收敛！总共迭代 ${iterCount} 轮，聚类分数: ${totalScore.toFixed(2)}`);
+          message.success(`算法收敛！总共迭代 ${iterCount} 轮`);
           break;
         }
 
@@ -828,6 +821,7 @@ const KMeansDemo: React.FC = () => {
   };
 
   // 保存当前画布快照
+  // 保存当前画布快照
   const saveSnapshot = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -838,9 +832,8 @@ const KMeansDemo: React.FC = () => {
     // 构建快照信息
     let info = '';
     if (algorithmComplete) {
-      // 收敛完成：显示迭代次数和聚类分数
-      const scoreText = clusteringScore !== null ? `，分数${clusteringScore.toFixed(2)}` : '';
-      info = `收敛完成(迭代${iteration + 1}次${scoreText})`;
+      // 收敛完成：显示迭代次数
+      info = `收敛完成(迭代${iteration + 1}次)`;
     } else {
       // 进行中：显示迭代次数和当前处理进度
       info = `进行中(迭代${iteration + 1}次,处理点${processingPointIndex + 1}/${points.length})`;
@@ -865,8 +858,6 @@ const KMeansDemo: React.FC = () => {
     config: {
       showLabels: boolean;
       showCentroidCoords: boolean;
-      showScore: boolean;
-      score?: number;
       title?: string;
     }
   ) => {
@@ -884,15 +875,6 @@ const KMeansDemo: React.FC = () => {
       ctx.textAlign = 'center';
       ctx.fillText(config.title, width / 2, 25);
       ctx.textAlign = 'left'; // 重置对齐方式
-    }
-
-    // 显示分数（在标题下方）
-    if (config.showScore && config.score !== undefined) {
-      ctx.fillStyle = '#ff4d4f';
-      ctx.font = 'bold 14px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(`聚类分数: ${config.score.toFixed(2)}`, width / 2, 45);
-      ctx.textAlign = 'left';
     }
 
     // 绘制已分配的连线
@@ -975,7 +957,6 @@ const KMeansDemo: React.FC = () => {
       const originalAssignedLines = [...assignedLines];
       const originalAlgorithmComplete = algorithmComplete;
       const originalIteration = iteration;
-      const originalScore = clusteringScore;
 
       // 3. 运行到收敛（复用runToEnd的逻辑）
       let currentCentroids = [...centroids];
@@ -984,7 +965,6 @@ const KMeansDemo: React.FC = () => {
       let iterCount = 0;
       let converged = false;
       let finalAssignedLines: DistanceLine[] = [];
-      let finalScore = 0;
 
       while (!converged && iterCount < maxIterations) {
         const currentAssignments = new Map<number, number>();
@@ -1023,7 +1003,6 @@ const KMeansDemo: React.FC = () => {
 
         if (converged) {
           finalAssignedLines = newAssignedLines;
-          finalScore = newAssignedLines.reduce((sum, line) => sum + line.distance, 0);
           break;
         }
 
@@ -1073,19 +1052,16 @@ const KMeansDemo: React.FC = () => {
       drawCustomCanvas(compositeCtx, points, currentCentroids, finalAssignedLines, {
         showLabels: true,
         showCentroidCoords: true,
-        showScore: false,
         title: `收敛结果(迭代${iterCount}次)`
       });
       compositeCtx.restore();
 
-      // 右图：原始图（显示标签、质心坐标和分数）
+      // 右图：原始图（显示标签、质心坐标）
       compositeCtx.save();
       compositeCtx.translate(CANVAS_WIDTH + padding, titleHeight);
       drawCustomCanvas(compositeCtx, originalPoints, originalCentroids, [], {
         showLabels: true,
         showCentroidCoords: true,
-        showScore: true,
-        score: finalScore,
         title: '原始数据'
       });
       compositeCtx.restore();
@@ -1117,8 +1093,7 @@ const KMeansDemo: React.FC = () => {
     
     // 如果算法已完成（收敛），显示收敛信息
     if (algorithmComplete) {
-      const scoreText = clusteringScore !== null ? `，聚类分数: ${clusteringScore.toFixed(2)}` : '';
-      return `第${iteration + 1}轮迭代，已经收敛，迭代结束${scoreText}`;
+      return `第${iteration + 1}轮迭代，已经收敛，迭代结束`;
     }
     
     let baseStatus = `第${iteration + 1}轮迭代`;
@@ -1317,7 +1292,81 @@ const KMeansDemo: React.FC = () => {
           </Col>
 
           <Col span={savedSnapshot ? 12 : 24}>
-            <div style={{ textAlign: 'center' }}>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              {/* X轴坐标（顶部） */}
+              <div style={{ 
+                position: 'absolute', 
+                top: '0px', 
+                left: '47px', 
+                width: CANVAS_WIDTH + 'px',
+                height: '20px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-end',
+                fontSize: '11px',
+                color: '#333',
+                fontFamily: 'Arial'
+              }}>
+                {Array.from({ length: 8 }, (_, i) => (
+                  <div key={i} style={{ 
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ marginBottom: '2px' }}>{i * 100}</span>
+                    <div style={{ width: '1px', height: '4px', backgroundColor: '#333' }}></div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Y轴坐标（左侧） */}
+              <div style={{ 
+                position: 'absolute', 
+                left: '0px', 
+                top: '12px',
+                width: '48px',
+                height: CANVAS_HEIGHT + 'px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                alignItems: 'flex-end',
+                fontSize: '11px',
+                color: '#333',
+                fontFamily: 'Arial'
+              }}>
+                {Array.from({ length: 7 }, (_, i) => (
+                  <div key={i} style={{ 
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ marginRight: '2px' }}>{i * 90}</span>
+                    <div style={{ width: '4px', height: '1px', backgroundColor: '#333' }}></div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* X轴线（顶部边界） */}
+              <div style={{
+                position: 'absolute',
+                top: '20px',
+                left: '50px',
+                width: CANVAS_WIDTH + 'px',
+                height: '1px',
+                backgroundColor: '#333'
+              }}></div>
+              
+              {/* Y轴线（左侧边界） */}
+              <div style={{
+                position: 'absolute',
+                top: '20px',
+                left: '50px',
+                width: '1px',
+                height: CANVAS_HEIGHT + 'px',
+                backgroundColor: '#333'
+              }}></div>
+              
               <canvas
                 ref={canvasRef}
                 width={CANVAS_WIDTH}
@@ -1341,7 +1390,9 @@ const KMeansDemo: React.FC = () => {
                       ? 'grabbing' 
                       : 'crosshair',
                   borderRadius: '4px',
-                  backgroundColor: addMode === 'centroid' ? '#e6f7ff' : '#f5f5f5'
+                  backgroundColor: addMode === 'centroid' ? '#e6f7ff' : '#f5f5f5',
+                  marginLeft: '50px',
+                  marginTop: '20px'
                 }}
               />
             </div>
@@ -1349,7 +1400,7 @@ const KMeansDemo: React.FC = () => {
 
           {savedSnapshot && (
             <Col span={12}>
-              <div style={{ textAlign: 'center' }}>
+              <div style={{ textAlign: 'center', marginTop: '20px' }}>
                 <img 
                   src={savedSnapshot} 
                   alt="Saved Snapshot" 
@@ -1384,7 +1435,7 @@ const KMeansDemo: React.FC = () => {
                 <Col span={8}>
                   <ul style={{ margin: 0, paddingLeft: '20px' }}>
                     <li><strong>📝 保存作业</strong>：自动运行到收敛，生成包含原始图和收敛图的对比图片，并自动下载</li>
-                    <li><strong>作业图片</strong>：左侧显示原始数据（带标签、质心坐标），右侧显示收敛结果（含聚类分数）</li>
+                    <li><strong>作业图片</strong>：左侧显示收敛结果（带标签、质心坐标），右侧显示原始数据</li>
                   </ul>
                 </Col>
               </Row>
