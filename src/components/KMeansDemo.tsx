@@ -64,8 +64,8 @@ const KMeansDemo: React.FC = () => {
   const [previousAssignments, setPreviousAssignments] = useState<Map<number, number>>(new Map()); // 上一轮的点到质心分配关系
 
 
-  const CANVAS_WIDTH = 720;
-  const CANVAS_HEIGHT = 540;
+  const CANVAS_WIDTH = 716;
+  const CANVAS_HEIGHT = 560;
   const POINT_RADIUS = 5;
 
   // 绘制画布
