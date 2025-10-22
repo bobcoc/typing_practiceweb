@@ -805,15 +805,15 @@ const KMeansDemo: React.FC = () => {
 
   // 倍速滑动条的标记（均匀分布）
   const speedMarks = {
-    0: '1x',
-    1: '2x',
+    0: '0.5x',
+    1: '1x',
     2: '4x',
     3: '8x',
     4: '16x'
   };
 
   // 倍速值映射（索引到实际倍数）
-  const speedValues = [1, 2, 4, 8, 16];
+  const speedValues = [0.5, 1, 4, 8, 16];
 
   // 处理倍速变化
   const handleSpeedChange = (index: number) => {
