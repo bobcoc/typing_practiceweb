@@ -111,6 +111,21 @@ const NavBar: React.FC = () => {
         key: '/typing',
         label: <Link to="/typing">打字练习</Link>,
       },
+      // 扫雷游戏菜单
+      {
+        key: 'minesweeper-group',
+        label: '扫雷游戏',
+        children: [
+          {
+            key: '/minesweeper',
+            label: <Link to="/minesweeper">开始游戏</Link>,
+          },
+          {
+            key: '/minesweeper/leaderboard',
+            label: <Link to="/minesweeper/leaderboard">排行榜</Link>,
+          }
+        ]
+      },
       // 词汇学习菜单项
       {
         key: '/vocabulary-study',
@@ -151,8 +166,12 @@ const NavBar: React.FC = () => {
 
   // 选中逻辑：如果当前路径是/typing、/leaderboard、/practice-history，则高亮/typing-group和对应子项
   let selectedKeys: string[] = [window.location.pathname];
-  if (["/typing", "/leaderboard", "/practice-history"].includes(window.location.pathname)) {
+  if (['/typing', '/leaderboard', '/practice-history'].includes(window.location.pathname)) {
     selectedKeys = [window.location.pathname, '/typing-group'];
+  }
+  // 扫雷游戏相关页面的高亮逻辑
+  if (window.location.pathname.startsWith('/minesweeper')) {
+    selectedKeys = [window.location.pathname, 'minesweeper-group'];
   }
 
   return (

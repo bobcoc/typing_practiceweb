@@ -10,7 +10,10 @@ declare const process: {
 };
 
 // API 配置
-export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '/api';
+// 开发环境使用后端URL（不含/api后缀，因为代码中会自动添加）
+// 生产环境使用空字符串（相对路径，Nginx代理）
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 
+  (process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '');
 
 // API路径前缀 - 根据环境变量决定是否添加/api前缀
 export const API_PREFIX = '/api';
@@ -80,15 +83,18 @@ export const PRACTICE_CONFIG = {
 
 // 可选：用于调试
 if (IS_DEVELOPMENT) {
+  console.log('Environment:', process.env.NODE_ENV);
   console.log('API Base URL:', API_BASE_URL);
   console.log('API Prefix:', API_PREFIX);
+  console.log('Full example URL:', API_BASE_URL + '/auth/login');
 }
 
 // 获取完整API路径的辅助函数
 export const getFullApiPath = (path: string): string => {
   // 移除路径开头的斜杠以避免重复
   const cleanPath = path.startsWith('/') ? path.slice(1) : path;
-  return cleanPath;
+  // 添加/api前缀
+  return `${API_PREFIX}/${cleanPath}`;
 };
 
 // 导出配置对象

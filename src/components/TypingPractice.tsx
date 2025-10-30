@@ -173,12 +173,12 @@ const TypingPractice: React.FC = () => {
     {[
       {
         title: '今日练习时长',
-        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.todayPracticeTime} 秒`,
+        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.todayPracticeTime ?? 0} 秒`,
         color: '#4CAF50'
       },
       {
         title: '完成练习数',
-        value: loading ? <Skeleton variant="text" width={100} /> : stats.practiceCount,
+        value: loading ? <Skeleton variant="text" width={100} /> : stats.practiceCount ?? 0,
         color: '#2196F3'
       },
       {
@@ -188,12 +188,12 @@ const TypingPractice: React.FC = () => {
       },
       {
         title: '练习单词总数',
-        value: loading ? <Skeleton variant="text" width={100} /> : stats.totalWords,
+        value: loading ? <Skeleton variant="text" width={100} /> : stats.totalWords ?? 0,
         color: '#F44336'
       },
       {
         title: '平均速度',
-        value: loading ? <Skeleton variant="text" width={100} /> : `${stats.avgSpeed.toFixed(0)} WPM`,
+        value: loading ? <Skeleton variant="text" width={100} /> : `${(stats.avgSpeed ?? 0).toFixed(0)} WPM`,
         color: '#9C27B0'
       }
     ].map((item, index) => (

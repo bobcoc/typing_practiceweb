@@ -17,6 +17,7 @@ import oauth2Routes from './routes/oauth2.routes';
 import visitorRoutes from './routes/visitor';
 import vocabularyRoutes from './routes/vocabulary';
 import userWordPassRouter from './routes/userWordPass';
+import minesweeperRouter from './routes/minesweeper';
 // 加载环境变量
 dotenv.config();
 
@@ -143,6 +144,7 @@ app.use('/api/system', systemRoutes);
 app.use('/api/visitor', visitorRoutes);
 app.use('/api/vocabulary', vocabularyRoutes);
 app.use('/api', userWordPassRouter);
+app.use('/api/minesweeper', minesweeperRouter);
 
 // SPA 回退路由 - 必须放在所有路由之后
 app.get('*', (req, res, next) => {
