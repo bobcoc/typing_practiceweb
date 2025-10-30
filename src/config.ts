@@ -10,8 +10,13 @@ declare const process: {
 };
 
 // API 配置
-// 开发环境使用后端URL（不含/api后缀，因为代码中会自动添加）
-// 生产环境使用空字符串（相对路径，Nginx代理）
+// REACT_APP_API_BASE_URL 配置说明：
+// - 开发环境：http://localhost:5001（不含 /api）
+// - 生产环境：https://d1kt.cn/api（含 /api，因为 Nginx 已处理第一层 /api）
+// 
+// getFullApiPath 会自动添加 /api 前缀，最终形成：
+// - 开发环境：http://localhost:5001/api/xxx
+// - 生产环境：https://d1kt.cn/api/api/xxx → Nginx 转发到 http://localhost:5001/api/xxx
 export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 
   (process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '');
 

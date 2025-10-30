@@ -1,7 +1,5 @@
 // src/api/admin.ts
-import apiClient from './apiClient';
-import axios from 'axios';
-import { api } from './apiClient'; // 确保路径正确
+import { api } from './apiClient';
 
 export type PracticeLevel = 'keyword' | 'basic' | 'intermediate' | 'advanced';
 export interface User {
@@ -98,89 +96,75 @@ export interface Word {
 
 export const adminApi = {
   getUsers: async (): Promise<User[]> => {
-    const response = await apiClient.get('/admin/users');
-    return response.data;
+    return api.get<User[]>('/admin/users');
   },
   createUser: async (userData: CreateUserData): Promise<User> => {
-    const response = await apiClient.post('/admin/users', userData);
-    return response.data;
+    return api.post<User>('/admin/users', userData);
   },
   updateUser: async (userId: string, userData: Partial<User>): Promise<User> => {
-    const response = await apiClient.put(`/admin/users/${userId}`, userData);
-    return response.data;
+    return api.put<User>(`/admin/users/${userId}`, userData);
   },
   deleteUser: async (userId: string): Promise<void> => {
-    await apiClient.delete(`/admin/users/${userId}`);
+    await api.delete(`/admin/users/${userId}`);
   },
   // Code example methods
   getCodeExamples: async (): Promise<CodeExample[]> => {
-    const response = await apiClient.get('/code-examples');
-    return response.data;
+    return api.get<CodeExample[]>('/code-examples');
   },
 
   createCodeExample: async (codeData: Omit<CodeExample, '_id'>): Promise<CodeExample> => {
-    const response = await apiClient.post('/code-examples', codeData);
-    return response.data;
+    return api.post<CodeExample>('/code-examples', codeData);
   },
 
   updateCodeExample: async (id: string, codeData: Partial<CodeExample>): Promise<CodeExample> => {
-    const response = await apiClient.put(`/code-examples/${id}`, codeData);
-    return response.data;
+    return api.put<CodeExample>(`/code-examples/${id}`, codeData);
   },
 
   deleteCodeExample: async (id: string): Promise<void> => {
-    await apiClient.delete(`/code-examples/${id}`);
+    await api.delete(`/code-examples/${id}`);
   },
 
   // 获取所有练习记录
   getPracticeRecords: async (params?: { date?: string; userId?: string }): Promise<PracticeRecord[]> => {
-    const response = await apiClient.get('/practice-records/all', { params });
-    return response.data;
+    return api.get<PracticeRecord[]>('/practice-records/all', { params });
   },
 
   // OAuth2 相关方法
   getOAuth2Clients: async (): Promise<OAuth2Client[]> => {
-    const response = await apiClient.get('/admin/oauth2/clients');
-    return response.data;
+    return api.get<OAuth2Client[]>('/admin/oauth2/clients');
   },
 
   createOAuth2Client: async (data: CreateOAuth2ClientData): Promise<OAuth2Client> => {
-    const response = await apiClient.post('/admin/oauth2/clients', data);
-    return response.data;
+    return api.post<OAuth2Client>('/admin/oauth2/clients', data);
   },
 
   updateOAuth2Client: async (id: string, clientData: Partial<OAuth2Client>): Promise<OAuth2Client> => {
-    const response = await apiClient.put(`/admin/oauth2/clients/${id}`, clientData);
-    return response.data;
+    return api.put<OAuth2Client>(`/admin/oauth2/clients/${id}`, clientData);
   },
 
   deleteOAuth2Client: async (id: string): Promise<void> => {
-    await apiClient.delete(`/admin/oauth2/clients/${id}`);
+    await api.delete(`/admin/oauth2/clients/${id}`);
   },
 
   // 词汇管理相关方法
   getVocabularyWordSets: async (): Promise<WordSet[]> => {
-    const response = await apiClient.get('/admin/vocabulary/word-sets');
-    return response.data;
+    return api.get<WordSet[]>('/admin/vocabulary/word-sets');
   },
 
   getVocabularyWordSetDetails: async (id: string): Promise<{ wordSet: WordSet, words: Word[] }> => {
-    const response = await apiClient.get(`/admin/vocabulary/word-sets/${id}/words`);
-    return response.data;
+    return api.get<{ wordSet: WordSet, words: Word[] }>(`/admin/vocabulary/word-sets/${id}/words`);
   },
 
   uploadVocabularyFile: async (formData: FormData): Promise<{ message: string, wordSet: WordSet }> => {
-    const response = await apiClient.post('/admin/vocabulary/upload', formData, {
+    return api.post<{ message: string, wordSet: WordSet }>('/admin/vocabulary/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data;
   },
 
   deleteVocabularyWordSet: async (id: string): Promise<{ message: string }> => {
-    const response = await apiClient.delete(`/admin/vocabulary/word-sets/${id}`);
-    return response.data;
+    return api.delete<{ message: string }>(`/admin/vocabulary/word-sets/${id}`);
   },
 
   // 获取单词集单词的方法
