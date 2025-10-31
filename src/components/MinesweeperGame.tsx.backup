@@ -38,7 +38,6 @@ interface Cell {
   isRevealed: boolean;
   isFlagged: boolean;
   neighborMines: number;
-  isExploded?: boolean; // 标记是否是引爆的地雷
 }
 
 const MinesweeperGame: React.FC = () => {
@@ -150,7 +149,6 @@ const MinesweeperGame: React.FC = () => {
     // 点到地雷
     if (cell.isMine) {
       newBoard[row][col].isRevealed = true;
-      newBoard[row][col].isExploded = true; // 标记为引爆的地雷
       setBoard(newBoard);
       setGameStatus('lost');
       setIsTimerRunning(false);
@@ -271,7 +269,6 @@ const MinesweeperGame: React.FC = () => {
               if (targetCell.isMine) {
                 hasClickedMine = true;
                 targetCell.isRevealed = true;
-                targetCell.isExploded = true; // 标记为引爆的地雷
               } else {
                 cellsToReveal.push([newRow, newCol]);
               }
@@ -590,7 +587,7 @@ const MinesweeperGame: React.FC = () => {
     const cellKey = `${row},${col}`;
     const isPressed = pressedCells.has(cellKey); // 是否处于按下状态
     
-    // 根据屏幕大小和难度动态调整格子大小
+    // 根据屏幕大小动态调整格子大小
     const getCellSize = () => {
       if (difficulty === 'expert') {
         // 高级模式：16×30，需要更小的格子以适应屏幕
@@ -626,14 +623,7 @@ const MinesweeperGame: React.FC = () => {
 
     if (cell.isRevealed) {
       if (cell.isMine) {
-        // 未标记的地雷：红色背景，已标记的地雷：灰色背景
-        if (cell.isFlagged) {
-          // 已标记的地雷：灰色背景
-          return { ...baseStyle, backgroundColor: '#999', color: '#000' };
-        } else {
-          // 未标记的地雷（包括引爆的）：红色背景
-          return { ...baseStyle, backgroundColor: '#ff0000', color: '#000' };
-        }
+        return { ...baseStyle, backgroundColor: '#ff0000', color: '#000' };
       }
       return { ...baseStyle, backgroundColor: '#ddd', color: getNumberColor(cell.neighborMines) };
     }
@@ -668,184 +658,196 @@ const MinesweeperGame: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  return (
-    <Box sx={{ padding: 2 }}>
-      {/* 难度选择标签 */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-        <Tabs
-          value={difficulty}
-          onChange={(_, newValue) => setDifficulty(newValue as Difficulty)}
-          centered
-          textColor="primary"
-          indicatorColor="primary"
-        >
-          <Tab value="beginner" label={DIFFICULTIES.beginner.label} />
-          <Tab value="intermediate" label={DIFFICULTIES.intermediate.label} />
-          <Tab value="expert" label={DIFFICULTIES.expert.label} />
-        </Tabs>
-      </Box>
+  // 创建难度Tab内容
+  const renderGameContent = () => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      {/* 控制面板 */}
+      <Paper sx={{ padding: 2, marginBottom: 2, minWidth: 400 }}>
+        <Grid container spacing={2} alignItems="center" justifyContent="center">
+          <Grid item xs={4}>
+            <Box display="flex" alignItems="center" gap={0.5} justifyContent="center">
+              <FlagIcon fontSize="small" />
+              <Typography>{flagsLeft}</Typography>
+            </Box>
+          </Grid>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        {/* 控制面板 */}
-        <Paper sx={{ padding: 2, marginBottom: 2, minWidth: 400 }}>
-          <Grid container spacing={2} alignItems="center" justifyContent="center">
-            <Grid item xs={4}>
-              <Box display="flex" alignItems="center" gap={0.5} justifyContent="center">
-                <FlagIcon fontSize="small" />
-                <Typography>{flagsLeft}</Typography>
+          <Grid item xs={4}>
+            <Typography variant="h6" textAlign="center">{formatTime(timer)}</Typography>
+          </Grid>
+
+          <Grid item xs={4}>
+            <Button
+              variant="contained"
+              startIcon={<RestartAltIcon />}
+              onClick={initializeGame}
+              fullWidth
+              size="small"
+            >
+              重新开始
+            </Button>
+          </Grid>
+
+          {personalBest && (
+            <Grid item xs={12}>
+              <Box display="flex" justifyContent="center">
+                <Chip
+                  label={`个人最佳: ${formatTime(personalBest)}`}
+                  color="success"
+                  size="small"
+                />
               </Box>
             </Grid>
+          )}
+        </Grid>
+      </Paper>
 
-            <Grid item xs={4}>
-              <Typography variant="h6" textAlign="center">{formatTime(timer)}</Typography>
-            </Grid>
-
-            <Grid item xs={4}>
-              <Button
-                variant="contained"
-                startIcon={<RestartAltIcon />}
-                onClick={initializeGame}
-                fullWidth
-                size="small"
-              >
-                重新开始
-              </Button>
-            </Grid>
-
-            {personalBest && (
-              <Grid item xs={12}>
-                <Box display="flex" justifyContent="center">
-                  <Chip
-                    label={`个人最佳: ${formatTime(personalBest)}`}
-                    color="success"
-                    size="small"
-                  />
-                </Box>
-              </Grid>
-            )}
-          </Grid>
+      {/* 游戏状态提示 */}
+      {gameStatus !== 'playing' && (
+        <Paper sx={{ padding: 2, marginBottom: 2, backgroundColor: gameStatus === 'won' ? '#4caf50' : '#f44336' }}>
+          <Typography variant="h6" color="white">
+            {gameStatus === 'won' ? `🎉 胜利！用时 ${formatTime(timer)}` : '💥 游戏结束！'}
+          </Typography>
         </Paper>
+      )}
 
-        {/* 游戏状态提示 */}
-        {gameStatus !== 'playing' && (
-          <Paper sx={{ padding: 2, marginBottom: 2, backgroundColor: gameStatus === 'won' ? '#4caf50' : '#f44336' }}>
-            <Typography variant="h6" color="white">
-              {gameStatus === 'won' ? `🎉 胜利！用时 ${formatTime(timer)}` : '💥 游戏结束！'}
-            </Typography>
-          </Paper>
-        )}
-
-        {/* 游戏棋盘 */}
-        <Paper sx={{ padding: 1, display: 'inline-block' }}>
-          <Box>
-            {board.map((row, rowIndex) => (
-              <Box key={rowIndex} display="flex">
-                {row.map((cell, colIndex) => (
-                  <Box
-                    key={`${rowIndex}-${colIndex}`}
-                    onMouseDown={(e) => {
-                      handleMouseDown(rowIndex, colIndex, e);
-                      setTimeout(() => {
-                        const currentCell = board[rowIndex]?.[colIndex];
-                        if (currentCell?.isRevealed && currentCell.neighborMines > 0) {
-                          updatePressedCells(rowIndex, colIndex);
-                        }
-                      }, 10);
-                    }}
-                    onMouseUp={(e) => handleMouseUp(rowIndex, colIndex, e)}
-                    onMouseEnter={() => {
-                      setHoverCell({ row: rowIndex, col: colIndex });
-                      if (isMouseDown.left && isMouseDown.right) {
+      {/* 游戏棋盘 */}
+      <Paper sx={{ padding: 1, display: 'inline-block' }}>
+        <Box>
+          {board.map((row, rowIndex) => (
+            <Box key={rowIndex} display="flex">
+              {row.map((cell, colIndex) => (
+                <Box
+                  key={`${rowIndex}-${colIndex}`}
+                  onMouseDown={(e) => {
+                    handleMouseDown(rowIndex, colIndex, e);
+                    // 立即检查是否需要显示按下效果（另一个键已经按下）
+                    setTimeout(() => {
+                      const currentCell = board[rowIndex]?.[colIndex];
+                      if (currentCell?.isRevealed && currentCell.neighborMines > 0) {
                         updatePressedCells(rowIndex, colIndex);
                       }
-                    }}
-                    onMouseLeave={() => {
-                      if (hoverCell?.row === rowIndex && hoverCell?.col === colIndex) {
-                        setPressedCells(new Set());
-                      }
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      toggleFlag(rowIndex, colIndex, e);
-                    }}
-                    style={getCellStyle(cell, rowIndex, colIndex)}
-                  >
-                    {/* 游戏进行中：显示旗帜 */}
-                    {cell.isFlagged && !cell.isRevealed && gameStatus === 'playing' && '🚩'}
-                    
-                    {/* 游戏失败时：显示错误标记（不是雷却标了旗）*/}
-                    {cell.isFlagged && !cell.isMine && gameStatus === 'lost' && '❌'}
-                    
-                    {/* 游戏失败时：显示正确标记（是雷且标了旗）*/}
-                    {cell.isFlagged && cell.isMine && gameStatus === 'lost' && '🚩'}
-                    
-                    {/* 显示已揭开的地雷 */}
-                    {cell.isRevealed && cell.isMine && '💣'}
-                    
-                    {/* 显示已揭开格子的数字 */}
-                    {cell.isRevealed && !cell.isMine && cell.neighborMines > 0 && cell.neighborMines}
-                  </Box>
-                ))}
-              </Box>
-            ))}
-          </Box>
-        </Paper>
+                    }, 10);
+                  }}
+                  onMouseUp={(e) => handleMouseUp(rowIndex, colIndex, e)}
+                  onMouseEnter={() => {
+                    setHoverCell({ row: rowIndex, col: colIndex });
+                    // 如果双键按下中，更新按下效果
+                    if (isMouseDown.left && isMouseDown.right) {
+                      updatePressedCells(rowIndex, colIndex);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    // 移开时清除按下效果
+                    if (hoverCell?.row === rowIndex && hoverCell?.col === colIndex) {
+                      setPressedCells(new Set());
+                    }
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    toggleFlag(rowIndex, colIndex, e);
+                  }}
+                  style={getCellStyle(cell, rowIndex, colIndex)}
+                >
+                  {cell.isFlagged && !cell.isRevealed && '🚩'}
+                  {cell.isRevealed && cell.isMine && '💣'}
+                  {cell.isRevealed && !cell.isMine && cell.neighborMines > 0 && cell.neighborMines}
+                </Box>
+              ))}
+            </Box>
+          ))}
+        </Box>
+      </Paper>
 
-        {/* 结果对话框 */}
-        <Dialog open={showResultDialog} onClose={() => setShowResultDialog(false)}>
-          <DialogTitle>
-            {gameStatus === 'won' ? '🎉 恭喜获胜！' : '💥 游戏结束'}
-          </DialogTitle>
-          <DialogContent>
-            <Typography>
-              难度: {DIFFICULTIES[difficulty].label}
+      {/* 结果对话框 */}
+      <Dialog open={showResultDialog} onClose={() => setShowResultDialog(false)}>
+        <DialogTitle>
+          {gameStatus === 'won' ? '🎉 恭喜获胜！' : '💥 游戏结束'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            难度: {DIFFICULTIES[difficulty].label}
+          </Typography>
+          <Typography>
+            用时: {formatTime(timer)}
+          </Typography>
+          {gameStatus === 'won' && personalBest && timer < personalBest && (
+            <Typography color="success.main" fontWeight="bold" mt={1}>
+              🏆 新纪录！
             </Typography>
-            <Typography>
-              用时: {formatTime(timer)}
-            </Typography>
-            {gameStatus === 'won' && personalBest && timer < personalBest && (
-              <Typography color="success.main" fontWeight="bold" mt={1}>
-                🏆 新纪录！
-              </Typography>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setShowResultDialog(false)}>关闭</Button>
-            <Button onClick={initializeGame} variant="contained">再来一局</Button>
-          </DialogActions>
-        </Dialog>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowResultDialog(false)}>关闭</Button>
+          <Button onClick={initializeGame} variant="contained">再来一局</Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* 游戏说明 - 3列布局节省高度 */}
-        <Paper sx={{ padding: 2, marginTop: 2, maxWidth: '95%' }}>
-          <Typography variant="h6" gutterBottom textAlign="center">游戏说明</Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <Typography variant="body2" paragraph>
-                • 左键点击揭开格子，右键点击插旗
-              </Typography>
-              <Typography variant="body2" paragraph>
-                • 数字表示周围8个格子中地雷的数量
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="body2" paragraph>
-                • 在已揭开的数字格上同时按下左右键，如果旗帜数量等于数字，自动揭开周围格子
-              </Typography>
-              <Typography variant="body2" paragraph>
-                • 按下空格键相当于在鼠标位置同时按下双键，方便左右手配合操作
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="body2" paragraph>
-                • 揭开所有非地雷格子即可获胜
-              </Typography>
-              <Typography variant="body2">
-                • 登录后可保存游戏记录并查看排行榜
-              </Typography>
-            </Grid>
+      {/* 游戏说明 - 3列布局 */}
+      <Paper sx={{ padding: 2, marginTop: 2, maxWidth: '90%' }}>
+        <Typography variant="h6" gutterBottom textAlign="center">游戏说明</Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={4}>
+            <Typography variant="body2" paragraph>
+              • 左键点击揭开格子，右键点击插旗
+            </Typography>
+            <Typography variant="body2" paragraph>
+              • 数字表示周围8个格子中地雷的数量
+            </Typography>
           </Grid>
-        </Paper>
-      </Box>
+          <Grid item xs={12} md={4}>
+            <Typography variant="body2" paragraph>
+              • 在已揭开的数字格上同时按下左右键，如果旗帜数量等于数字，自动揭开周围格子
+            </Typography>
+            <Typography variant="body2" paragraph>
+              • 按下空格键相当于在鼠标位置同时按下双键，方便左右手配合操作
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Typography variant="body2" paragraph>
+              • 揭开所有非地雷格子即可获胜
+            </Typography>
+            <Typography variant="body2">
+              • 登录后可保存游戏记录并查看排行榜
+            </Typography>
+          </Grid>
+        </Grid>
+      </Paper>
+    </Box>
+  );
+
+  // Tab选项配置
+  const tabItems = useMemo(() => [
+    {
+      key: 'beginner',
+      label: DIFFICULTIES.beginner.label,
+      children: renderGameContent(),
+    },
+    {
+      key: 'intermediate',
+      label: DIFFICULTIES.intermediate.label,
+      children: renderGameContent(),
+    },
+    {
+      key: 'expert',
+      label: DIFFICULTIES.expert.label,
+      children: renderGameContent(),
+    },
+  ], [board, gameStatus, flagsLeft, timer, personalBest, pressedCells, hoverCell]);
+
+  return (
+    <Box sx={{ padding: 3 }}>
+      <Typography variant="h4" gutterBottom textAlign="center">
+        扫雷游戏
+      </Typography>
+
+      <Tabs
+        activeKey={difficulty}
+        items={tabItems}
+        onChange={(key) => setDifficulty(key as Difficulty)}
+        tabBarGutter={32}
+        type="line"
+        centered
+      />
     </Box>
   );
 };
