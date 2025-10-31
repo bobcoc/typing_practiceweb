@@ -111,20 +111,10 @@ const NavBar: React.FC = () => {
         key: '/typing',
         label: <Link to="/typing">打字练习</Link>,
       },
-      // 扫雷游戏菜单
+      // 扫雷游戏分组
       {
-        key: 'minesweeper-group',
-        label: '扫雷游戏',
-        children: [
-          {
-            key: '/minesweeper',
-            label: <Link to="/minesweeper">开始游戏</Link>,
-          },
-          {
-            key: '/minesweeper/leaderboard',
-            label: <Link to="/minesweeper/leaderboard">排行榜</Link>,
-          }
-        ]
+        key: '/minesweeper',
+        label: <Link to="/minesweeper">扫雷游戏</Link>,
       },
       // 词汇学习菜单项
       {
