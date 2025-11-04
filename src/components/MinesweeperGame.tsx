@@ -331,33 +331,6 @@ const MinesweeperGame: React.FC = () => {
     }
   }, [board, gameStatus, firstClick, config]);
 
-  // 处理鼠标按下
-  const handleMouseDown = useCallback((row: number, col: number, e: React.MouseEvent) => {
-    if (e.button === 0) {
-      // 左键
-      isMouseDownRef.current.left = true;
-      setIsMouseDown(prev => {
-        const newState = { ...prev, left: true };
-        // 如果右键也已经按下，显示按下效果
-        if (isMouseDownRef.current.right) {
-          setTimeout(() => updatePressedCells(row, col), 10);
-        }
-        return newState;
-      });
-    } else if (e.button === 2) {
-      // 右键
-      isMouseDownRef.current.right = true;
-      setIsMouseDown(prev => {
-        const newState = { ...prev, right: true };
-        // 如果左键也已经按下，显示按下效果
-        if (isMouseDownRef.current.left) {
-          setTimeout(() => updatePressedCells(row, col), 10);
-        }
-        return newState;
-      });
-    }
-  }, []);
-
   // 更新按下效果
   const updatePressedCells = useCallback((row: number, col: number) => {
     const newBoard = board;
@@ -392,6 +365,33 @@ const MinesweeperGame: React.FC = () => {
     }
     setPressedCells(pressed);
   }, [board, config]);
+
+  // 处理鼠标按下
+  const handleMouseDown = useCallback((row: number, col: number, e: React.MouseEvent) => {
+    if (e.button === 0) {
+      // 左键
+      isMouseDownRef.current.left = true;
+      setIsMouseDown(prev => {
+        const newState = { ...prev, left: true };
+        return newState;
+      });
+      // 如果右键也已经按下，显示按下效果
+      if (isMouseDownRef.current.right) {
+        updatePressedCells(row, col);
+      }
+    } else if (e.button === 2) {
+      // 右键
+      isMouseDownRef.current.right = true;
+      setIsMouseDown(prev => {
+        const newState = { ...prev, right: true };
+        return newState;
+      });
+      // 如果左键也已经按下，显示按下效果
+      if (isMouseDownRef.current.left) {
+        updatePressedCells(row, col);
+      }
+    }
+  }, [updatePressedCells]);
 
   // 处理鼠标释放
   const handleMouseUp = useCallback((row: number, col: number, e: React.MouseEvent) => {
@@ -437,15 +437,30 @@ const MinesweeperGame: React.FC = () => {
     };
   }, []);
 
-  // 键盘事件监听（空格键触发弦操作）
+  // 键盘事件监听（空格键触发弦操作，B键标记，C键打开）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 只在游戏进行中且有悬停位置时响应空格键
-      if (e.code === 'Space' && gameStatus === 'playing' && hoverCell && !firstClick && !isSpacePressed) {
+      if (!hoverCell) return;
+
+      // 空格键触发弦操作
+      if (e.code === 'Space' && gameStatus === 'playing' && !firstClick && !isSpacePressed) {
         e.preventDefault(); // 防止页面滚动
         setIsSpacePressed(true);
         // 显示按下效果
         updatePressedCells(hoverCell.row, hoverCell.col);
+      }
+      
+      // B键标记/取消标记（相当于右键）
+      if ((e.key === 'b' || e.key === 'B') && gameStatus === 'playing' && !firstClick) {
+        e.preventDefault();
+        const mockEvent = { preventDefault: () => {} } as React.MouseEvent;
+        toggleFlag(hoverCell.row, hoverCell.col, mockEvent);
+      }
+      
+      // C键打开方块（相当于左键）
+      if ((e.key === 'c' || e.key === 'C') && gameStatus === 'playing') {
+        e.preventDefault();
+        revealCell(hoverCell.row, hoverCell.col);
       }
     };
 
@@ -466,7 +481,7 @@ const MinesweeperGame: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameStatus, hoverCell, firstClick, chordReveal, isSpacePressed, updatePressedCells]);
+  }, [gameStatus, hoverCell, firstClick, chordReveal, isSpacePressed, updatePressedCells, toggleFlag, revealCell]);
 
   // 揭开所有地雷（游戏结束时）
   const revealAllMines = (currentBoard: Cell[][]) => {
@@ -494,6 +509,17 @@ const MinesweeperGame: React.FC = () => {
 
     const totalCells = config.rows * config.cols;
     if (revealedCount === totalCells - config.mines) {
+      // 自动标记所有未标记的地雷
+      const newBoard = [...currentBoard.map(row => [...row])];
+      for (let row = 0; row < config.rows; row++) {
+        for (let col = 0; col < config.cols; col++) {
+          if (newBoard[row][col].isMine && !newBoard[row][col].isFlagged) {
+            newBoard[row][col].isFlagged = true;
+          }
+        }
+      }
+      setBoard(newBoard);
+      setFlagsLeft(0);
       setGameStatus('won');
       setIsTimerRunning(false);
       setShowResultDialog(true);
@@ -745,17 +771,11 @@ const MinesweeperGame: React.FC = () => {
                     key={`${rowIndex}-${colIndex}`}
                     onMouseDown={(e) => {
                       handleMouseDown(rowIndex, colIndex, e);
-                      setTimeout(() => {
-                        const currentCell = board[rowIndex]?.[colIndex];
-                        if (currentCell?.isRevealed && currentCell.neighborMines > 0) {
-                          updatePressedCells(rowIndex, colIndex);
-                        }
-                      }, 10);
                     }}
                     onMouseUp={(e) => handleMouseUp(rowIndex, colIndex, e)}
                     onMouseEnter={() => {
                       setHoverCell({ row: rowIndex, col: colIndex });
-                      if (isMouseDown.left && isMouseDown.right) {
+                      if (isMouseDownRef.current.left && isMouseDownRef.current.right) {
                         updatePressedCells(rowIndex, colIndex);
                       }
                     }}
@@ -772,6 +792,9 @@ const MinesweeperGame: React.FC = () => {
                   >
                     {/* 游戏进行中：显示旗帜 */}
                     {cell.isFlagged && !cell.isRevealed && gameStatus === 'playing' && '🚩'}
+                    
+                    {/* 游戏胜利时：显示旗帜 */}
+                    {cell.isFlagged && gameStatus === 'won' && '🚩'}
                     
                     {/* 游戏失败时：显示错误标记（不是雷却标了旗）*/}
                     {cell.isFlagged && !cell.isMine && gameStatus === 'lost' && '❌'}
@@ -826,6 +849,9 @@ const MinesweeperGame: React.FC = () => {
               <Typography variant="body2" paragraph>
                 • 数字表示周围8个格子中地雷的数量
               </Typography>
+              <Typography variant="body2" paragraph>
+                • 键盘快捷键：B键标记/取消标记，C键打开方块
+              </Typography>
             </Grid>
             <Grid item xs={12} md={4}>
               <Typography variant="body2" paragraph>
@@ -837,7 +863,7 @@ const MinesweeperGame: React.FC = () => {
             </Grid>
             <Grid item xs={12} md={4}>
               <Typography variant="body2" paragraph>
-                • 揭开所有非地雷格子即可获胜
+                • 揭开所有非地雷格子即可获胜，胜利时会自动标记所有地雷
               </Typography>
               <Typography variant="body2">
                 • 登录后可保存游戏记录并查看排行榜
