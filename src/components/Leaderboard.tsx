@@ -19,7 +19,7 @@ import {
   Select,
   MenuItem
 } from '@mui/material';
-import { API_BASE_URL, API_PATHS } from '../config';
+import { API_BASE_URL, API_PREFIX, API_PATHS } from '../config';
 import type { ChipProps } from '@mui/material/Chip';
 import type { SxProps, Theme } from '@mui/material/styles';
 
@@ -95,7 +95,7 @@ const Leaderboard: React.FC = () => {
     setError(null);
     try {
       const response = await fetch(
-        `${API_BASE_URL}${API_PATHS.LEADERBOARD}/${practiceType}?page=${page}&sortBy=${sortBy}`
+        `${API_BASE_URL}${API_PREFIX}${API_PATHS.LEADERBOARD}/${practiceType}?page=${page}&sortBy=${sortBy}`
       );
       
       if (!response.ok) {
