@@ -3,7 +3,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 // 扫雷难度级别
-export type MinesweeperDifficulty = 'beginner' | 'intermediate' | 'expert';
+export type MinesweeperDifficulty = 'beginner' | 'intermediate' | 'expert' | 'brutal';
 
 // 扫雷游戏记录接口
 export interface IMinesweeperRecord extends Document {
@@ -46,7 +46,7 @@ const minesweeperRecordSchema = new Schema<IMinesweeperRecord>({
   },
   difficulty: {
     type: String,
-    enum: ['beginner', 'intermediate', 'expert'],
+    enum: ['beginner', 'intermediate', 'expert', 'brutal'],
     required: true
   },
   timeSeconds: {

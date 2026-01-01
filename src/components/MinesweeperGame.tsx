@@ -18,7 +18,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FlagIcon from '@mui/icons-material/Flag';
 import { API_BASE_URL } from '../config';
 
-type Difficulty = 'beginner' | 'intermediate' | 'expert';
+type Difficulty = 'beginner' | 'intermediate' | 'expert' | 'brutal';
 
 interface DifficultyConfig {
   rows: number;
@@ -30,7 +30,8 @@ interface DifficultyConfig {
 const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
   beginner: { rows: 9, cols: 9, mines: 10, label: '初级 (9×9, 10雷)' },
   intermediate: { rows: 16, cols: 16, mines: 40, label: '中级 (16×16, 40雷)' },
-  expert: { rows: 16, cols: 30, mines: 99, label: '高级 (16×30, 99雷)' }
+  expert: { rows: 16, cols: 30, mines: 99, label: '高级 (16×30, 99雷)' },
+  brutal: { rows: 24, cols: 30, mines: 200, label: '残酷 (24×30, 200雷)' }
 };
 
 interface Cell {
@@ -688,7 +689,14 @@ const MinesweeperGame: React.FC = () => {
     
     // 根据屏幕大小和难度动态调整格子大小
     const getCellSize = () => {
-      if (difficulty === 'expert') {
+      if (difficulty === 'brutal') {
+        // 残酷模式：24×30，需要更小的格子以适应屏幕
+        const maxWidth = window.innerWidth - 100;
+        const maxHeight = window.innerHeight - 400;
+        const cellWidth = Math.min(Math.floor(maxWidth / 30), 28);
+        const cellHeight = Math.min(Math.floor(maxHeight / 24), 28);
+        return Math.min(cellWidth, cellHeight);
+      } else if (difficulty === 'expert') {
         // 高级模式：16×30，需要更小的格子以适应屏幕
         const maxWidth = window.innerWidth - 100;
         const maxHeight = window.innerHeight - 400;
@@ -714,7 +722,7 @@ const MinesweeperGame: React.FC = () => {
       alignItems: 'center',
       justifyContent: 'center',
       cursor: gameStatus === 'playing' ? 'pointer' : 'default',
-      fontSize: difficulty === 'expert' ? '12px' : '14px',
+      fontSize: difficulty === 'brutal' ? '10px' : difficulty === 'expert' ? '12px' : '14px',
       fontWeight: 'bold',
       userSelect: 'none',
       transition: 'all 0.05s ease' // 添加平滑过渡
@@ -778,6 +786,7 @@ const MinesweeperGame: React.FC = () => {
           <Tab value="beginner" label={DIFFICULTIES.beginner.label} />
           <Tab value="intermediate" label={DIFFICULTIES.intermediate.label} />
           <Tab value="expert" label={DIFFICULTIES.expert.label} />
+          <Tab value="brutal" label={DIFFICULTIES.brutal.label} />
         </Tabs>
       </Box>
 

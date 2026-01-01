@@ -19,7 +19,7 @@ import {
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { API_BASE_URL } from '../config';
 
-type Difficulty = 'beginner' | 'intermediate' | 'expert';
+type Difficulty = 'beginner' | 'intermediate' | 'expert' | 'brutal';
 
 interface LeaderboardRecord {
   userId: string;
@@ -43,7 +43,8 @@ interface LeaderboardResponse {
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   beginner: '初级 (9×9, 10雷)',
   intermediate: '中级 (16×16, 40雷)',
-  expert: '高级 (16×30, 99雷)'
+  expert: '高级 (16×30, 99雷)',
+  brutal: '残酷 (24×30, 200雷)'
 };
 
 const MinesweeperLeaderboard: React.FC = () => {
@@ -140,6 +141,7 @@ const MinesweeperLeaderboard: React.FC = () => {
           <Tab value="beginner" label={DIFFICULTY_LABELS.beginner} />
           <Tab value="intermediate" label={DIFFICULTY_LABELS.intermediate} />
           <Tab value="expert" label={DIFFICULTY_LABELS.expert} />
+          <Tab value="brutal" label={DIFFICULTY_LABELS.brutal} />
         </Tabs>
       </Box>
 

@@ -15,7 +15,7 @@ router.post('/record', auth, async (req: Request, res: Response) => {
     }
 
     // 验证难度级别
-    const validDifficulties: MinesweeperDifficulty[] = ['beginner', 'intermediate', 'expert'];
+    const validDifficulties: MinesweeperDifficulty[] = ['beginner', 'intermediate', 'expert', 'brutal'];
     if (!validDifficulties.includes(difficulty)) {
       return res.status(400).json({ error: '无效的难度级别' });
     }
@@ -59,7 +59,7 @@ router.get('/leaderboard/:difficulty', async (req: Request, res: Response) => {
     const { page = '1', limit = '10' } = req.query;
 
     // 验证难度级别
-    const validDifficulties: MinesweeperDifficulty[] = ['beginner', 'intermediate', 'expert'];
+    const validDifficulties: MinesweeperDifficulty[] = ['beginner', 'intermediate', 'expert', 'brutal'];
     if (!validDifficulties.includes(difficulty as MinesweeperDifficulty)) {
       return res.status(400).json({ error: '无效的难度级别' });
     }
@@ -104,7 +104,7 @@ router.get('/personal-best/:difficulty', auth, async (req: Request, res: Respons
     }
 
     // 验证难度级别
-    const validDifficulties: MinesweeperDifficulty[] = ['beginner', 'intermediate', 'expert'];
+    const validDifficulties: MinesweeperDifficulty[] = ['beginner', 'intermediate', 'expert', 'brutal'];
     if (!validDifficulties.includes(difficulty as MinesweeperDifficulty)) {
       return res.status(400).json({ error: '无效的难度级别' });
     }
