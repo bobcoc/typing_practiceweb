@@ -14,12 +14,7 @@ interface Cell {
 
 const SpectatorMinesweeper: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
-  const [board, setBoard] = useState<Cell[][]>([]);
-  const [difficulty, setDifficulty] = useState<string>('beginner');
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<string>('连接中...');
-  const [highlightedCells, setHighlightedCells] = useState<Set<string>>(new Set());
-
+  
   // 如果没有 roomId，显示错误信息
   if (!roomId) {
     return (
@@ -34,8 +29,20 @@ const SpectatorMinesweeper: React.FC = () => {
     );
   }
 
+  const [board, setBoard] = useState<Cell[][]>([]);
+  const [difficulty, setDifficulty] = useState<string>('beginner');
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<string>('连接中...');
+  const [highlightedCells, setHighlightedCells] = useState<Set<string>>(new Set());
+  const [roomInfo, setRoomInfo] = useState<{playerCount: number, spectatorCount: number, gameState: string} | null>(null);
+
   // 初始化 WebSocket 连接
   useEffect(() => {
+    // 如果没有 roomId，不建立连接
+    if (!roomId) {
+      return;
+    }
+    
     console.log('尝试连接到 WebSocket 服务器，房间ID:', roomId);
     const apiUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001';
     console.log('WebSocket 连接地址:', apiUrl);
@@ -107,10 +114,20 @@ const SpectatorMinesweeper: React.FC = () => {
     }
   }, [difficulty]);
 
-  const config = getDifficultyConfig();
+  // 获取状态文本
+  const getStatusText = (state: string) => {
+    switch(state) {
+      case 'playing': return '游戏中';
+      case 'waiting': return '等待中';
+      case 'won': return '胜利';
+      case 'lost': return '失败';
+      default: return state;
+    }
+  };
 
   // 处理点击格子
   const handleCellClick = (row: number, col: number) => {
+    // 如果没有 socket，不执行操作（roomId 已经在组件顶部检查过）
     if (!socket || !board[row] || board[row][col].isRevealed || board[row][col].isFlagged) {
       return; // 只能点击未揭开且未标记的格子
     }
@@ -201,20 +218,9 @@ const SpectatorMinesweeper: React.FC = () => {
     return colors[num] || '#000';
   };
 
-  const [roomInfo, setRoomInfo] = useState<{playerCount: number, spectatorCount: number, gameState: string} | null>(null);
-  
-  const getStatusText = (state: string) => {
-    switch(state) {
-      case 'playing': return '游戏中';
-      case 'waiting': return '等待中';
-      case 'won': return '胜利';
-      case 'lost': return '失败';
-      default: return state;
-    }
-  };
-
   // 获取房间信息
   useEffect(() => {
+    // 只有在有 socket 和 roomId 时才执行
     if (socket && roomId) {
       socket.emit('get-room-info', { roomId });
       
