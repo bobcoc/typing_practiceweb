@@ -1,7 +1,7 @@
 // src/components/SpectatorMinesweeper.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Typography, Paper, Button } from '@mui/material';
+import { Box, Typography, Paper, Button, Chip } from '@mui/material';
 import { io, Socket } from 'socket.io-client';
 
 interface Cell {
@@ -217,6 +217,8 @@ const SpectatorMinesweeper: React.FC = () => {
     const colors = ['', '#0000ff', '#008000', '#ff0000', '#000080', '#800000', '#008080', '#000', '#808080'];
     return colors[num] || '#000';
   };
+
+  const config = getDifficultyConfig();
 
   // 获取房间信息
   useEffect(() => {
