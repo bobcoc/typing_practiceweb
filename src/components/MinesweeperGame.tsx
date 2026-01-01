@@ -12,10 +12,16 @@ import {
   DialogActions,
   Chip,
   Tabs,
-  Tab
+  Tab,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FlagIcon from '@mui/icons-material/Flag';
+import ShareIcon from '@mui/icons-material/Share';
+import QrCodeIcon from '@mui/icons-material/QrCode';
+import QRCode from 'qrcode';
+import { io, Socket } from 'socket.io-client';
 import { API_BASE_URL } from '../config';
 
 type Difficulty = 'beginner' | 'intermediate' | 'expert' | 'brutal';
@@ -42,6 +48,12 @@ interface Cell {
   isExploded?: boolean; // 标记是否是引爆的地雷
 }
 
+interface HighlightedCell {
+  row: number;
+  col: number;
+  timestamp: number;
+}
+
 const MinesweeperGame: React.FC = () => {
   const [difficulty, setDifficulty] = useState<Difficulty>('beginner');
   const [board, setBoard] = useState<Cell[][]>([]);
@@ -57,6 +69,13 @@ const MinesweeperGame: React.FC = () => {
   const [pressedCells, setPressedCells] = useState<Set<string>>(new Set()); // 记录按下效果的格子
   const [hoverCell, setHoverCell] = useState<{ row: number; col: number } | null>(null); // 鼠标悬停位置
   const [isSpacePressed, setIsSpacePressed] = useState(false); // 空格键是否按下
+  
+  // WebSocket 相关状态
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [showQRDialog, setShowQRDialog] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [highlightedCells, setHighlightedCells] = useState<HighlightedCell[]>([]); // 需要闪烁的格子
 
   const config = DIFFICULTIES[difficulty];
 
@@ -82,7 +101,162 @@ const MinesweeperGame: React.FC = () => {
     setIsTimerRunning(false);
     setFirstClick(true);
     setShowResultDialog(false);
+    
+    // 清除高亮格子
+    setHighlightedCells([]);
   }, [config]);
+
+  // 初始化 WebSocket 连接 - 只在组件挂载时连接一次
+  useEffect(() => {
+    const apiUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001';
+    console.log('MinesweeperGame WebSocket 连接地址:', apiUrl);
+    
+    const newSocket = io(apiUrl, {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
+
+    newSocket.on('connect', () => {
+      console.log('WebSocket 连接成功');
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('WebSocket 连接错误:', error);
+    });
+
+    newSocket.on('disconnect', (reason) => {
+      console.log('WebSocket 断开连接:', reason);
+    });
+
+    newSocket.on('spectator-suggest', (data) => {
+      // 添加闪烁效果
+      const newHighlighted = [...highlightedCells, {
+        row: data.row,
+        col: data.col,
+        timestamp: Date.now()
+      }];
+      
+      // 限制闪烁格子数量，避免过多
+      if (newHighlighted.length > 20) {
+        newHighlighted.shift();
+      }
+      
+      setHighlightedCells(newHighlighted);
+    });
+
+    setSocket(newSocket);
+
+    // 组件卸载时清理
+    return () => {
+      newSocket.disconnect();
+    };
+  }, []); // 空依赖数组，只在挂载时执行
+
+  // 生成固定的房间ID（基于难度和用户）
+  const generateFixedRoomId = useCallback(() => {
+    const userId = localStorage.getItem('userId') || 'anonymous';
+    const today = new Date().toISOString().slice(0, 10); // 每天同一个房间
+    const roomString = `${difficulty}-${userId}-${today}`;
+    
+    // 简单哈希函数
+    let hash = 0;
+    for (let i = 0; i < roomString.length; i++) {
+      const char = roomString.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // 转换为32位整数
+    }
+    
+    return Math.abs(hash).toString(36).substr(0, 8).toUpperCase();
+  }, [difficulty]);
+
+  // 创建或加入游戏房间（固定房间ID）
+  const createRoom = useCallback(() => {
+    if (!socket) return;
+    
+    // 生成固定房间ID
+    const fixedRoomId = generateFixedRoomId();
+    
+    // 检查是否已经在房间中
+    if (roomId === fixedRoomId) {
+      // 已经在房间中，直接显示二维码
+      const roomUrl = `${window.location.origin}/spectate/${fixedRoomId}`;
+      QRCode.toDataURL(roomUrl, { width: 256 })
+        .then(setQrCodeUrl)
+        .catch(err => console.error('生成二维码失败:', err));
+      setShowQRDialog(true);
+      return;
+    }
+    
+    // 创建固定房间
+    socket.emit('create-room', { 
+      roomId: fixedRoomId, // 指定固定房间ID
+      difficulty 
+    });
+    
+    socket.on('room-created', (data) => {
+      const roomId = data.roomId;
+      setRoomId(roomId);
+      
+      // 保存房间ID到本地存储
+      localStorage.setItem('currentRoomId', roomId);
+      localStorage.setItem('currentRoomDate', new Date().toISOString().slice(0, 10));
+      
+      // 生成二维码
+      const roomUrl = `${window.location.origin}/spectate/${roomId}`;
+      QRCode.toDataURL(roomUrl, { width: 256 })
+        .then(setQrCodeUrl)
+        .catch(err => console.error('生成二维码失败:', err));
+      
+      setShowQRDialog(true);
+    });
+    
+    // 监听房间已存在的情况
+    socket.on('room-already-exists', (data) => {
+      console.log('房间已存在，加入现有房间:', data.roomId);
+      setRoomId(data.roomId);
+      
+      // 生成二维码
+      const roomUrl = `${window.location.origin}/spectate/${data.roomId}`;
+      QRCode.toDataURL(roomUrl, { width: 256 })
+        .then(setQrCodeUrl)
+        .catch(err => console.error('生成二维码失败:', err));
+      
+      setShowQRDialog(true);
+    });
+    
+  }, [socket, difficulty, roomId, generateFixedRoomId]);
+
+  // 组件加载时检查是否有保存的房间
+  useEffect(() => {
+    const savedRoomId = localStorage.getItem('currentRoomId');
+    const savedDate = localStorage.getItem('currentRoomDate');
+    const today = new Date().toISOString().slice(0, 10);
+    
+    if (savedRoomId && savedDate === today && socket) {
+      // 如果是今天的房间，询问是否重新加入
+      const shouldRejoin = window.confirm(`检测到您今天已有游戏房间 (${savedRoomId})，是否重新加入？`);
+      if (shouldRejoin) {
+        setRoomId(savedRoomId);
+        const roomUrl = `${window.location.origin}/spectate/${savedRoomId}`;
+        QRCode.toDataURL(roomUrl, { width: 256 })
+          .then(setQrCodeUrl)
+          .catch(err => console.error('生成二维码失败:', err));
+        setShowQRDialog(true);
+      }
+    }
+  }, [socket]);
+
+  // 更新游戏状态到 WebSocket
+  useEffect(() => {
+    if (!socket || !roomId || board.length === 0) return;
+    
+    socket.emit('update-game', {
+      roomId,
+      board
+    });
+  }, [board, socket, roomId]);
 
   // 放置地雷（首次点击后）
   const placeMines = useCallback((firstRow: number, firstCol: number) => {
@@ -687,6 +861,9 @@ const MinesweeperGame: React.FC = () => {
     const cellKey = `${row},${col}`;
     const isPressed = pressedCells.has(cellKey); // 是否处于按下状态
     
+    // 检查是否需要闪烁
+    const isHighlighted = highlightedCells.some(hc => hc.row === row && hc.col === col);
+    
     // 根据屏幕大小和难度动态调整格子大小
     const getCellSize = () => {
       if (difficulty === 'brutal') {
@@ -746,6 +923,16 @@ const MinesweeperGame: React.FC = () => {
       return { ...baseStyle, backgroundColor: '#fff', color: '#ff0000' };
     }
 
+    // 闪烁效果
+    if (isHighlighted) {
+      return { 
+        ...baseStyle, 
+        backgroundColor: '#ff6b6b', // 红色高亮
+        animation: 'pulse 1s infinite',
+        zIndex: 10
+      };
+    }
+
     // 按下效果：显示为浅灰色，模拟经典扫雷的按下效果
     if (isPressed) {
       return { 
@@ -789,6 +976,29 @@ const MinesweeperGame: React.FC = () => {
           <Tab value="brutal" label={DIFFICULTIES.brutal.label} />
         </Tabs>
       </Box>
+          
+      {/* 旁观二维码对话框 */}
+      <Dialog open={showQRDialog} onClose={() => setShowQRDialog(false)}>
+        <DialogTitle>分享旁观链接</DialogTitle>
+        <DialogContent>
+          <Box display="flex" flexDirection="column" alignItems="center" p={2}>
+            <Typography variant="body1" gutterBottom>
+              房间ID: {roomId}
+            </Typography>
+            <img 
+              src={qrCodeUrl} 
+              alt="扫雷旁观二维码" 
+              style={{ width: '256px', height: '256px', margin: '16px 0' }}
+            />
+            <Typography variant="body2" color="textSecondary">
+              扫描二维码开始旁观
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowQRDialog(false)}>关闭</Button>
+        </DialogActions>
+      </Dialog>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* 控制面板 */}
@@ -815,6 +1025,20 @@ const MinesweeperGame: React.FC = () => {
               >
                 重新开始
               </Button>
+            </Grid>
+            
+            <Grid item xs={4}>
+              <Tooltip title="分享旁观链接">
+                <Button
+                  variant="outlined"
+                  startIcon={<ShareIcon />}
+                  onClick={createRoom}
+                  fullWidth
+                  size="small"
+                >
+                  分享
+                </Button>
+              </Tooltip>
             </Grid>
 
             {personalBest && (

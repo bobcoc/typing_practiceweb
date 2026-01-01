@@ -5,6 +5,8 @@ import cors from 'cors';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import path from 'path';
+import { createServer } from 'http';
+import { setupMinesweeperSocket } from './websocket/minesweeperSocket';
 import practiceTypesRouter from './routes/practiceTypes';
 import codeExamplesRouter from './routes/codeExamples';
 import authRouter from './routes/auth';
@@ -191,6 +193,12 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).send('Something broke!');
 });
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
+const httpServer = createServer(app);
+
+// 设置 WebSocket
+setupMinesweeperSocket(httpServer);
+
+httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`WebSocket server is ready`);
 });

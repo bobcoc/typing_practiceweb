@@ -22,6 +22,7 @@ import { message } from 'antd';
 import TypingTabs from './components/TypingTabs';
 import KMeansDemo from './components/KMeansDemo';
 import MinesweeperTabs from './components/MinesweeperTabs';
+import SpectatorMinesweeper from './components/SpectatorMinesweeper';
 
 // 创建一个包装组件来处理认证
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -85,6 +86,9 @@ const App: React.FC = () => {
       <AuthWrapper>
         <Navbar />
         <Routes>
+          {/* 旁观路由 - 放在最前面，确保优先匹配 */}
+          <Route path="/spectate/:roomId" element={<SpectatorMinesweeper />} />
+          
           {/* 公共路由 - 不需要登录就能访问 */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/typing" element={<TypingTabs />} />
@@ -118,8 +122,8 @@ const App: React.FC = () => {
           <Route path="/student-search" element={<StudentSearch />} />
           <Route path="/user-word-pass" element={<UserWordPassExport />} />
           
-          {/* 处理未匹配的路径 */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* 处理未匹配的路径 - 排除以 /spectate/ 开头的路径 */}
+          <Route path="/*" element={<Navigate to="/" replace />} />
         </Routes>
         <Footer />
       </AuthWrapper>
