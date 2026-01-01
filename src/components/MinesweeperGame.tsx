@@ -131,6 +131,72 @@ const MinesweeperGame: React.FC = () => {
     setIsTimerRunning(true);
   }, [board, config]);
 
+  // 自动标雷功能：当某个已打开数字周围的未开块数等于剩余雷数时，自动将未标记的块标为雷
+  const autoFlag = useCallback((currentBoard: Cell[][]): Cell[][] => {
+    const newBoard = [...currentBoard.map(row => [...row])];
+    let changed = true;
+    let totalFlagsAdded = 0;
+
+    // 循环直到没有新的标记
+    while (changed) {
+      changed = false;
+      for (let row = 0; row < config.rows; row++) {
+        for (let col = 0; col < config.cols; col++) {
+          const cell = newBoard[row][col];
+          // 只检查已揭开且有数字的格子
+          if (!cell.isRevealed || cell.neighborMines === 0) continue;
+
+          // 统计周围未开的块数和已标旗的块数
+          let unrevealedCount = 0;
+          let flaggedCount = 0;
+          const unrevealedCells: [number, number][] = [];
+
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              if (dr === 0 && dc === 0) continue;
+              const newRow = row + dr;
+              const newCol = col + dc;
+              if (
+                newRow >= 0 &&
+                newRow < config.rows &&
+                newCol >= 0 &&
+                newCol < config.cols
+              ) {
+                const neighborCell = newBoard[newRow][newCol];
+                if (!neighborCell.isRevealed) {
+                  if (neighborCell.isFlagged) {
+                    flaggedCount++;
+                  } else {
+                    unrevealedCount++;
+                    unrevealedCells.push([newRow, newCol]);
+                  }
+                }
+              }
+            }
+          }
+
+          // 如果未开块数 + 已标旗数 = 该格子的数字，则所有未标记的块都是雷
+          if (unrevealedCount > 0 && unrevealedCount + flaggedCount === cell.neighborMines) {
+            for (const [r, c] of unrevealedCells) {
+              if (!newBoard[r][c].isFlagged) {
+                newBoard[r][c].isFlagged = true;
+                totalFlagsAdded++;
+                changed = true;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 更新剩余旗帜数
+    if (totalFlagsAdded > 0) {
+      setFlagsLeft(prev => prev - totalFlagsAdded);
+    }
+
+    return newBoard;
+  }, [config]);
+
   // 揭开格子
   const revealCell = useCallback((row: number, col: number) => {
     if (gameStatus !== 'playing') return;
@@ -195,9 +261,11 @@ const MinesweeperGame: React.FC = () => {
       }
     }
 
-    setBoard(newBoard);
-    checkWin(newBoard);
-  }, [board, gameStatus, firstClick, config, placeMines]);
+    // 应用自动标雷
+    const boardWithAutoFlags = autoFlag(newBoard);
+    setBoard(boardWithAutoFlags);
+    checkWin(boardWithAutoFlags);
+  }, [board, gameStatus, firstClick, config, placeMines, autoFlag]);
 
   // 切换旗帜
   const toggleFlag = useCallback((row: number, col: number, e: React.MouseEvent) => {
@@ -326,10 +394,12 @@ const MinesweeperGame: React.FC = () => {
         }
       }
 
-      setBoard(newBoard);
-      checkWin(newBoard);
+      // 应用自动标雷
+      const boardWithAutoFlags = autoFlag(newBoard);
+      setBoard(boardWithAutoFlags);
+      checkWin(boardWithAutoFlags);
     }
-  }, [board, gameStatus, firstClick, config]);
+  }, [board, gameStatus, firstClick, config, autoFlag]);
 
   // 更新按下效果
   const updatePressedCells = useCallback((row: number, col: number) => {
@@ -864,6 +934,9 @@ const MinesweeperGame: React.FC = () => {
             <Grid item xs={12} md={4}>
               <Typography variant="body2" paragraph>
                 • 揭开所有非地雷格子即可获胜，胜利时会自动标记所有地雷
+              </Typography>
+              <Typography variant="body2" paragraph>
+                • 自动标雷：当某数字周围未开块数=剩余雷数时，自动将未标记的块标为雷
               </Typography>
               <Typography variant="body2">
                 • 登录后可保存游戏记录并查看排行榜
