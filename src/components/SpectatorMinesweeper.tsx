@@ -12,23 +12,8 @@ interface Cell {
   isExploded?: boolean;
 }
 
-const SpectatorMinesweeper: React.FC = () => {
-  const { roomId } = useParams<{ roomId: string }>();
-  
-  // 如果没有 roomId，显示错误信息
-  if (!roomId) {
-    return (
-      <Box sx={{ padding: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Typography variant="h6" color="error" gutterBottom>
-          错误：无效的房间ID
-        </Typography>
-        <Typography variant="body2">
-          请确保通过正确的分享链接访问此页面。
-        </Typography>
-      </Box>
-    );
-  }
-
+// 内部实际的组件实现
+const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => {
   const [board, setBoard] = useState<Cell[][]>([]);
   const [difficulty, setDifficulty] = useState<string>('beginner');
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -38,11 +23,6 @@ const SpectatorMinesweeper: React.FC = () => {
 
   // 初始化 WebSocket 连接
   useEffect(() => {
-    // 如果没有 roomId，不建立连接
-    if (!roomId) {
-      return;
-    }
-    
     console.log('尝试连接到 WebSocket 服务器，房间ID:', roomId);
     const apiUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001';
     console.log('WebSocket 连接地址:', apiUrl);
@@ -127,7 +107,7 @@ const SpectatorMinesweeper: React.FC = () => {
 
   // 处理点击格子
   const handleCellClick = (row: number, col: number) => {
-    // 如果没有 socket，不执行操作（roomId 已经在组件顶部检查过）
+    // 如果没有 socket，不执行操作（roomId 已经在父组件中验证过）
     if (!socket || !board[row] || board[row][col].isRevealed || board[row][col].isFlagged) {
       return; // 只能点击未揭开且未标记的格子
     }
@@ -218,8 +198,6 @@ const SpectatorMinesweeper: React.FC = () => {
     return colors[num] || '#000';
   };
 
-  const config = getDifficultyConfig();
-
   // 获取房间信息
   useEffect(() => {
     // 只有在有 socket 和 roomId 时才执行
@@ -235,6 +213,8 @@ const SpectatorMinesweeper: React.FC = () => {
       });
     }
   }, [socket, roomId]);
+
+  const config = getDifficultyConfig();
 
   return (
     <Box sx={{ padding: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -307,6 +287,28 @@ const SpectatorMinesweeper: React.FC = () => {
       </Box>
     </Box>
   );
+};
+
+// 主组件 - 处理 roomId 验证
+const SpectatorMinesweeper: React.FC = () => {
+  const { roomId } = useParams<{ roomId: string }>();
+  
+  // 如果没有 roomId，显示错误信息
+  if (!roomId) {
+    return (
+      <Box sx={{ padding: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <Typography variant="h6" color="error" gutterBottom>
+          错误：无效的房间ID
+        </Typography>
+        <Typography variant="body2">
+          请确保通过正确的分享链接访问此页面。
+        </Typography>
+      </Box>
+    );
+  }
+
+  // 只有当 roomId 存在时才渲染内部组件，这样 ESLint 就不会认为 Hook 被条件调用
+  return <SpectatorMinesweeperInner roomId={roomId} />;
 };
 
 export default SpectatorMinesweeper;
