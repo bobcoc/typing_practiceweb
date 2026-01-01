@@ -108,7 +108,42 @@ const MinesweeperGame: React.FC = () => {
 
   // 初始化 WebSocket 连接 - 只在组件挂载时连接一次
   useEffect(() => {
-    const apiUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001';
+    // 构建 WebSocket URL，处理各种环境配置
+    const getWebSocketUrl = () => {
+      const envApiUrl = process.env.REACT_APP_API_BASE_URL;
+      
+      // 如果环境变量是完整的 URL（包含协议），直接使用
+      if (envApiUrl && (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://'))) {
+        return envApiUrl;
+      }
+      
+      // 如果环境变量是相对路径（如 /api），需要转换为绝对 URL
+      if (envApiUrl && envApiUrl.trim() !== '') {
+        // 从 CLIENT_URL 获取域名，或者根据环境推断
+        const clientUrl = process.env.REACT_APP_CLIENT_URL || 
+                        (process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : 'https://d1kt.cn');
+        
+        // 提取域名部分（去掉 http:// 或 https://）
+        const domain = clientUrl.replace(/^https?:\/\//, '');
+        
+        // 如果 envApiUrl 以 /api 开头，说明 Nginx 已经处理了第一层，我们只需要域名
+        if (envApiUrl.startsWith('/api')) {
+          return `https://${domain}`;
+        } else {
+          return `https://${domain}${envApiUrl}`;
+        }
+      }
+      
+      // 根据环境返回合适的默认值
+      if (process.env.NODE_ENV === 'development') {
+        return 'http://localhost:5001';
+      } else {
+        // 生产环境：使用配置的域名
+        return 'https://d1kt.cn';
+      }
+    };
+    
+    const apiUrl = getWebSocketUrl();
     console.log('MinesweeperGame WebSocket 连接地址:', apiUrl);
     
     const newSocket = io(apiUrl, {

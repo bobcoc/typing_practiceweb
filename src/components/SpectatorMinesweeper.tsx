@@ -23,8 +23,40 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
 
   // 初始化 WebSocket 连接
   useEffect(() => {
+    // 构建 WebSocket URL，处理各种环境配置
+    // 注意：REACT_APP_API_BASE_URL=/api 是相对路径，需要转换为绝对URL
+    const getWebSocketUrl = () => {
+      const envApiUrl = process.env.REACT_APP_API_BASE_URL;
+      
+      // 如果是相对路径 /api，需要从 CLIENT_URL 提取域名
+      if (envApiUrl === '/api') {
+        const clientUrl = process.env.REACT_APP_CLIENT_URL || 'https://d1kt.cn';
+        const domain = clientUrl.replace(/^https?:\/\//, '');
+        return `https://${domain}`;
+      }
+      
+      // 如果是其他相对路径，也需要转换
+      if (envApiUrl && envApiUrl.startsWith('/') && !envApiUrl.startsWith('//')) {
+        const clientUrl = process.env.REACT_APP_CLIENT_URL || 'https://d1kt.cn';
+        const domain = clientUrl.replace(/^https?:\/\//, '');
+        return `https://${domain}${envApiUrl}`;
+      }
+      
+      // 如果是完整 URL，直接使用
+      if (envApiUrl && (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://'))) {
+        return envApiUrl;
+      }
+      
+      // 根据环境返回合适的默认值
+      if (process.env.NODE_ENV === 'development') {
+        return 'http://localhost:5001';
+      } else {
+        return 'https://d1kt.cn';
+      }
+    };
+    
+    const apiUrl = getWebSocketUrl();
     console.log('尝试连接到 WebSocket 服务器，房间ID:', roomId);
-    const apiUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001';
     console.log('WebSocket 连接地址:', apiUrl);
     
     const newSocket = io(apiUrl, {
