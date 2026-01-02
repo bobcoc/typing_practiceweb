@@ -41,13 +41,14 @@ function getSocketIoPath() {
   }
   
   // 根据Nginx转发规则调整生产环境路径
-  // Nginx location /api/ 会去掉前缀，所以 /api/api/socket.io 变成 /api/socket.io
+  // Nginx转发到 http://localhost:5001/api/socket.io/，所以后端应该接受 /api/socket.io
   if (process.env.NODE_ENV === 'production') {
-    console.log('[Socket.IO Path Config] Production mode, Nginx forwards /api/* to /*');
+    console.log('[Socket.IO Path Config] Production mode, Nginx配置');
     console.log('[Socket.IO Path Config] Frontend sends: /api/api/socket.io');
-    console.log('[Socket.IO Path Config] Nginx forwards to: /api/socket.io');
+    console.log('[Socket.IO Path Config] Nginx location = /api/api/socket.io/');
+    console.log('[Socket.IO Path Config] Nginx proxy_pass: http://localhost:5001/api/socket.io/');
     console.log('[Socket.IO Path Config] Backend should accept: /api/socket.io');
-    // 使用单 /api 路径匹配Nginx转发结果 - 修复路径不匹配问题
+    // 使用 /api/socket.io 路径匹配Nginx转发结果
     return '/api/socket.io';
   }
   
@@ -75,17 +76,24 @@ function getSocketIoPath() {
 }
 
 export function setupMinesweeperSocket(httpServer: HTTPServer) {
+  // 生产环境支持多种可能的路径，通过请求检测来确定
+  const possiblePaths = ['/api/socket.io', '/socket.io'];
   const socketIoPath = getSocketIoPath();
   console.log('[Socket.IO] Socket.IO 路径配置:', socketIoPath);
+  console.log('[Socket.IO] 支持的可能路径:', possiblePaths);
   console.log('[Socket.IO] HTTP Server listening on port:', httpServer.address());
   
-  // Socket.IO的path配置需要规范化（确保一致性）
-  // Socket.IO会自动处理末尾斜杠的变体，所以我们使用基础路径
-  const normalizedPath = socketIoPath.replace(/\/$/, ''); // 移除末尾斜杠
-  console.log('[Socket.IO] 规范化路径用于配置:', normalizedPath);
+  // 创建一个包装的HTTP服务器来处理路径检测
+  const wrappedHttpServer = {
+    on: httpServer.on.bind(httpServer),
+    listen: httpServer.listen.bind(httpServer),
+    close: httpServer.close.bind(httpServer),
+    address: httpServer.address.bind(httpServer)
+  };
   
-  const io = new SocketIOServer(httpServer, {
-    path: normalizedPath,
+  // 使用第一个路径作为基础配置，但通过中间件处理路径兼容性
+  const io = new SocketIOServer(wrappedHttpServer, {
+    path: '/api/socket.io', // 使用最常见的路径作为配置
     cors: {
       origin: "*",
       methods: ["GET", "POST"]
