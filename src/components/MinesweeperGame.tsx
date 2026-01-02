@@ -81,59 +81,11 @@ const config = DIFFICULTIES[difficulty];
 
 // 构建 WebSocket URL，处理各种环境配置
 const getWebSocketUrl = () => {
-  const envApiUrl = process.env.REACT_APP_API_BASE_URL;
-  
-  // 如果环境变量是完整的 URL（包含协议），提取协议和域名部分作为基础 URL
-  if (envApiUrl && (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://'))) {
-    // 解析 URL，提取协议、主机和端口
-    const urlObj = new URL(envApiUrl);
-    return `${urlObj.protocol}//${urlObj.host}`;
-  }
-  
-  // 如果环境变量是相对路径（如 /api），需要从 CLIENT_URL 获取域名
-  if (envApiUrl && envApiUrl.trim() !== '') {
-    // 从 CLIENT_URL 获取域名，或者根据环境推断
-    const clientUrl = process.env.REACT_APP_CLIENT_URL || 
-                    (process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : 'https://d1kt.cn');
-    
-    // 提取域名部分（去掉 http:// 或 https://）
-    const domain = clientUrl.replace(/^https?:\/\//, '');
-    
-    // 返回基础域名，不包含 API 路径
-    return `https://${domain}`;
-  }
-  
-  // 根据环境返回合适的默认值
-  if (process.env.NODE_ENV === 'development') {
-    return 'http://localhost:5001';
-  } else {
-    // 生产环境：使用配置的域名
-    return 'https://d1kt.cn';
-  }
+  return API_BASE_URL;
 };
 
 const getWebSocketPath = () => {
-  const envApiUrl = process.env.REACT_APP_API_BASE_URL;
-  
-  if (!envApiUrl || envApiUrl.trim() === '') {
-    return '/socket.io';
-  }
-  
-  // 如果是完整 URL，检查是否包含路径
-  if (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://')) {
-    const urlObj = new URL(envApiUrl);
-    // 如果原始 URL 包含路径，将其作为前缀
-    if (urlObj.pathname && urlObj.pathname !== '/') {
-      return `${urlObj.pathname}/socket.io`;
-    }
-  }
-  
-  // 如果是相对路径（如 /api），将其作为前缀
-  if (envApiUrl.startsWith('/')) {
-    return `${envApiUrl}/socket.io`;
-  }
-  
-  return '/socket.io';
+  return '/api/socket.io';
 };
 
 // 建立 WebSocket 连接（按需连接）
