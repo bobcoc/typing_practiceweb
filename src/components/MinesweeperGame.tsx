@@ -1023,7 +1023,7 @@ const getWebSocketPath = () => {
               房间ID: {roomId}
             </Typography>
             <Typography variant="body1" gutterBottom>
-              二维码URL: {qrCodeUrl}
+              旁观链接: {`https://d1kt.cn/spectate/${roomId}`}
             </Typography>
             <img 
               src={qrCodeUrl} 

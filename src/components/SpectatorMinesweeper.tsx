@@ -61,7 +61,7 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
       const envApiUrl = process.env.REACT_APP_API_BASE_URL;
       
       if (!envApiUrl || envApiUrl.trim() === '') {
-        return '/socket.io';
+        return '/api/socket.io';
       }
       
       // 如果是完整 URL，检查是否包含路径
@@ -69,16 +69,16 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
         const urlObj = new URL(envApiUrl);
         // 如果原始 URL 包含路径，将其作为前缀
         if (urlObj.pathname && urlObj.pathname !== '/') {
-          return `${urlObj.pathname}/socket.io`;
+          return `${urlObj.pathname}/api/socket.io`;
         }
       }
       
-      // 如果是相对路径（如 /api），将其作为前缀
+      // 如果是相对路径（如 /api），将其作为前缀 - 改为双 api
       if (envApiUrl.startsWith('/')) {
-        return `${envApiUrl}/socket.io`;
+        return `${envApiUrl}/api/socket.io`;
       }
       
-      return '/socket.io';
+      return '/api/socket.io';
     };
     
     const apiUrl = getWebSocketUrl();
