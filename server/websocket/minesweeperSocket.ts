@@ -30,9 +30,20 @@ const gameRooms = new Map<string, GameRoom>();
 function getSocketIoPath() {
   const envApiUrl = process.env.REACT_APP_API_BASE_URL;
   
+  console.log('[Socket.IO Path Config] REACT_APP_API_BASE_URL:', envApiUrl);
+  console.log('[Socket.IO Path Config] NODE_ENV:', process.env.NODE_ENV);
+  
   if (!envApiUrl || envApiUrl.trim() === '') {
     // 如果没有设置环境变量，根据 NODE_ENV 决定
-    return process.env.NODE_ENV === 'production' ? '/api/socket.io' : '/socket.io';
+    const path = process.env.NODE_ENV === 'production' ? '/api/socket.io' : '/socket.io';
+    console.log('[Socket.IO Path Config] Using default path:', path);
+    return path;
+  }
+  
+  // 强制生产环境使用双 /api 路径以匹配前端
+  if (process.env.NODE_ENV === 'production') {
+    console.log('[Socket.IO Path Config] Production mode, forcing double /api path');
+    return '/api/api/socket.io';
   }
   
   // 如果是完整 URL，检查是否包含路径
@@ -40,41 +51,81 @@ function getSocketIoPath() {
     const urlObj = new URL(envApiUrl);
     // 如果原始 URL 包含路径，将其作为前缀
     if (urlObj.pathname && urlObj.pathname !== '/') {
-      return `${urlObj.pathname}/socket.io`;
+      const path = `${urlObj.pathname}/socket.io`;
+      console.log('[Socket.IO Path Config] From URL pathname:', path);
+      return path;
     }
   }
   
   // 如果是相对路径（如 /api），将其作为前缀
   if (envApiUrl.startsWith('/')) {
-    return `${envApiUrl}/socket.io`;
+    const path = `${envApiUrl}/socket.io`;
+    console.log('[Socket.IO Path Config] From relative path:', path);
+    return path;
   }
   
-  return '/socket.io';
+  const path = '/socket.io';
+  console.log('[Socket.IO Path Config] Using fallback path:', path);
+  return path;
 }
 
 export function setupMinesweeperSocket(httpServer: HTTPServer) {
   const socketIoPath = getSocketIoPath();
   console.log('[Socket.IO] Socket.IO 路径配置:', socketIoPath);
+  console.log('[Socket.IO] HTTP Server listening on port:', httpServer.address());
   
   const io = new SocketIOServer(httpServer, {
     path: socketIoPath,
     cors: {
       origin: "*",
       methods: ["GET", "POST"]
-    }
+    },
+    allowEIO3: true,
+    transports: ['polling', 'websocket']
+  });
+
+  // 添加底层HTTP请求日志中间件
+  io.engine.on('initial_headers', (headers, req) => {
+    console.log('[Socket.IO Engine] === INITIAL HEADERS ===');
+    console.log('[Socket.IO Engine] Method:', req.method);
+    console.log('[Socket.IO Engine] URL:', req.url);
+    console.log('[Socket.IO Engine] Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('[Socket.IO Engine] Query:', req.url ? req.url.split('?')[1] : 'N/A');
+    console.log('[Socket.IO Engine] ========================');
+  });
+
+  io.engine.on('headers', (headers, req) => {
+    console.log('[Socket.IO Engine] === RESPONSE HEADERS ===');
+    console.log('[Socket.IO Engine] Status:', headers.status || 200);
+    console.log('[Socket.IO Engine] Headers:', JSON.stringify(headers, null, 2));
+    console.log('[Socket.IO Engine] ========================');
   });
 
   io.on('connection', (socket) => {
+    console.log('[Socket.IO] >>> CONNECTION ESTABLISHED <<<');
     console.log('[Socket.IO] 用户连接:', socket.id);
+    console.log('[Socket.IO] 握手耗时:', Date.now() - (socket.handshake.time || Date.now()), 'ms');
     console.log('[Socket.IO] 握手 URL:', socket.handshake.url);
     console.log('[Socket.IO] 握手查询参数:', socket.handshake.query);
     console.log('[Socket.IO] 握手 Origin:', socket.handshake.headers.origin);
+    console.log('[Socket.IO] 握手 Referer:', socket.handshake.headers.referer);
+    console.log('[Socket.IO] 握手 User-Agent:', socket.handshake.headers['user-agent']);
+    console.log('[Socket.IO] 握手 Host:', socket.handshake.headers.host);
     console.log('[Socket.IO] 配置的 Socket.IO 路径:', socketIoPath);
     
-    // 检查路径是否匹配
-    const reqPath = socket.handshake.url.split('?')[0];
+    // 详细路径分析
+    const reqPath = socket.handshake.url ? socket.handshake.url.split('?')[0] : 'N/A';
+    console.log('[Socket.IO] 请求路径:', reqPath);
+    console.log('[Socket.IO] 路径匹配检查:');
+    console.log('  - 请求路径 === 配置路径:', reqPath === socketIoPath);
+    console.log('  - 请求路径.endsWith(配置路径):', reqPath.endsWith(socketIoPath));
+    console.log('  - 配置路径.endsWith(请求路径):', socketIoPath.endsWith(reqPath));
+    
     if (reqPath !== socketIoPath) {
-      console.warn(`[Socket.IO] 警告: 请求路径 ${reqPath} 与配置路径 ${socketIoPath} 不一致`);
+      console.warn(`[Socket.IO] ⚠️  警告: 请求路径与配置路径不匹配!`);
+      console.warn(`[Socket.IO]    请求: ${reqPath}`);
+      console.warn(`[Socket.IO]    配置: ${socketIoPath}`);
+      console.warn(`[Socket.IO]    差异: ${reqPath.replace(socketIoPath, '【配置路径】')}`);
     }
 
     // 创建游戏房间（玩家创建）

@@ -193,12 +193,66 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).send('Something broke!');
 });
 const PORT = process.env.PORT || 5001;
-const httpServer = createServer(app);
+const httpServer = createServer({
+  // 添加请求处理回调来捕获所有HTTP请求
+  IncomingMessage: class extends require('http').IncomingMessage {
+    constructor(socket) {
+      super(socket);
+      this._startTime = Date.now();
+    }
+  },
+  ServerResponse: require('http').ServerResponse
+});
+
+// 在HTTP服务器层面添加请求日志
+httpServer.on('request', (req, res) => {
+  console.log('[HTTP Server] >>> RAW HTTP REQUEST <<<');
+  console.log('[HTTP Server] Time:', new Date().toISOString());
+  console.log('[HTTP Server] Method:', req.method);
+  console.log('[HTTP Server] URL:', req.url);
+  console.log('[HTTP Server] Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('[HTTP Server] Remote Address:', req.socket.remoteAddress);
+  console.log('[HTTP Server] Remote Port:', req.socket.remotePort);
+  console.log('[HTTP Server] ============================');
+  
+  // 特别监控Socket.IO相关的请求
+  if (req.url && (req.url.includes('socket.io') || req.url.includes('transport=websocket'))) {
+    console.log('[HTTP Server] 🔥 SOCKET.IO REQUEST DETECTED! 🔥');
+    console.log('[HTTP Server] Full URL:', req.url);
+    console.log('[HTTP Server] Query String:', req.url.split('?')[1] || 'N/A');
+    console.log('[HTTP Server] Upgrade Header:', req.headers.upgrade);
+    console.log('[HTTP Server] Connection Header:', req.headers.connection);
+    console.log('[HTTP Server] Sec-WebSocket-Version:', req.headers['sec-websocket-version']);
+    console.log('[HTTP Server] Sec-WebSocket-Key:', req.headers['sec-websocket-key']);
+    console.log('[HTTP Server] ========================================');
+  }
+});
+
+// 监听upgrade事件（WebSocket握手）
+httpServer.on('upgrade', (req, socket, head) => {
+  console.log('[HTTP Server] >>> WEBSOCKET UPGRADE REQUEST <<<');
+  console.log('[HTTP Server] Time:', new Date().toISOString());
+  console.log('[HTTP Server] Method:', req.method);
+  console.log('[HTTP Server] URL:', req.url);
+  console.log('[HTTP Server] Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('[HTTP Server] Socket remote address:', socket.remoteAddress);
+  console.log('[HTTP Server] Head bytes:', head ? head.toString('hex').substring(0, 100) + '...' : 'None');
+  console.log('[HTTP Server] =====================================');
+  
+  if (req.url && req.url.includes('socket.io')) {
+    console.log('[HTTP Server] 🚨 WEBSOCKET UPGRADE FOR SOCKET.IO! 🚨');
+    console.log('[HTTP Server] This should be handled by Socket.IO engine');
+    console.log('[HTTP Server] ==========================================');
+  }
+});
 
 // 设置 WebSocket
 setupMinesweeperSocket(httpServer);
 
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`HTTP Server address:`, httpServer.address());
   console.log(`WebSocket server is ready`);
+  console.log(`Environment:`, process.env.NODE_ENV);
+  console.log(`REACT_APP_API_BASE_URL:`, process.env.REACT_APP_API_BASE_URL);
 });
