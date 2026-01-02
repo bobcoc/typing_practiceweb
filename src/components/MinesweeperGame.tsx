@@ -85,7 +85,7 @@ const getWebSocketUrl = () => {
 };
 
 const getWebSocketPath = () => {
-  return '/api/api/socket.io';
+  return '/api/socket.io';
 };
 
 // 建立 WebSocket 连接（按需连接）
