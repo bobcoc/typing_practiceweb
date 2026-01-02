@@ -32,7 +32,7 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
       if (envApiUrl === '/api') {
         const clientUrl = process.env.REACT_APP_CLIENT_URL || 'https://d1kt.cn';
         const domain = clientUrl.replace(/^https?:\/\//, '');
-        return `https://${domain}`;
+        return `https://${domain}${envApiUrl}`;
       }
       
       // 如果是其他相对路径，也需要转换

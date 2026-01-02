@@ -126,12 +126,8 @@ const MinesweeperGame: React.FC = () => {
         // 提取域名部分（去掉 http:// 或 https://）
         const domain = clientUrl.replace(/^https?:\/\//, '');
         
-        // 如果 envApiUrl 以 /api 开头，说明 Nginx 已经处理了第一层，我们只需要域名
-        if (envApiUrl.startsWith('/api')) {
-          return `https://${domain}`;
-        } else {
-          return `https://${domain}${envApiUrl}`;
-        }
+        // 返回完整的 WebSocket URL，包含 API 路径前缀
+        return `https://${domain}${envApiUrl}`;
       }
       
       // 根据环境返回合适的默认值
