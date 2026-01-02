@@ -81,11 +81,19 @@ const config = DIFFICULTIES[difficulty];
 
 // 构建 WebSocket URL，处理各种环境配置
 const getWebSocketUrl = () => {
-  return API_BASE_URL;
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:5001';
+  } else {
+    return 'https://d1kt.cn';
+  }
 };
 
 const getWebSocketPath = () => {
-  return '/api/socket.io';
+  if (process.env.NODE_ENV === 'development') {
+    return '/api/socket.io';
+  } else {
+    return '/api/api/socket.io'; // 生产环境强制双 /api
+  }
 };
 
 // 建立 WebSocket 连接（按需连接）
