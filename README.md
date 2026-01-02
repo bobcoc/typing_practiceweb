@@ -83,7 +83,7 @@ JWT_SECRET=your_jwt_secret_key
 JWT_EXPIRES_IN=24h
 
 # Client Configuration
-CLIENT_URL=http://localhost:3001
+REACT_APP_CLIENT_URL=http://localhost:3001
 ```
 
 You can copy the contents from `.env.example` and modify them according to your needs.

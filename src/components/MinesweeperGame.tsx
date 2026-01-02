@@ -77,9 +77,125 @@ const MinesweeperGame: React.FC = () => {
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [highlightedCells, setHighlightedCells] = useState<HighlightedCell[]>([]); // 需要闪烁的格子
 
-  const config = DIFFICULTIES[difficulty];
+const config = DIFFICULTIES[difficulty];
 
-  // 初始化游戏
+// 构建 WebSocket URL，处理各种环境配置
+const getWebSocketUrl = () => {
+  const envApiUrl = process.env.REACT_APP_API_BASE_URL;
+  
+  // 如果环境变量是完整的 URL（包含协议），提取协议和域名部分作为基础 URL
+  if (envApiUrl && (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://'))) {
+    // 解析 URL，提取协议、主机和端口
+    const urlObj = new URL(envApiUrl);
+    return `${urlObj.protocol}//${urlObj.host}`;
+  }
+  
+  // 如果环境变量是相对路径（如 /api），需要从 CLIENT_URL 获取域名
+  if (envApiUrl && envApiUrl.trim() !== '') {
+    // 从 CLIENT_URL 获取域名，或者根据环境推断
+    const clientUrl = process.env.REACT_APP_CLIENT_URL || 
+                    (process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : 'https://d1kt.cn');
+    
+    // 提取域名部分（去掉 http:// 或 https://）
+    const domain = clientUrl.replace(/^https?:\/\//, '');
+    
+    // 返回基础域名，不包含 API 路径
+    return `https://${domain}`;
+  }
+  
+  // 根据环境返回合适的默认值
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:5001';
+  } else {
+    // 生产环境：使用配置的域名
+    return 'https://d1kt.cn';
+  }
+};
+
+const getWebSocketPath = () => {
+  const envApiUrl = process.env.REACT_APP_API_BASE_URL;
+  
+  if (!envApiUrl || envApiUrl.trim() === '') {
+    return '/socket.io';
+  }
+  
+  // 如果是完整 URL，检查是否包含路径
+  if (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://')) {
+    const urlObj = new URL(envApiUrl);
+    // 如果原始 URL 包含路径，将其作为前缀
+    if (urlObj.pathname && urlObj.pathname !== '/') {
+      return `${urlObj.pathname}/socket.io`;
+    }
+  }
+  
+  // 如果是相对路径（如 /api），将其作为前缀
+  if (envApiUrl.startsWith('/')) {
+    return `${envApiUrl}/socket.io`;
+  }
+  
+  return '/socket.io';
+};
+
+// 建立 WebSocket 连接（按需连接）
+const connectWebSocket = useCallback(() => {
+  return new Promise<Socket>((resolve, reject) => {
+    // 清理现有连接
+    if (socket) {
+      socket.disconnect();
+      setSocket(null);
+    }
+
+    const apiUrl = getWebSocketUrl();
+    const wsPath = getWebSocketPath();
+    console.log('MinesweeperGame WebSocket 连接地址:', apiUrl);
+    console.log('WebSocket 路径:', wsPath);
+    
+    const newSocket = io(apiUrl, {
+      path: wsPath,
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
+
+    newSocket.on('connect', () => {
+      console.log('WebSocket 连接成功');
+      console.log('连接地址:', apiUrl + wsPath);
+      setSocket(newSocket);
+      resolve(newSocket);
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('WebSocket 连接错误:', error);
+      console.error('连接地址:', apiUrl + wsPath);
+      reject(error);
+    });
+
+    newSocket.on('disconnect', (reason) => {
+      console.log('WebSocket 断开连接:', reason);
+    });
+
+    newSocket.on('spectator-suggest', (data) => {
+      // 添加闪烁效果 - 使用函数式更新避免闭包问题
+      setHighlightedCells(prev => {
+        const newHighlighted = [...prev, {
+          row: data.row,
+          col: data.col,
+          timestamp: Date.now()
+        }];
+        
+        // 限制闪烁格子数量，避免过多
+        if (newHighlighted.length > 20) {
+          newHighlighted.shift();
+        }
+        
+        return newHighlighted;
+      });
+    });
+  });
+}, [socket]);
+
+// 初始化游戏
   const initializeGame = useCallback(() => {
     const newBoard: Cell[][] = Array(config.rows)
       .fill(null)
@@ -106,114 +222,7 @@ const MinesweeperGame: React.FC = () => {
     setHighlightedCells([]);
   }, [config]);
 
-  // 初始化 WebSocket 连接 - 只在组件挂载时连接一次
-  useEffect(() => {
-    // 构建 WebSocket URL，处理各种环境配置
-    const getWebSocketUrl = () => {
-      const envApiUrl = process.env.REACT_APP_API_BASE_URL;
-      
-      // 如果环境变量是完整的 URL（包含协议），提取协议和域名部分作为基础 URL
-      if (envApiUrl && (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://'))) {
-        // 解析 URL，提取协议、主机和端口
-        const urlObj = new URL(envApiUrl);
-        return `${urlObj.protocol}//${urlObj.host}`;
-      }
-      
-      // 如果环境变量是相对路径（如 /api），需要从 CLIENT_URL 获取域名
-      if (envApiUrl && envApiUrl.trim() !== '') {
-        // 从 CLIENT_URL 获取域名，或者根据环境推断
-        const clientUrl = process.env.REACT_APP_CLIENT_URL || 
-                        (process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : 'https://d1kt.cn');
-        
-        // 提取域名部分（去掉 http:// 或 https://）
-        const domain = clientUrl.replace(/^https?:\/\//, '');
-        
-        // 返回基础域名，不包含 API 路径
-        return `https://${domain}`;
-      }
-      
-      // 根据环境返回合适的默认值
-      if (process.env.NODE_ENV === 'development') {
-        return 'http://localhost:5001';
-      } else {
-        // 生产环境：使用配置的域名
-        return 'https://d1kt.cn';
-      }
-    };
-    
-    const getWebSocketPath = () => {
-      const envApiUrl = process.env.REACT_APP_API_BASE_URL;
-      
-      if (!envApiUrl || envApiUrl.trim() === '') {
-        return '/socket.io';
-      }
-      
-      // 如果是完整 URL，检查是否包含路径
-      if (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://')) {
-        const urlObj = new URL(envApiUrl);
-        // 如果原始 URL 包含路径，将其作为前缀
-        if (urlObj.pathname && urlObj.pathname !== '/') {
-          return `${urlObj.pathname}/socket.io`;
-        }
-      }
-      
-      // 如果是相对路径（如 /api），将其作为前缀
-      if (envApiUrl.startsWith('/')) {
-        return `${envApiUrl}/socket.io`;
-      }
-      
-      return '/socket.io';
-    };
-    
-    const apiUrl = getWebSocketUrl();
-    const wsPath = getWebSocketPath();
-    console.log('MinesweeperGame WebSocket 连接地址:', apiUrl);
-    console.log('WebSocket 路径:', wsPath);
-    
-    const newSocket = io(apiUrl, {
-      path: wsPath,
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000
-    });
-
-    newSocket.on('connect', () => {
-      console.log('WebSocket 连接成功');
-    });
-
-    newSocket.on('connect_error', (error) => {
-      console.error('WebSocket 连接错误:', error);
-    });
-
-    newSocket.on('disconnect', (reason) => {
-      console.log('WebSocket 断开连接:', reason);
-    });
-
-    newSocket.on('spectator-suggest', (data) => {
-      // 添加闪烁效果
-      const newHighlighted = [...highlightedCells, {
-        row: data.row,
-        col: data.col,
-        timestamp: Date.now()
-      }];
-      
-      // 限制闪烁格子数量，避免过多
-      if (newHighlighted.length > 20) {
-        newHighlighted.shift();
-      }
-      
-      setHighlightedCells(newHighlighted);
-    });
-
-    setSocket(newSocket);
-
-    // 组件卸载时清理
-    return () => {
-      newSocket.disconnect();
-    };
-  }, []); // 空依赖数组，只在挂载时执行
-
+ 
   // 生成固定的房间ID（基于难度和用户）
   const generateFixedRoomId = useCallback(() => {
     const userId = localStorage.getItem('userId') || 'anonymous';
@@ -231,82 +240,70 @@ const MinesweeperGame: React.FC = () => {
     return Math.abs(hash).toString(36).substr(0, 8).toUpperCase();
   }, [difficulty]);
 
-  // 创建或加入游戏房间（固定房间ID）
-  const createRoom = useCallback(() => {
-    if (!socket) return;
-    
-    // 生成固定房间ID
-    const fixedRoomId = generateFixedRoomId();
-    
-    // 检查是否已经在房间中
-    if (roomId === fixedRoomId) {
-      // 已经在房间中，直接显示二维码
-      const roomUrl = `${window.location.origin}/spectate/${fixedRoomId}`;
-      QRCode.toDataURL(roomUrl, { width: 256 })
-        .then(setQrCodeUrl)
-        .catch(err => console.error('生成二维码失败:', err));
-      setShowQRDialog(true);
-      return;
-    }
-    
-    // 创建固定房间
-    socket.emit('create-room', { 
-      roomId: fixedRoomId, // 指定固定房间ID
-      difficulty 
-    });
-    
-    socket.on('room-created', (data) => {
-      const roomId = data.roomId;
-      setRoomId(roomId);
+  // 创建或加入游戏房间（固定房间ID） - 按需连接WebSocket
+  const createRoom = useCallback(async () => {
+    try {
+      // 先建立WebSocket连接（如果尚未连接或需要重新连接）
+      const currentSocket = socket || await connectWebSocket();
       
-      // 保存房间ID到本地存储
-      localStorage.setItem('currentRoomId', roomId);
-      localStorage.setItem('currentRoomDate', new Date().toISOString().slice(0, 10));
+      // 生成固定房间ID
+      const fixedRoomId = generateFixedRoomId();
       
-      // 生成二维码
-      const roomUrl = `${window.location.origin}/spectate/${roomId}`;
-      QRCode.toDataURL(roomUrl, { width: 256 })
-        .then(setQrCodeUrl)
-        .catch(err => console.error('生成二维码失败:', err));
-      
-      setShowQRDialog(true);
-    });
-    
-    // 监听房间已存在的情况
-    socket.on('room-already-exists', (data) => {
-      console.log('房间已存在，加入现有房间:', data.roomId);
-      setRoomId(data.roomId);
-      
-      // 生成二维码
-      const roomUrl = `${window.location.origin}/spectate/${data.roomId}`;
-      QRCode.toDataURL(roomUrl, { width: 256 })
-        .then(setQrCodeUrl)
-        .catch(err => console.error('生成二维码失败:', err));
-      
-      setShowQRDialog(true);
-    });
-    
-  }, [socket, difficulty, roomId, generateFixedRoomId]);
-
-  // 组件加载时检查是否有保存的房间
-  useEffect(() => {
-    const savedRoomId = localStorage.getItem('currentRoomId');
-    const savedDate = localStorage.getItem('currentRoomDate');
-    const today = new Date().toISOString().slice(0, 10);
-    
-    if (savedRoomId && savedDate === today && socket) {
-      // 如果是今天的房间，询问是否重新加入
-      const shouldRejoin = window.confirm(`检测到您今天已有游戏房间 (${savedRoomId})，是否重新加入？`);
-      if (shouldRejoin) {
-        setRoomId(savedRoomId);
-        const roomUrl = `${window.location.origin}/spectate/${savedRoomId}`;
+      // 检查是否已经在房间中
+      if (roomId === fixedRoomId) {
+        // 已经在房间中，直接显示二维码
+        const roomUrl = `${window.location.origin}/spectate/${fixedRoomId}`;
         QRCode.toDataURL(roomUrl, { width: 256 })
           .then(setQrCodeUrl)
           .catch(err => console.error('生成二维码失败:', err));
         setShowQRDialog(true);
+        return;
       }
+      
+      // 创建固定房间
+      currentSocket.emit('create-room', { 
+        roomId: fixedRoomId, // 指定固定房间ID
+        difficulty 
+      });
+      
+      currentSocket.on('room-created', (data) => {
+        const roomId = data.roomId;
+        setRoomId(roomId);
+        
+        // 保存房间ID到本地存储
+        localStorage.setItem('currentRoomId', roomId);
+        localStorage.setItem('currentRoomDate', new Date().toISOString().slice(0, 10));
+        
+        // 生成二维码
+        const roomUrl = `${window.location.origin}/spectate/${roomId}`;
+        QRCode.toDataURL(roomUrl, { width: 256 })
+          .then(setQrCodeUrl)
+          .catch(err => console.error('生成二维码失败:', err));
+        
+        setShowQRDialog(true);
+      });
+      
+      // 监听房间已存在的情况
+      currentSocket.on('room-already-exists', (data) => {
+        console.log('房间已存在，加入现有房间:', data.roomId);
+        setRoomId(data.roomId);
+        
+        // 生成二维码
+        const roomUrl = `${window.location.origin}/spectate/${data.roomId}`;
+        QRCode.toDataURL(roomUrl, { width: 256 })
+          .then(setQrCodeUrl)
+          .catch(err => console.error('生成二维码失败:', err));
+        
+        setShowQRDialog(true);
+      });
+      
+    } catch (error) {
+      console.error('创建房间失败:', error);
+      alert('WebSocket连接失败，请检查网络后重试');
     }
-  }, [socket]);
+  }, [socket, difficulty, roomId, generateFixedRoomId, connectWebSocket]);
+
+  // 组件加载时检查是否有保存的房间 - 已移除自动弹窗，改为按需连接
 
   // 更新游戏状态到 WebSocket
   useEffect(() => {

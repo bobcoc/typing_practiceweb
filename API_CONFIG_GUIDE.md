@@ -227,4 +227,97 @@ https://d1kt.cn/admin
 
 ---
 
+## 🌐 WebSocket 连接配置
+
+### **WebSocket 路径配置**
+
+扫雷游戏的 WebSocket 连接需要正确处理路径前缀，以匹配 Nginx 代理配置：
+
+#### **客户端配置**
+- `REACT_APP_API_BASE_URL`: API 基础地址（如 `/api` 或 `https://d1kt.cn/api`）
+- `REACT_APP_CLIENT_URL`: 客户端域名（如 `https://d1kt.cn`）
+
+#### **服务器端配置**
+- `REACT_APP_API_BASE_URL`: 与客户端相同的环境变量，用于确定 WebSocket 路径前缀
+
+### **配置示例**
+
+#### **开发环境** (`.env`)
+```env
+REACT_APP_API_BASE_URL=http://localhost:5001
+REACT_APP_CLIENT_URL=http://localhost:3001
+```
+
+#### **生产环境** (`.env.production`)
+```env
+REACT_APP_API_BASE_URL=/api
+REACT_APP_CLIENT_URL=https://d1kt.cn
+```
+
+或使用完整 URL：
+```env
+REACT_APP_API_BASE_URL=https://d1kt.cn/api
+REACT_APP_CLIENT_URL=https://d1kt.cn
+```
+
+### **WebSocket 连接流程**
+
+```
+开发环境：
+1. 客户端连接: ws://localhost:5001/socket.io
+2. 服务器监听: /socket.io
+
+生产环境：
+1. 客户端连接: wss://d1kt.cn/api/socket.io
+2. Nginx 代理: location /api/ { proxy_pass http://localhost:5001/; }
+3. 服务器监听: /socket.io
+```
+
+### **Nginx WebSocket 代理配置**
+
+确保 Nginx 配置包含 WebSocket 代理头：
+
+```nginx
+location /api/ {
+    proxy_pass http://localhost:5001/;
+    proxy_http_version 1.1;
+    
+    # WebSocket 代理头
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    
+    # 超时设置
+    proxy_read_timeout 86400;
+    proxy_send_timeout 86400;
+}
+```
+
+### **故障排查**
+
+#### **WebSocket 连接失败**
+1. **检查 Nginx 配置**：确认包含 `Upgrade` 和 `Connection` 头
+2. **检查服务器日志**：查看 Socket.IO 服务器是否启动
+3. **验证环境变量**：确保 `REACT_APP_API_BASE_URL` 正确设置
+
+#### **路径不匹配**
+- 客户端日志显示连接地址：`wss://d1kt.cn/api/socket.io`
+- 服务器日志显示连接日志：`用户连接: [socket-id]`
+
+#### **生产环境验证命令**
+```bash
+# 测试 HTTP 握手
+curl "https://d1kt.cn/api/socket.io/?EIO=4&transport=polling"
+
+# 预期响应：
+# 0{"sid":"xxx","upgrades":["websocket"],"pingInterval":25000,"pingTimeout":20000}
+```
+
+### **已完成的修复**
+1. ✅ 客户端 WebSocket 路径配置 (`getWebSocketPath()`)
+2. ✅ 服务器端 Socket.IO 路径配置 (`getSocketIoPath()`)
+3. ✅ Nginx WebSocket 代理配置示例
+
+---
+
 *最后更新：2025-10-30*

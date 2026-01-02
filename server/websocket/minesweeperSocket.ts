@@ -1,6 +1,10 @@
 // server/websocket/minesweeperSocket.ts
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
+import dotenv from 'dotenv';
+
+// 加载环境变量
+dotenv.config();
 
 interface Cell {
   isMine: boolean;
@@ -22,8 +26,38 @@ interface GameRoom {
 // 存储所有游戏房间
 const gameRooms = new Map<string, GameRoom>();
 
+// 获取 WebSocket 路径前缀 - 与客户端保持一致
+function getSocketIoPath() {
+  const envApiUrl = process.env.REACT_APP_API_BASE_URL;
+  
+  if (!envApiUrl || envApiUrl.trim() === '') {
+    // 如果没有设置环境变量，根据 NODE_ENV 决定
+    return process.env.NODE_ENV === 'production' ? '/api/socket.io' : '/socket.io';
+  }
+  
+  // 如果是完整 URL，检查是否包含路径
+  if (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://')) {
+    const urlObj = new URL(envApiUrl);
+    // 如果原始 URL 包含路径，将其作为前缀
+    if (urlObj.pathname && urlObj.pathname !== '/') {
+      return `${urlObj.pathname}/socket.io`;
+    }
+  }
+  
+  // 如果是相对路径（如 /api），将其作为前缀
+  if (envApiUrl.startsWith('/')) {
+    return `${envApiUrl}/socket.io`;
+  }
+  
+  return '/socket.io';
+}
+
 export function setupMinesweeperSocket(httpServer: HTTPServer) {
+  const socketIoPath = getSocketIoPath();
+  console.log('Socket.IO 路径配置:', socketIoPath);
+  
   const io = new SocketIOServer(httpServer, {
+    path: socketIoPath,
     cors: {
       origin: "*",
       methods: ["GET", "POST"]
