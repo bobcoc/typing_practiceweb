@@ -40,10 +40,15 @@ function getSocketIoPath() {
     return path;
   }
   
-  // 强制生产环境使用双 /api 路径以匹配前端
+  // 根据Nginx转发规则调整生产环境路径
+  // Nginx location /api/ 会去掉前缀，所以 /api/api/socket.io 变成 /api/socket.io
   if (process.env.NODE_ENV === 'production') {
-    console.log('[Socket.IO Path Config] Production mode, forcing double /api path');
-    return '/api/api/socket.io';
+    console.log('[Socket.IO Path Config] Production mode, Nginx forwards /api/* to /*');
+    console.log('[Socket.IO Path Config] Frontend sends: /api/api/socket.io');
+    console.log('[Socket.IO Path Config] Nginx forwards to: /api/socket.io');
+    console.log('[Socket.IO Path Config] Backend should accept: /api/socket.io');
+    // 使用单 /api 路径匹配Nginx转发结果 - 修复路径不匹配问题
+    return '/api/socket.io';
   }
   
   // 如果是完整 URL，检查是否包含路径
@@ -74,8 +79,13 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
   console.log('[Socket.IO] Socket.IO 路径配置:', socketIoPath);
   console.log('[Socket.IO] HTTP Server listening on port:', httpServer.address());
   
+  // Socket.IO的path配置需要规范化（确保一致性）
+  // Socket.IO会自动处理末尾斜杠的变体，所以我们使用基础路径
+  const normalizedPath = socketIoPath.replace(/\/$/, ''); // 移除末尾斜杠
+  console.log('[Socket.IO] 规范化路径用于配置:', normalizedPath);
+  
   const io = new SocketIOServer(httpServer, {
-    path: socketIoPath,
+    path: normalizedPath,
     cors: {
       origin: "*",
       methods: ["GET", "POST"]
@@ -113,18 +123,28 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
     console.log('[Socket.IO] 握手 Host:', socket.handshake.headers.host);
     console.log('[Socket.IO] 配置的 Socket.IO 路径:', socketIoPath);
     
-    // 详细路径分析
+    // 详细路径分析 - 规范化路径比较（处理末尾斜杠差异）
     const reqPath = socket.handshake.url ? socket.handshake.url.split('?')[0] : 'N/A';
-    console.log('[Socket.IO] 请求路径:', reqPath);
-    console.log('[Socket.IO] 路径匹配检查:');
-    console.log('  - 请求路径 === 配置路径:', reqPath === socketIoPath);
-    console.log('  - 请求路径.endsWith(配置路径):', reqPath.endsWith(socketIoPath));
-    console.log('  - 配置路径.endsWith(请求路径):', socketIoPath.endsWith(reqPath));
+    const normalizedReqPath = reqPath.replace(/\/$/, ''); // 移除末尾斜杠
+    const normalizedConfigPath = socketIoPath.replace(/\/$/, ''); // 移除末尾斜杠
     
-    if (reqPath !== socketIoPath) {
+    console.log('[Socket.IO] 路径分析:');
+    console.log('  - 原始请求路径:', reqPath);
+    console.log('  - 规范化请求路径:', normalizedReqPath);
+    console.log('  - 配置路径:', socketIoPath);
+    console.log('  - 规范化配置路径:', normalizedConfigPath);
+    console.log('  - 严格相等:', reqPath === socketIoPath);
+    console.log('  - 规范化后相等:', normalizedReqPath === normalizedConfigPath);
+    console.log('  - 请求路径.endsWith(配置路径):', reqPath.endsWith(socketIoPath));
+    console.log('  - 规范化请求.endsWith(规范化配置):', normalizedReqPath.endsWith(normalizedConfigPath));
+    
+    // 使用规范化路径进行比较
+    if (normalizedReqPath !== normalizedConfigPath) {
       console.warn(`[Socket.IO] ⚠️  警告: 请求路径与配置路径不匹配!`);
-      console.warn(`[Socket.IO]    请求: ${reqPath}`);
-      console.warn(`[Socket.IO]    配置: ${socketIoPath}`);
+      console.warn(`[Socket.IO]    原始请求: ${reqPath}`);
+      console.warn(`[Socket.IO]    规范化请求: ${normalizedReqPath}`);
+      console.warn(`[Socket.IO]    配置路径: ${socketIoPath}`);
+      console.warn(`[Socket.IO]    规范化配置: ${normalizedConfigPath}`);
       console.warn(`[Socket.IO]    差异: ${reqPath.replace(socketIoPath, '【配置路径】')}`);
     }
 

@@ -116,6 +116,7 @@ const getWebSocketPath = () => {
         path: wsPath,
         transports: ['websocket'],
         reconnection: true,
+        upgrade: false,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000
       });
