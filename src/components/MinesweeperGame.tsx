@@ -1022,6 +1022,9 @@ const getWebSocketPath = () => {
             <Typography variant="body1" gutterBottom>
               房间ID: {roomId}
             </Typography>
+            <Typography variant="body1" gutterBottom>
+              二维码URL: {qrCodeUrl}
+            </Typography>
             <img 
               src={qrCodeUrl} 
               alt="扫雷旁观二维码" 
