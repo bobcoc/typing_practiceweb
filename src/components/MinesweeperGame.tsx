@@ -112,12 +112,14 @@ const MinesweeperGame: React.FC = () => {
     const getWebSocketUrl = () => {
       const envApiUrl = process.env.REACT_APP_API_BASE_URL;
       
-      // 如果环境变量是完整的 URL（包含协议），直接使用
+      // 如果环境变量是完整的 URL（包含协议），提取协议和域名部分作为基础 URL
       if (envApiUrl && (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://'))) {
-        return envApiUrl;
+        // 解析 URL，提取协议、主机和端口
+        const urlObj = new URL(envApiUrl);
+        return `${urlObj.protocol}//${urlObj.host}`;
       }
       
-      // 如果环境变量是相对路径（如 /api），需要转换为绝对 URL
+      // 如果环境变量是相对路径（如 /api），需要从 CLIENT_URL 获取域名
       if (envApiUrl && envApiUrl.trim() !== '') {
         // 从 CLIENT_URL 获取域名，或者根据环境推断
         const clientUrl = process.env.REACT_APP_CLIENT_URL || 
@@ -126,8 +128,8 @@ const MinesweeperGame: React.FC = () => {
         // 提取域名部分（去掉 http:// 或 https://）
         const domain = clientUrl.replace(/^https?:\/\//, '');
         
-        // 返回完整的 WebSocket URL，包含 API 路径前缀
-        return `https://${domain}${envApiUrl}`;
+        // 返回基础域名，不包含 API 路径
+        return `https://${domain}`;
       }
       
       // 根据环境返回合适的默认值
@@ -139,10 +141,37 @@ const MinesweeperGame: React.FC = () => {
       }
     };
     
+    const getWebSocketPath = () => {
+      const envApiUrl = process.env.REACT_APP_API_BASE_URL;
+      
+      if (!envApiUrl || envApiUrl.trim() === '') {
+        return '/socket.io';
+      }
+      
+      // 如果是完整 URL，检查是否包含路径
+      if (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://')) {
+        const urlObj = new URL(envApiUrl);
+        // 如果原始 URL 包含路径，将其作为前缀
+        if (urlObj.pathname && urlObj.pathname !== '/') {
+          return `${urlObj.pathname}/socket.io`;
+        }
+      }
+      
+      // 如果是相对路径（如 /api），将其作为前缀
+      if (envApiUrl.startsWith('/')) {
+        return `${envApiUrl}/socket.io`;
+      }
+      
+      return '/socket.io';
+    };
+    
     const apiUrl = getWebSocketUrl();
+    const wsPath = getWebSocketPath();
     console.log('MinesweeperGame WebSocket 连接地址:', apiUrl);
+    console.log('WebSocket 路径:', wsPath);
     
     const newSocket = io(apiUrl, {
+      path: wsPath,
       transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: 5,
