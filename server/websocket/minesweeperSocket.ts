@@ -83,15 +83,6 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
   console.log('[Socket.IO] 支持的可能路径:', possiblePaths);
   console.log('[Socket.IO] HTTP Server listening on port:', httpServer.address());
   
-  // 创建一个包装的HTTP服务器来处理路径检测
-  const wrappedHttpServer = {
-    on: httpServer.on.bind(httpServer),
-    listen: httpServer.listen.bind(httpServer),
-    close: httpServer.close.bind(httpServer),
-    address: httpServer.address.bind(httpServer)
-  };
-  
-  // 使用第一个路径作为基础配置，但通过中间件处理路径兼容性
   const io = new SocketIOServer(wrappedHttpServer, {
     path: '/api/socket.io', // 使用最常见的路径作为配置
     cors: {
