@@ -54,7 +54,7 @@ function getSocketIoPath() {
 
 export function setupMinesweeperSocket(httpServer: HTTPServer) {
   const socketIoPath = getSocketIoPath();
-  console.log('Socket.IO 路径配置:', socketIoPath);
+  console.log('[Socket.IO] Socket.IO 路径配置:', socketIoPath);
   
   const io = new SocketIOServer(httpServer, {
     path: socketIoPath,
@@ -65,7 +65,17 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
   });
 
   io.on('connection', (socket) => {
-    console.log('用户连接:', socket.id);
+    console.log('[Socket.IO] 用户连接:', socket.id);
+    console.log('[Socket.IO] 握手 URL:', socket.handshake.url);
+    console.log('[Socket.IO] 握手查询参数:', socket.handshake.query);
+    console.log('[Socket.IO] 握手 Origin:', socket.handshake.headers.origin);
+    console.log('[Socket.IO] 配置的 Socket.IO 路径:', socketIoPath);
+    
+    // 检查路径是否匹配
+    const reqPath = socket.handshake.url.split('?')[0];
+    if (reqPath !== socketIoPath) {
+      console.warn(`[Socket.IO] 警告: 请求路径 ${reqPath} 与配置路径 ${socketIoPath} 不一致`);
+    }
 
     // 创建游戏房间（玩家创建）
     socket.on('create-room', (data: { difficulty: string }) => {
@@ -82,7 +92,7 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
       gameRooms.set(roomId, room);
       socket.join(roomId);
       
-      console.log(`房间创建: ${roomId}, 玩家: ${socket.id}`);
+      console.log(`[Socket.IO] 房间创建: ${roomId}, 玩家: ${socket.id}`);
       socket.emit('room-created', { roomId });
     });
 

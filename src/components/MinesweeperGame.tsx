@@ -90,70 +90,89 @@ const getWebSocketUrl = () => {
 
 const getWebSocketPath = () => {
   if (process.env.NODE_ENV === 'development') {
-    return '/api/socket.io';
+    return '/socket.io';
   } else {
     return '/api/api/socket.io'; // 生产环境强制双 /api
   }
 };
 
-// 建立 WebSocket 连接（按需连接）
-const connectWebSocket = useCallback(() => {
-  return new Promise<Socket>((resolve, reject) => {
-    // 清理现有连接
-    if (socket) {
-      socket.disconnect();
-      setSocket(null);
-    }
+  // 建立 WebSocket 连接（按需连接）
+  const connectWebSocket = useCallback(() => {
+    return new Promise<Socket>((resolve, reject) => {
+      // 清理现有连接
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
 
-    const apiUrl = getWebSocketUrl();
-    const wsPath = getWebSocketPath();
-    console.log('MinesweeperGame WebSocket 连接地址:', apiUrl);
-    console.log('WebSocket 路径:', wsPath);
-    
-    const newSocket = io(apiUrl, {
-      path: wsPath,
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000
-    });
+      const apiUrl = getWebSocketUrl();
+      const wsPath = getWebSocketPath();
+      console.log('[Socket.IO] MinesweeperGame WebSocket 连接地址:', apiUrl);
+      console.log('[Socket.IO] WebSocket 路径:', wsPath);
+      const fullUrl = apiUrl + wsPath;
+      console.log('[Socket.IO] 完整连接 URL:', fullUrl);
+      
+      const newSocket = io(apiUrl, {
+        path: wsPath,
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+      });
 
-    newSocket.on('connect', () => {
-      console.log('WebSocket 连接成功');
-      console.log('连接地址:', apiUrl + wsPath);
-      setSocket(newSocket);
-      resolve(newSocket);
-    });
+      newSocket.on('error', (error) => {
+        console.error('[Socket.IO] error 事件:', error);
+      });
 
-    newSocket.on('connect_error', (error) => {
-      console.error('WebSocket 连接错误:', error);
-      console.error('连接地址:', apiUrl + wsPath);
-      reject(error);
-    });
-
-    newSocket.on('disconnect', (reason) => {
-      console.log('WebSocket 断开连接:', reason);
-    });
-
-    newSocket.on('spectator-suggest', (data) => {
-      // 添加闪烁效果 - 使用函数式更新避免闭包问题
-      setHighlightedCells(prev => {
-        const newHighlighted = [...prev, {
-          row: data.row,
-          col: data.col,
-          timestamp: Date.now()
-        }];
-        
-        // 限制闪烁格子数量，避免过多
-        if (newHighlighted.length > 20) {
-          newHighlighted.shift();
+      newSocket.on('connect_error', (error) => {
+        console.error('[Socket.IO] connect_error 事件:', error);
+        console.error('[Socket.IO] 连接地址:', fullUrl);
+        if (error.description) {
+          console.error('[Socket.IO] 错误描述:', error.description);
         }
-        
-        return newHighlighted;
+        if (error.message) {
+          console.error('[Socket.IO] 错误消息:', error.message);
+        }
+        if (error.type) {
+          console.error('[Socket.IO] 错误类型:', error.type);
+        }
+        reject(error);
+      });
+
+      newSocket.on('connect_timeout', (timeout) => {
+        console.error('[Socket.IO] 连接超时:', timeout);
+      });
+
+      newSocket.on('connect', () => {
+        console.log('[Socket.IO] 连接成功');
+        console.log('[Socket.IO] 连接地址:', fullUrl);
+        setSocket(newSocket);
+        resolve(newSocket);
+      });
+
+      newSocket.on('disconnect', (reason) => {
+        console.log('[Socket.IO] 断开连接:', reason);
+      });
+
+      newSocket.on('spectator-suggest', (data) => {
+        // 添加闪烁效果 - 使用函数式更新避免闭包问题
+        setHighlightedCells(prev => {
+          const newHighlighted = [...prev, {
+            row: data.row,
+            col: data.col,
+            timestamp: Date.now()
+          }];
+          
+          // 限制闪烁格子数量，避免过多
+          if (newHighlighted.length > 20) {
+            newHighlighted.shift();
+          }
+          
+          return newHighlighted;
+        });
       });
     });
-  });
-}, [socket]);
+  }, [socket]);
 
 // 初始化游戏
   const initializeGame = useCallback(() => {
