@@ -275,12 +275,10 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
     }
   }, [socket, roomId]);
 
-  const config = getDifficultyConfig();
-
   return (
     <Box sx={{ padding: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Typography variant="h6" gutterBottom>
-        旁观房间: {roomId} | 难度: {config.label}
+        旁观房间: {roomId} | 难度: {getDifficultyConfig().label}
       </Typography>
       
       {/* 房间信息显示 */}
