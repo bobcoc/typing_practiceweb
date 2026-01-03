@@ -968,6 +968,12 @@ const validateCustomConfig = (config: CustomConfig): string => {
 
   // 保存游戏记录
   const saveGameRecord = async (won: boolean) => {
+    // 满屏和自定义模式不记录成绩
+    if (difficulty === 'fullscreen' || difficulty === 'custom') {
+      console.log('满屏或自定义模式，不保存记录');
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -1103,10 +1109,19 @@ const validateCustomConfig = (config: CustomConfig): string => {
     if (roomId && socket) {
       console.log(`难度变更为 ${difficulty}，通知旁观者`);
       
-      // 发送难度更新事件给服务器
+      // 获取当前配置信息，用于旁观者显示
+      const currentConfig = getCurrentConfig();
+      
+      // 发送难度更新事件给服务器，包含完整的配置信息
       socket.emit('update-difficulty', { 
         roomId, 
-        difficulty 
+        difficulty,
+        config: {
+          rows: currentConfig.rows,
+          cols: currentConfig.cols,
+          mines: currentConfig.mines,
+          label: currentConfig.label
+        }
       });
     }
   }, [difficulty, roomId, socket]);

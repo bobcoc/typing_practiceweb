@@ -131,8 +131,9 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
 
     // 接收难度更新
     newSocket.on('difficulty-updated', (data) => {
-      console.log('收到难度更新:', data.difficulty);
+      console.log('收到难度更新:', data.difficulty, data.config);
       setDifficulty(data.difficulty);
+      // 如果包含配置信息，可以在这里更新显示
     });
 
     newSocket.on('room-closed', () => {
@@ -158,6 +159,10 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
         return { rows: 16, cols: 30, mines: 99, label: '高级 (16×30, 99雷)' };
       case 'brutal':
         return { rows: 24, cols: 30, mines: 200, label: '残酷 (24×30, 200雷)' };
+      case 'fullscreen':
+        return { rows: 16, cols: 30, mines: 99, label: '满屏 (自适应)' };
+      case 'custom':
+        return { rows: 15, cols: 15, mines: 20, label: '自定义' };
       default:
         return { rows: 9, cols: 9, mines: 10, label: '初级 (9×9, 10雷)' };
     }
@@ -195,17 +200,25 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
     
     // 根据屏幕大小和难度动态调整格子大小
     const getCellSize = () => {
-      if (difficulty === 'brutal') {
+      const config = getDifficultyConfig();
+      const maxWidth = window.innerWidth - 100;
+      const maxHeight = window.innerHeight - 200; // 减少顶部空间，因为不需要菜单
+      
+      if (difficulty === 'fullscreen') {
+        // 满屏模式：固定25px格子大小（与扫雷网页一致）
+        return 25;
+      } else if (difficulty === 'custom') {
+        // 自定义模式：根据棋盘大小自动调整格子大小
+        const cellWidth = Math.min(Math.floor(maxWidth / config.cols), 40);
+        const cellHeight = Math.min(Math.floor(maxHeight / config.rows), 40);
+        return Math.min(cellWidth, cellHeight);
+      } else if (difficulty === 'brutal') {
         // 残酷模式：24×30，需要更小的格子以适应屏幕
-        const maxWidth = window.innerWidth - 100;
-        const maxHeight = window.innerHeight - 200; // 减少顶部空间，因为不需要菜单
         const cellWidth = Math.min(Math.floor(maxWidth / 30), 28);
         const cellHeight = Math.min(Math.floor(maxHeight / 24), 28);
         return Math.min(cellWidth, cellHeight);
       } else if (difficulty === 'expert') {
         // 高级模式：16×30，需要更小的格子以适应屏幕
-        const maxWidth = window.innerWidth - 100;
-        const maxHeight = window.innerHeight - 200;
         const cellWidth = Math.min(Math.floor(maxWidth / 30), 32);
         const cellHeight = Math.min(Math.floor(maxHeight / 16), 32);
         return Math.min(cellWidth, cellHeight);

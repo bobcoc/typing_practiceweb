@@ -259,7 +259,7 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
     });
 
     // 玩家更新难度
-    socket.on('update-difficulty', (data: { roomId: string; difficulty: string }) => {
+    socket.on('update-difficulty', (data: { roomId: string; difficulty: string; config?: any }) => {
       const room = gameRooms.get(data.roomId);
       
       if (!room || room.playerId !== socket.id) {
@@ -267,11 +267,13 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
       }
 
       console.log(`玩家更新难度: 房间 ${data.roomId}, 从 ${room.difficulty} 变更为 ${data.difficulty}`);
+      console.log('配置信息:', data.config);
       room.difficulty = data.difficulty;
       
       // 广播难度更新给房间内所有旁观者
       io.to(data.roomId).emit('difficulty-updated', { 
-        difficulty: data.difficulty 
+        difficulty: data.difficulty,
+        config: data.config // 传递配置信息给旁观者
       });
     });
 
