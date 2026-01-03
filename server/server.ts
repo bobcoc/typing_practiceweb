@@ -204,7 +204,10 @@ const httpServer = createServer({
   ServerResponse: require('http').ServerResponse
 });
 
-// 在HTTP服务器层面添加请求日志
+// 将Express应用挂载到HTTP服务器
+httpServer.on('request', app);
+
+// 在HTTP服务器层面添加请求日志（在Express应用之前）
 httpServer.on('request', (req, res) => {
   console.log('[HTTP Server] >>> RAW HTTP REQUEST <<<');
   console.log('[HTTP Server] Time:', new Date().toISOString());

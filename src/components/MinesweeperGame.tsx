@@ -14,7 +14,8 @@ import {
   Tabs,
   Tab,
   IconButton,
-  Tooltip
+  Tooltip,
+  TextField
 } from '@mui/material';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FlagIcon from '@mui/icons-material/Flag';
@@ -24,13 +25,19 @@ import QRCode from 'qrcode';
 import { io, Socket } from 'socket.io-client';
 import { API_BASE_URL } from '../config';
 
-type Difficulty = 'beginner' | 'intermediate' | 'expert' | 'brutal' | 'fullscreen';
+type Difficulty = 'beginner' | 'intermediate' | 'expert' | 'brutal' | 'fullscreen' | 'custom';
 
 interface DifficultyConfig {
   rows: number;
   cols: number;
   mines: number;
   label: string;
+}
+
+interface CustomConfig {
+  rows: number;
+  cols: number;
+  mines: number;
 }
 
 // 满屏模式棋盘计算函数（基于扫雷网页的算法）
@@ -72,11 +79,42 @@ const calculateFullscreenBoard = (): DifficultyConfig => {
   };
 };
 
+// 从localStorage获取自定义配置（仿照扫雷网页的实现）
+const getCustomConfigFromStorage = (): CustomConfig => {
+  const stored = localStorage.getItem('minesweeper_custom_config');
+  if (stored) {
+    try {
+      const [rowsStr, colsStr, minesStr] = stored.split(';');
+      const rows = parseInt(rowsStr) || 15;
+      const cols = parseInt(colsStr) || 15;
+      const mines = parseInt(minesStr) || 20;
+      
+      // 验证配置的有效性
+      return {
+        rows: Math.max(1, Math.min(rows, 50)),
+        cols: Math.max(1, Math.min(cols, 50)),
+        mines: Math.max(1, Math.min(mines, rows * cols))
+      };
+    } catch (error) {
+      console.error('解析自定义配置失败:', error);
+    }
+  }
+  // 默认配置
+  return { rows: 15, cols: 15, mines: 20 };
+};
+
+// 保存自定义配置到localStorage
+const saveCustomConfigToStorage = (config: CustomConfig) => {
+  const configString = `${config.rows};${config.cols};${config.mines}`;
+  localStorage.setItem('minesweeper_custom_config', configString);
+};
+
 const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
   beginner: { rows: 9, cols: 9, mines: 10, label: '初级 (9×9, 10雷)' },
   intermediate: { rows: 16, cols: 16, mines: 40, label: '中级 (16×16, 40雷)' },
   expert: { rows: 16, cols: 30, mines: 99, label: '高级 (16×30, 99雷)' },
-  brutal: { rows: 24, cols: 30, mines: 200, label: '残酷 (24×30, 200雷)' }
+  brutal: { rows: 24, cols: 30, mines: 200, label: '残酷 (24×30, 200雷)' },
+  custom: { rows: 15, cols: 15, mines: 20, label: '自定义 (15×15, 20雷)' } // 默认值，实际使用时会动态计算
 };
 
 interface Cell {
@@ -115,8 +153,28 @@ const MinesweeperGame: React.FC = () => {
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [highlightedCells, setHighlightedCells] = useState<HighlightedCell[]>([]); // 需要闪烁的格子
-// 动态获取配置，满屏模式需要实时计算
-const config = difficulty === 'fullscreen' ? calculateFullscreenBoard() : DIFFICULTIES[difficulty];
+  
+  // 自定义模式相关状态
+  const [showCustomDialog, setShowCustomDialog] = useState(false);
+  const [customConfig, setCustomConfig] = useState<CustomConfig>(getCustomConfigFromStorage());
+  const [customInputError, setCustomInputError] = useState<string>('');
+// 动态获取配置，满屏模式和自定义模式需要特殊处理
+const getCurrentConfig = (): DifficultyConfig => {
+  if (difficulty === 'fullscreen') {
+    return calculateFullscreenBoard();
+  } else if (difficulty === 'custom') {
+    return {
+      rows: customConfig.rows,
+      cols: customConfig.cols,
+      mines: customConfig.mines,
+      label: `自定义 (${customConfig.rows}×${customConfig.cols}, ${customConfig.mines}雷)`
+    };
+  } else {
+    return DIFFICULTIES[difficulty];
+  }
+};
+
+const config = getCurrentConfig();
 
 // 构建 WebSocket URL，处理各种环境配置
 const getWebSocketUrl = () => {
@@ -230,10 +288,27 @@ const getWebSocketPath = () => {
     });
   }, [socket]);
 
+// 验证自定义配置
+const validateCustomConfig = (config: CustomConfig): string => {
+  if (config.rows < 1 || config.rows > 50) {
+    return '行数必须在1-50之间';
+  }
+  if (config.cols < 1 || config.cols > 50) {
+    return '列数必须在1-50之间';
+  }
+  if (config.mines < 1) {
+    return '地雷数必须至少为1';
+  }
+  if (config.mines >= config.rows * config.cols) {
+    return '地雷数不能超过总格子数';
+  }
+  return '';
+};
+
 // 初始化游戏
   const initializeGame = useCallback(() => {
-    // 满屏模式每次都需要重新计算棋盘大小
-    const currentConfig = difficulty === 'fullscreen' ? calculateFullscreenBoard() : DIFFICULTIES[difficulty];
+    // 根据难度模式获取当前配置
+    const currentConfig = getCurrentConfig();
     
     const newBoard: Cell[][] = Array(currentConfig.rows)
       .fill(null)
@@ -258,7 +333,7 @@ const getWebSocketPath = () => {
     
     // 清除高亮格子
     setHighlightedCells([]);
-  }, [difficulty]);
+  }, [difficulty, customConfig]);
 
  
   // 生成固定的房间ID（基于难度和用户）
@@ -470,6 +545,11 @@ const getWebSocketPath = () => {
   // 揭开格子
   const revealCell = useCallback((row: number, col: number) => {
     if (gameStatus !== 'playing') return;
+    
+    // 添加边界检查，防止棋盘大小变化导致的访问错误
+    if (!board[row] || !board[row][col]) {
+      return;
+    }
 
     const newBoard = [...board.map(row => [...row])];
     const cell = newBoard[row][col];
@@ -541,6 +621,11 @@ const getWebSocketPath = () => {
   const toggleFlag = useCallback((row: number, col: number, e: React.MouseEvent) => {
     e.preventDefault();
     if (gameStatus !== 'playing' || firstClick) return;
+    
+    // 添加边界检查，防止棋盘大小变化导致的访问错误
+    if (!board[row] || !board[row][col]) {
+      return;
+    }
 
     const newBoard = [...board.map(row => [...row])];
     const cell = newBoard[row][col];
@@ -561,6 +646,11 @@ const getWebSocketPath = () => {
   // 双键同时按下自动揭开功能（弦操作）
   const chordReveal = useCallback((row: number, col: number) => {
     if (gameStatus !== 'playing' || firstClick) return;
+    
+    // 添加边界检查，防止棋盘大小变化导致的访问错误
+    if (!board[row] || !board[row][col]) {
+      return;
+    }
 
     const newBoard = [...board.map(row => [...row])];
     const cell = newBoard[row][col];
@@ -708,6 +798,11 @@ const getWebSocketPath = () => {
 
   // 处理鼠标按下
   const handleMouseDown = useCallback((row: number, col: number, e: React.MouseEvent) => {
+    // 添加边界检查，防止棋盘大小变化导致的访问错误
+    if (!board[row] || !board[row][col]) {
+      return;
+    }
+    
     if (e.button === 0) {
       // 左键
       isMouseDownRef.current.left = true;
@@ -735,6 +830,12 @@ const getWebSocketPath = () => {
 
   // 处理鼠标释放
   const handleMouseUp = useCallback((row: number, col: number, e: React.MouseEvent) => {
+    // 添加边界检查，防止棋盘大小变化导致的访问错误
+    if (!board[row] || !board[row][col]) {
+      setPressedCells(new Set()); // 清除按下效果
+      return;
+    }
+    
     if (e.button === 0) {
       // 左键释放
       setIsMouseDown(prev => ({ ...prev, left: false }));
@@ -947,10 +1048,12 @@ const getWebSocketPath = () => {
   useEffect(() => {
     if (difficulty === 'fullscreen') {
       const handleResize = () => {
-        if (gameStatus === 'playing' && !firstClick) {
-          // 游戏进行中且不是首次点击时，重新初始化适应新窗口大小
+        // 只在游戏未开始（首次点击前）或游戏结束后才重新初始化
+        if (firstClick || gameStatus !== 'playing') {
+          // 游戏未开始或已结束，重新初始化适应新窗口大小
           initializeGame();
         }
+        // 游戏进行中时，不重新初始化，保持当前游戏状态
       };
 
       window.addEventListener('resize', handleResize);
@@ -958,11 +1061,41 @@ const getWebSocketPath = () => {
     }
   }, [difficulty, gameStatus, firstClick, initializeGame]);
 
+  // 处理自定义模式标签点击
+  const handleCustomTabClick = () => {
+    setShowCustomDialog(true);
+  };
+
+  // 应用自定义配置
+  const applyCustomConfig = () => {
+    const error = validateCustomConfig(customConfig);
+    if (error) {
+      setCustomInputError(error);
+      return;
+    }
+    
+    setCustomInputError('');
+    saveCustomConfigToStorage(customConfig);
+    setDifficulty('custom');
+    setShowCustomDialog(false);
+  };
+
+  // 处理自定义配置输入变化
+  const handleCustomInputChange = (field: keyof CustomConfig, value: string) => {
+    const numValue = parseInt(value) || 0;
+    setCustomConfig(prev => ({
+      ...prev,
+      [field]: numValue
+    }));
+  };
+
   // 初始化和难度改变时重置游戏
   useEffect(() => {
-    initializeGame();
-    fetchPersonalBest();
-  }, [difficulty, initializeGame, fetchPersonalBest]);
+    if (difficulty !== 'custom' || !customInputError) {
+      initializeGame();
+      fetchPersonalBest();
+    }
+  }, [difficulty, initializeGame, fetchPersonalBest, customConfig, customInputError]);
 
   // 难度变更时通知旁观者（使用 useLayoutEffect 确保在棋盘更新前发送）
   useEffect(() => {
@@ -991,6 +1124,14 @@ const getWebSocketPath = () => {
       if (difficulty === 'fullscreen') {
         // 满屏模式：固定25px格子大小（与扫雷网页一致）
         return 25;
+      } else if (difficulty === 'custom') {
+        // 自定义模式：根据棋盘大小自动调整格子大小
+        const currentConfig = getCurrentConfig();
+        const maxWidth = window.innerWidth - 100;
+        const maxHeight = window.innerHeight - 400;
+        const cellWidth = Math.min(Math.floor(maxWidth / currentConfig.cols), 40);
+        const cellHeight = Math.min(Math.floor(maxHeight / currentConfig.rows), 40);
+        return Math.min(cellWidth, cellHeight);
       } else if (difficulty === 'brutal') {
         // 残酷模式：24×30，需要更小的格子以适应屏幕
         const maxWidth = window.innerWidth - 100;
@@ -1024,7 +1165,7 @@ const getWebSocketPath = () => {
       alignItems: 'center',
       justifyContent: 'center',
       cursor: gameStatus === 'playing' ? 'pointer' : 'default',
-      fontSize: difficulty === 'fullscreen' ? '12px' : difficulty === 'brutal' ? '10px' : difficulty === 'expert' ? '12px' : '14px',
+      fontSize: difficulty === 'fullscreen' || difficulty === 'custom' ? '12px' : difficulty === 'brutal' ? '10px' : difficulty === 'expert' ? '12px' : '14px',
       fontWeight: 'bold',
       userSelect: 'none',
       transition: 'all 0.05s ease' // 添加平滑过渡
@@ -1090,7 +1231,13 @@ const getWebSocketPath = () => {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
         <Tabs
           value={difficulty}
-          onChange={(_, newValue) => setDifficulty(newValue as Difficulty)}
+          onChange={(_, newValue) => {
+            if (newValue === 'custom') {
+              handleCustomTabClick();
+            } else {
+              setDifficulty(newValue as Difficulty);
+            }
+          }}
           centered
           textColor="primary"
           indicatorColor="primary"
@@ -1100,6 +1247,7 @@ const getWebSocketPath = () => {
           <Tab value="expert" label={DIFFICULTIES.expert.label} />
           <Tab value="brutal" label={DIFFICULTIES.brutal.label} />
           <Tab value="fullscreen" label="满屏 (自适应)" />
+          <Tab value="custom" label={difficulty === 'custom' ? getCurrentConfig().label : "自定义"} />
         </Tabs>
       </Box>
           
@@ -1253,7 +1401,7 @@ const getWebSocketPath = () => {
           </DialogTitle>
           <DialogContent>
             <Typography>
-              难度: {difficulty === 'fullscreen' ? calculateFullscreenBoard().label : DIFFICULTIES[difficulty].label}
+              难度: {getCurrentConfig().label}
             </Typography>
             <Typography>
               用时: {formatTime(timer)}
@@ -1267,6 +1415,64 @@ const getWebSocketPath = () => {
           <DialogActions>
             <Button onClick={() => setShowResultDialog(false)}>关闭</Button>
             <Button onClick={initializeGame} variant="contained">再来一局</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* 自定义配置对话框 */}
+        <Dialog open={showCustomDialog} onClose={() => setShowCustomDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>自定义扫雷配置</DialogTitle>
+          <DialogContent>
+            <Box display="flex" flexDirection="column" gap={2} p={1}>
+              <Box display="flex" alignItems="center" gap={2}>
+                <Typography width={80}>行数:</Typography>
+                <TextField
+                  type="number"
+                  size="small"
+                  value={customConfig.rows}
+                  onChange={(e) => handleCustomInputChange('rows', e.target.value)}
+                  inputProps={{ min: 1, max: 50 }}
+                  fullWidth
+                />
+              </Box>
+              
+              <Box display="flex" alignItems="center" gap={2}>
+                <Typography width={80}>列数:</Typography>
+                <TextField
+                  type="number"
+                  size="small"
+                  value={customConfig.cols}
+                  onChange={(e) => handleCustomInputChange('cols', e.target.value)}
+                  inputProps={{ min: 1, max: 50 }}
+                  fullWidth
+                />
+              </Box>
+              
+              <Box display="flex" alignItems="center" gap={2}>
+                <Typography width={80}>地雷数:</Typography>
+                <TextField
+                  type="number"
+                  size="small"
+                  value={customConfig.mines}
+                  onChange={(e) => handleCustomInputChange('mines', e.target.value)}
+                  inputProps={{ min: 1 }}
+                  fullWidth
+                />
+              </Box>
+              
+              {customInputError && (
+                <Typography color="error" variant="body2">
+                  {customInputError}
+                </Typography>
+              )}
+              
+              <Typography variant="body2" color="textSecondary">
+                总格子数: {customConfig.rows * customConfig.cols}，当前地雷占比: {((customConfig.mines / (customConfig.rows * customConfig.cols)) * 100).toFixed(1)}%
+              </Typography>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowCustomDialog(false)}>取消</Button>
+            <Button onClick={applyCustomConfig} variant="contained">开始游戏</Button>
           </DialogActions>
         </Dialog>
 
