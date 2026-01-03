@@ -59,7 +59,9 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
     
     const getWebSocketPath = () => {
       const envApiUrl = process.env.REACT_APP_API_BASE_URL;
-      
+      if (process.env.NODE_ENV === 'development') {
+        return '/socket.io';
+      }
       if (!envApiUrl || envApiUrl.trim() === '') {
         return '/api/socket.io';
       }

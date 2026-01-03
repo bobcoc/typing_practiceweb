@@ -84,7 +84,7 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
   console.log('[Socket.IO] HTTP Server listening on port:', httpServer.address());
   
   const io = new SocketIOServer(httpServer, {
-    path: '/api/socket.io', // 使用最常见的路径作为配置
+    path: socketIoPath, // 使用最常见的路径作为配置
     cors: {
       origin: "*",
       methods: ["GET", "POST"]
