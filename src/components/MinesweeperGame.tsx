@@ -24,7 +24,7 @@ import QRCode from 'qrcode';
 import { io, Socket } from 'socket.io-client';
 import { API_BASE_URL } from '../config';
 
-type Difficulty = 'beginner' | 'intermediate' | 'expert' | 'brutal';
+type Difficulty = 'beginner' | 'intermediate' | 'expert' | 'brutal' | 'fullscreen';
 
 interface DifficultyConfig {
   rows: number;
@@ -32,6 +32,45 @@ interface DifficultyConfig {
   mines: number;
   label: string;
 }
+
+// 满屏模式棋盘计算函数（基于扫雷网页的算法）
+const calculateFullscreenBoard = (): DifficultyConfig => {
+  // 获取浏览器窗口尺寸（减去的边距与扫雷网页一致）
+  const windowWidth = document.body.clientWidth;
+  const windowHeight = document.body.clientHeight;
+  
+  // 计算格子数量（每个格子25px，减去固定边距）
+  const cols = Math.floor((windowWidth - 18) / 25);  // 宽度格子数 = (窗口宽 - 18) / 25
+  const rows = Math.floor((windowHeight - 54) / 25); // 高度格子数 = (窗口高 - 54) / 25
+  
+  // 限制最小和最大尺寸，确保游戏可玩性
+  const finalCols = Math.max(10, Math.min(cols, 50));
+  const finalRows = Math.max(8, Math.min(rows, 40));
+  
+  const totalCells = finalCols * finalRows;
+  
+  // 雷数计算算法（与扫雷网页完全一致）
+  let mines: number;
+  if (totalCells >= 480) {
+    // 大棋盘：雷数 = 总格子数 × 0.20625（约20.625%）
+    mines = Math.floor(totalCells * 0.20625);
+  } else {
+    // 小棋盘：雷数 = 总格子数²/5760 + 总格子数/8
+    mines = Math.floor((totalCells * totalCells) / 5760 + totalCells / 8);
+  }
+  
+  // 确保雷数合理（最少10个，最多不超过总格子的35%）
+  const minMines = 10;
+  const maxMines = Math.floor(totalCells * 0.35);
+  const finalMines = Math.max(minMines, Math.min(mines, maxMines));
+  
+  return {
+    rows: finalRows,
+    cols: finalCols,
+    mines: finalMines,
+    label: `满屏 (${finalRows}×${finalCols}, ${finalMines}雷)`
+  };
+};
 
 const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
   beginner: { rows: 9, cols: 9, mines: 10, label: '初级 (9×9, 10雷)' },
@@ -76,7 +115,8 @@ const MinesweeperGame: React.FC = () => {
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [highlightedCells, setHighlightedCells] = useState<HighlightedCell[]>([]); // 需要闪烁的格子
-const config = DIFFICULTIES[difficulty];
+// 动态获取配置，满屏模式需要实时计算
+const config = difficulty === 'fullscreen' ? calculateFullscreenBoard() : DIFFICULTIES[difficulty];
 
 // 构建 WebSocket URL，处理各种环境配置
 const getWebSocketUrl = () => {
@@ -192,10 +232,13 @@ const getWebSocketPath = () => {
 
 // 初始化游戏
   const initializeGame = useCallback(() => {
-    const newBoard: Cell[][] = Array(config.rows)
+    // 满屏模式每次都需要重新计算棋盘大小
+    const currentConfig = difficulty === 'fullscreen' ? calculateFullscreenBoard() : DIFFICULTIES[difficulty];
+    
+    const newBoard: Cell[][] = Array(currentConfig.rows)
       .fill(null)
       .map(() =>
-        Array(config.cols)
+        Array(currentConfig.cols)
           .fill(null)
           .map(() => ({
             isMine: false,
@@ -207,7 +250,7 @@ const getWebSocketPath = () => {
 
     setBoard(newBoard);
     setGameStatus('playing');
-    setFlagsLeft(config.mines);
+    setFlagsLeft(currentConfig.mines);
     setTimer(0);
     setIsTimerRunning(false);
     setFirstClick(true);
@@ -215,7 +258,7 @@ const getWebSocketPath = () => {
     
     // 清除高亮格子
     setHighlightedCells([]);
-  }, [config]);
+  }, [difficulty]);
 
  
   // 生成固定的房间ID（基于难度和用户）
@@ -900,6 +943,21 @@ const getWebSocketPath = () => {
     return () => clearInterval(interval);
   }, [isTimerRunning]);
 
+  // 满屏模式：监听窗口大小变化
+  useEffect(() => {
+    if (difficulty === 'fullscreen') {
+      const handleResize = () => {
+        if (gameStatus === 'playing' && !firstClick) {
+          // 游戏进行中且不是首次点击时，重新初始化适应新窗口大小
+          initializeGame();
+        }
+      };
+
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, [difficulty, gameStatus, firstClick, initializeGame]);
+
   // 初始化和难度改变时重置游戏
   useEffect(() => {
     initializeGame();
@@ -930,7 +988,10 @@ const getWebSocketPath = () => {
     
     // 根据屏幕大小和难度动态调整格子大小
     const getCellSize = () => {
-      if (difficulty === 'brutal') {
+      if (difficulty === 'fullscreen') {
+        // 满屏模式：固定25px格子大小（与扫雷网页一致）
+        return 25;
+      } else if (difficulty === 'brutal') {
         // 残酷模式：24×30，需要更小的格子以适应屏幕
         const maxWidth = window.innerWidth - 100;
         const maxHeight = window.innerHeight - 400;
@@ -963,7 +1024,7 @@ const getWebSocketPath = () => {
       alignItems: 'center',
       justifyContent: 'center',
       cursor: gameStatus === 'playing' ? 'pointer' : 'default',
-      fontSize: difficulty === 'brutal' ? '10px' : difficulty === 'expert' ? '12px' : '14px',
+      fontSize: difficulty === 'fullscreen' ? '12px' : difficulty === 'brutal' ? '10px' : difficulty === 'expert' ? '12px' : '14px',
       fontWeight: 'bold',
       userSelect: 'none',
       transition: 'all 0.05s ease' // 添加平滑过渡
@@ -1038,6 +1099,7 @@ const getWebSocketPath = () => {
           <Tab value="intermediate" label={DIFFICULTIES.intermediate.label} />
           <Tab value="expert" label={DIFFICULTIES.expert.label} />
           <Tab value="brutal" label={DIFFICULTIES.brutal.label} />
+          <Tab value="fullscreen" label="满屏 (自适应)" />
         </Tabs>
       </Box>
           
@@ -1191,7 +1253,7 @@ const getWebSocketPath = () => {
           </DialogTitle>
           <DialogContent>
             <Typography>
-              难度: {DIFFICULTIES[difficulty].label}
+              难度: {difficulty === 'fullscreen' ? calculateFullscreenBoard().label : DIFFICULTIES[difficulty].label}
             </Typography>
             <Typography>
               用时: {formatTime(timer)}
