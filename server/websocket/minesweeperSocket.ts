@@ -238,6 +238,23 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
       }, 3000);
     });
 
+    // 玩家更新难度
+    socket.on('update-difficulty', (data: { roomId: string; difficulty: string }) => {
+      const room = gameRooms.get(data.roomId);
+      
+      if (!room || room.playerId !== socket.id) {
+        return;
+      }
+
+      console.log(`玩家更新难度: 房间 ${data.roomId}, 从 ${room.difficulty} 变更为 ${data.difficulty}`);
+      room.difficulty = data.difficulty;
+      
+      // 广播难度更新给房间内所有旁观者
+      io.to(data.roomId).emit('difficulty-updated', { 
+        difficulty: data.difficulty 
+      });
+    });
+
     // 断开连接
     socket.on('disconnect', () => {
       console.log('用户断开连接:', socket.id);
