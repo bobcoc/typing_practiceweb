@@ -212,6 +212,26 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
       }
     });
 
+    // 旁观者清除所有高亮
+    socket.on('clear-all-highlights', (data: { roomId: string }) => {
+      const room = gameRooms.get(data.roomId);
+      
+      if (!room || !room.spectators.has(socket.id)) {
+        return;
+      }
+
+      // 清除所有高亮格子
+      room.highlightedCells.clear();
+      
+      // 通知玩家清除所有高亮
+      io.to(room.playerId).emit('clear-all-highlights');
+      
+      // 通知所有旁观者清除所有高亮
+      io.to(data.roomId).emit('clear-all-highlights');
+
+      console.log(`旁观者清除所有高亮: 房间 ${data.roomId}`);
+    });
+
     // 旁观者点击格子
     socket.on('spectator-click', (data: { roomId: string; row: number; col: number }) => {
       const room = gameRooms.get(data.roomId);

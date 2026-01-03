@@ -177,10 +177,14 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
   // 处理点击格子
   const handleCellClick = (row: number, col: number) => {
     // 如果没有 socket，不执行操作（roomId 已经在父组件中验证过）
-    if (!socket || !board[row] || board[row][col].isRevealed || board[row][col].isFlagged) {
-      return; // 只能点击未揭开且未标记的格子
+    if (!socket || !board[row]) {
+      return;
     }
 
+    // 发送清除所有高亮的请求
+    socket.emit('clear-all-highlights', { roomId });
+    
+    // 发送点击事件
     socket.emit('spectator-click', { roomId, row, col });
   };
 

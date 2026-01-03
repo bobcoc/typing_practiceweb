@@ -154,6 +154,22 @@ const getWebSocketPath = () => {
         console.log('[Socket.IO] 断开连接:', reason);
       });
 
+      newSocket.on('clear-all-highlights', () => {
+        // 清除所有高亮格子
+        setHighlightedCells([]);
+      });
+
+      newSocket.on('game-state', (data) => {
+        // 从服务器接收高亮格子信息并同步显示
+        if (data.highlightedCells && Array.isArray(data.highlightedCells)) {
+          const newHighlightedCells = data.highlightedCells.map(cellKey => {
+            const [row, col] = cellKey.split(',').map(Number);
+            return { row, col, timestamp: Date.now() };
+          });
+          setHighlightedCells(newHighlightedCells);
+        }
+      });
+
       newSocket.on('spectator-suggest', (data) => {
         // 添加闪烁效果 - 使用函数式更新避免闭包问题
         setHighlightedCells(prev => {
@@ -656,9 +672,13 @@ const getWebSocketPath = () => {
         const newState = { ...prev, left: true };
         return newState;
       });
-      // 如果右键也已经按下，显示按下效果
-      if (isMouseDownRef.current.right) {
-        updatePressedCells(row, col);
+      // 左键单击直接执行弦操作
+      if (gameStatus === 'playing' && !firstClick) {
+        const cell = board[row][col];
+        // 只有已揭开且有数字的格子才能进行弦操作
+        if (cell.isRevealed && cell.neighborMines > 0) {
+          chordReveal(row, col);
+        }
       }
     } else if (e.button === 2) {
       // 右键
@@ -667,42 +687,36 @@ const getWebSocketPath = () => {
         const newState = { ...prev, right: true };
         return newState;
       });
-      // 如果左键也已经按下，显示按下效果
-      if (isMouseDownRef.current.left) {
-        updatePressedCells(row, col);
-      }
     }
-  }, [updatePressedCells]);
+  }, [updatePressedCells, gameStatus, firstClick, board, chordReveal]);
 
   // 处理鼠标释放
   const handleMouseUp = useCallback((row: number, col: number, e: React.MouseEvent) => {
-    const wasLeftDown = isMouseDown.left;
-    const wasRightDown = isMouseDown.right;
-
     if (e.button === 0) {
       // 左键释放
       setIsMouseDown(prev => ({ ...prev, left: false }));
       
-      // 如果右键也按下，执行弦操作
-      if (wasRightDown) {
-        chordReveal(row, col);
-      } else {
-        // 普通左键点击
-        revealCell(row, col);
+      // 普通左键点击（如果之前没有执行弦操作）
+      if (gameStatus === 'playing') {
+        const cell = board[row][col];
+        // 如果格子不是已揭开的数字格子，执行普通左键操作
+        if (!cell.isRevealed || cell.neighborMines === 0) {
+          revealCell(row, col);
+        }
       }
     } else if (e.button === 2) {
       // 右键释放
       setIsMouseDown(prev => ({ ...prev, right: false }));
       
-      // 如果左键也按下，执行弦操作
-      if (wasLeftDown) {
-        chordReveal(row, col);
+      // 右键点击插旗
+      if (gameStatus === 'playing' && !firstClick) {
+        toggleFlag(row, col, e);
       }
     }
     
     // 清除按下效果
     setPressedCells(new Set());
-  }, [isMouseDown, chordReveal, revealCell]);
+  }, [gameStatus, board, revealCell, firstClick, toggleFlag]);
 
   // 全局鼠标释放监听（防止鼠标离开格子后释放）
   useEffect(() => {
@@ -718,13 +732,13 @@ const getWebSocketPath = () => {
     };
   }, []);
 
-  // 键盘事件监听（空格键触发弦操作，B键标记，C键打开）
+  // 键盘事件监听（D键触发弦操作，B键标记，C键打开）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!hoverCell) return;
 
-      // 空格键触发弦操作
-      if (e.code === 'Space' && gameStatus === 'playing' && !firstClick && !isSpacePressed) {
+      // D键触发弦操作
+      if ((e.key === 'd' || e.key === 'D') && gameStatus === 'playing' && !firstClick && !isSpacePressed) {
         e.preventDefault(); // 防止页面滚动
         setIsSpacePressed(true);
         // 显示按下效果
@@ -746,7 +760,7 @@ const getWebSocketPath = () => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && isSpacePressed && hoverCell) {
+      if ((e.key === 'd' || e.key === 'D') && isSpacePressed && hoverCell) {
         e.preventDefault();
         setIsSpacePressed(false);
         // 执行弦操作
@@ -955,6 +969,16 @@ const getWebSocketPath = () => {
       transition: 'all 0.05s ease' // 添加平滑过渡
     };
 
+    // 闪烁效果（优先于其他状态显示）
+    if (isHighlighted) {
+      return { 
+        ...baseStyle, 
+        backgroundColor: '#ff6b6b', // 红色高亮
+        animation: 'pulse 1s infinite',
+        zIndex: 10
+      };
+    }
+
     if (cell.isRevealed) {
       if (cell.isMine) {
         // 未标记的地雷：红色背景，已标记的地雷：灰色背景
@@ -971,16 +995,6 @@ const getWebSocketPath = () => {
 
     if (cell.isFlagged) {
       return { ...baseStyle, backgroundColor: '#fff', color: '#ff0000' };
-    }
-
-    // 闪烁效果
-    if (isHighlighted) {
-      return { 
-        ...baseStyle, 
-        backgroundColor: '#ff6b6b', // 红色高亮
-        animation: 'pulse 1s infinite',
-        zIndex: 10
-      };
     }
 
     // 按下效果：显示为浅灰色，模拟经典扫雷的按下效果
@@ -1206,15 +1220,15 @@ const getWebSocketPath = () => {
                 • 数字表示周围8个格子中地雷的数量
               </Typography>
               <Typography variant="body2" paragraph>
-                • 键盘快捷键：B键标记/取消标记，C键打开方块
+                • 键盘快捷键：B键标记/取消标记，C键打开方块，D键弦操作
               </Typography>
             </Grid>
             <Grid item xs={12} md={4}>
               <Typography variant="body2" paragraph>
-                • 在已揭开的数字格上同时按下左右键，如果旗帜数量等于数字，自动揭开周围格子
+                • 在已揭开的数字格上左键单击，如果旗帜数量等于数字，自动揭开周围格子（弦操作）
               </Typography>
               <Typography variant="body2" paragraph>
-                • 按下空格键相当于在鼠标位置同时按下双键，方便左右手配合操作
+                • 按下D键相当于在鼠标位置执行弦操作，方便单手操作
               </Typography>
             </Grid>
             <Grid item xs={12} md={4}>
