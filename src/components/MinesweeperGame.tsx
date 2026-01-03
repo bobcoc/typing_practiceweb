@@ -819,7 +819,7 @@ const validateCustomConfig = (config: CustomConfig): string => {
         }
       }
     } else if (e.button === 2) {
-      // 右键
+      // 右键 - 只更新鼠标状态，标雷操作由 onContextMenu 处理
       isMouseDownRef.current.right = true;
       setIsMouseDown(prev => {
         const newState = { ...prev, right: true };
@@ -849,18 +849,13 @@ const validateCustomConfig = (config: CustomConfig): string => {
         }
       }
     } else if (e.button === 2) {
-      // 右键释放
+      // 右键释放 - 只更新鼠标状态，不执行标雷操作（已在按下时执行）
       setIsMouseDown(prev => ({ ...prev, right: false }));
-      
-      // 右键点击插旗
-      if (gameStatus === 'playing' && !firstClick) {
-        toggleFlag(row, col, e);
-      }
     }
     
     // 清除按下效果
     setPressedCells(new Set());
-  }, [gameStatus, board, revealCell, firstClick, toggleFlag]);
+  }, [gameStatus, board, revealCell, firstClick]);
 
   // 全局鼠标释放监听（防止鼠标离开格子后释放）
   useEffect(() => {
