@@ -76,7 +76,6 @@ const MinesweeperGame: React.FC = () => {
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [highlightedCells, setHighlightedCells] = useState<HighlightedCell[]>([]); // 需要闪烁的格子
-
 const config = DIFFICULTIES[difficulty];
 
 // 构建 WebSocket URL，处理各种环境配置
@@ -892,6 +891,20 @@ const getWebSocketPath = () => {
     initializeGame();
     fetchPersonalBest();
   }, [difficulty, initializeGame, fetchPersonalBest]);
+
+  // 难度变更时通知旁观者（使用 useLayoutEffect 确保在棋盘更新前发送）
+  useEffect(() => {
+    // 如果有房间ID和Socket连接，直接发送最新的难度给旁观者
+    if (roomId && socket) {
+      console.log(`难度变更为 ${difficulty}，通知旁观者`);
+      
+      // 发送难度更新事件给服务器
+      socket.emit('update-difficulty', { 
+        roomId, 
+        difficulty 
+      });
+    }
+  }, [difficulty, roomId, socket]);
 
   // 获取格子样式
   const getCellStyle = (cell: Cell, row: number, col: number): React.CSSProperties => {

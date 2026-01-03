@@ -129,6 +129,12 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
       }
     });
 
+    // 接收难度更新
+    newSocket.on('difficulty-updated', (data) => {
+      console.log('收到难度更新:', data.difficulty);
+      setDifficulty(data.difficulty);
+    });
+
     newSocket.on('room-closed', () => {
       setConnectionStatus('房间已关闭');
     });
