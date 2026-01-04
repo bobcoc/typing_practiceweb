@@ -154,9 +154,6 @@ const MinesweeperGame: React.FC = () => {
   const boardRef = useRef<Cell[][]>([]);
   const gameStatusRef = useRef<'waiting' | 'playing' | 'won' | 'lost'>('playing');
   const firstClickRef = useRef(true);
-  const chordRevealRef = useRef<(row: number, col: number) => void>();
-  const revealCellRef = useRef<(row: number, col: number) => void>();
-  const toggleFlagRef = useRef<(row: number, col: number, e: React.MouseEvent) => void>();
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [highlightedCells, setHighlightedCells] = useState<HighlightedCell[]>([]); // 需要闪烁的格子
@@ -291,7 +288,7 @@ const getWebSocketPath = () => {
       });
 
       newSocket.on('game-state', (data) => {
-        // 从服务器接收高亮格子信息并同步显示
+        // 从服务器接收高亮格子信息和难度信息并同步显示
         if (data.highlightedCells && Array.isArray(data.highlightedCells)) {
           const newHighlightedCells = data.highlightedCells.map(cellKey => {
             const [row, col] = cellKey.split(',').map(Number);
@@ -299,6 +296,17 @@ const getWebSocketPath = () => {
           });
           setHighlightedCells(newHighlightedCells);
         }
+        // 更新难度（当房主切换难度时）
+        if (data.difficulty && data.difficulty !== difficulty) {
+          console.log('[玩家端日志] 收到难度更新:', data.difficulty);
+          setDifficulty(data.difficulty);
+        }
+      });
+
+      // 接收难度更新
+      newSocket.on('difficulty-updated', (data) => {
+        console.log('[玩家端日志] 收到难度更新:', data.difficulty);
+        setDifficulty(data.difficulty);
       });
 
       newSocket.on('spectator-suggest', (data) => {
@@ -379,7 +387,31 @@ const getWebSocketPath = () => {
           console.log('[玩家端日志] ✅ 执行reveal操作');
           // 检查游戏状态和 firstClick
           if (currentGameStatus === 'playing' && !currentFirstClick && currentBoard[data.row] && currentBoard[data.row][data.col]) {
-            revealCellRef.current?.(data.row, data.col);
+            const newBoard = [...boardRef.current.map(r => [...r])];
+            const cell = newBoard[data.row][data.col];
+            if (cell.isFlagged) {
+              console.log('[玩家端日志] ❌ 格子已标记，不能揭开');
+            } else if (cell.isRevealed) {
+              console.log('[玩家端日志] ❌ 格子已揭开');
+            } else {
+              if (cell.isMine) {
+                cell.isRevealed = true;
+                cell.isExploded = true;
+                setBoard(newBoard);
+                socket?.emit('board-update', newBoard, roomIdRef.current);
+                setGameStatus('lost');
+                setIsTimerRunning(false);
+                setShowResultDialog(true);
+                saveGameRecord(false);
+                revealAllMines(newBoard);
+              } else {
+                // 简单揭开单格（不处理递归空白区域，如需递归可扩展）
+                cell.isRevealed = true;
+                setBoard(newBoard);
+                socket?.emit('board-update', newBoard, roomIdRef.current);
+                checkWin(newBoard);
+              }
+            }
           } else {
             console.log('[玩家端日志] ❌ reveal操作条件不满足:', { currentGameStatus, currentFirstClick, boardSize: `${currentBoard.length}x${currentBoard[0]?.length}`, coordinates: `${data.row},${data.col}` });
           }
@@ -388,17 +420,139 @@ const getWebSocketPath = () => {
           console.log('[玩家端日志] ✅ 执行flag操作');
           // 检查游戏状态和 firstClick
           if (currentGameStatus === 'playing' && !currentFirstClick && currentBoard[data.row] && currentBoard[data.row][data.col]) {
-            const mockEvent = { preventDefault: () => {} } as React.MouseEvent;
-            toggleFlagRef.current?.(data.row, data.col, mockEvent);
+            const newBoard = [...boardRef.current.map(r => [...r])];
+            const cell = newBoard[data.row][data.col];
+            if (cell.isRevealed) {
+              console.log('[玩家端日志] ❌ 已揭开的格子不能标记');
+            } else {
+              cell.isFlagged = !cell.isFlagged;
+              setBoard(newBoard);
+              socket?.emit('board-update', newBoard, roomIdRef.current);
+            }
           } else {
             console.log('[玩家端日志] ❌ flag操作条件不满足:', { currentGameStatus, currentFirstClick });
           }
-        } else if (data.action === 'chord') {
-          // 旁观者执行弦操作
-          console.log('[玩家端日志] ✅ 执行chord操作');
-          // 检查游戏状态和 firstClick，使用 ref 中的最新值
-          if (currentGameStatus === 'playing' && !currentFirstClick && currentBoard[data.row] && currentBoard[data.row][data.col]) {
-            chordRevealRef.current?.(data.row, data.col);
+      } else if (data.action === 'chord') {
+        // 旁观者执行弦操作
+        console.log('[玩家端日志] ✅ 执行chord操作');
+        // 检查游戏状态和 firstClick，使用 ref 中的最新值
+        if (currentGameStatus === 'playing' && !currentFirstClick && currentBoard[data.row] && currentBoard[data.row][data.col]) {
+        // 从 boardRef 获取实际棋盘尺寸（避免 difficulty state 不同步的问题）
+        const actualRows = boardRef.current.length;
+        const actualCols = boardRef.current[0]?.length || 0;
+        const realTimeConfig = {
+          rows: actualRows,
+          cols: actualCols,
+          mines: 0, // mines 不影响 chord 逻辑，设为 0
+          label: `实际尺寸 ${actualRows}×${actualCols}`
+        };
+        
+        // 打印调试信息
+        console.log('[玩家端日志] chord 调试: boardRef尺寸', boardRef.current.length, 'x', boardRef.current[0]?.length);
+        console.log('[玩家端日志] chord 调试: 目标格子', data.row, data.col, 'neighborMines=', boardRef.current[data.row][data.col]?.neighborMines);
+        console.log('[玩家端日志] chord 调试: realTimeConfig =', realTimeConfig);
+            
+            // 详细日志：打印整个棋盘的标记状态（简化版）
+            console.log('[玩家端日志] chord 调试: boardRef.current 标记状态统计 -', {
+              totalRows: boardRef.current.length,
+              totalCols: boardRef.current[0]?.length || 0,
+              totalFlagged: boardRef.current.flat().filter(cell => cell.isFlagged).length,
+              totalRevealed: boardRef.current.flat().filter(cell => cell.isRevealed).length
+            });
+            
+            // 打印目标格子周围3x3区域的详细状态
+            const targetRow = data.row;
+            const targetCol = data.col;
+            console.log('[玩家端日志] chord 调试: 目标格子周围3x3区域状态:');
+            for (let dr = -1; dr <= 1; dr++) {
+              for (let dc = -1; dc <= 1; dc++) {
+                const nr = targetRow + dr, nc = targetCol + dc;
+                if (nr >= 0 && nr < actualRows && nc >= 0 && nc < actualCols) {
+                  const cell = boardRef.current[nr][nc];
+                  console.log(`  [${nr},${nc}]: 标记=${cell.isFlagged}, 揭开=${cell.isRevealed}, 地雷=${cell.isMine}, 数字=${cell.neighborMines}`);
+                }
+              }
+            }
+            
+            // 内联 chord 逻辑，确保操作的是 boardRef.current
+            const newBoard = [...boardRef.current.map(r => [...r])];
+            
+            // 验证 newBoard 的数据是否与 boardRef.current 一致
+            console.log('[玩家端日志] chord 调试: newBoard 标记统计 -', {
+              totalFlagged: newBoard.flat().filter(cell => cell.isFlagged).length,
+              totalRevealed: newBoard.flat().filter(cell => cell.isRevealed).length
+            });
+            
+            const cell = newBoard[data.row][data.col];
+            let flagCount = 0;
+            for (let dr = -1; dr <= 1; dr++) {
+              for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                const nr = data.row + dr, nc = data.col + dc;
+                console.log(`[玩家端日志] chord 调试: 检查格子 [${nr},${nc}] -`, {
+                  inBounds: nr >= 0 && nr < actualRows && nc >= 0 && nc < actualCols,
+                  isFlagged: nr >= 0 && nr < actualRows && nc >= 0 && nc < actualCols ? newBoard[nr][nc]?.isFlagged : 'N/A'
+                });
+                if (nr >= 0 && nr < actualRows && nc >= 0 && nc < actualCols && newBoard[nr][nc].isFlagged)
+                  flagCount++;
+              }
+            }
+            console.log('[玩家端日志] chord 调试: flagCount=', flagCount, 'cell.neighborMines=', cell.neighborMines);
+              if (flagCount === cell.neighborMines) {
+                let hasMine = false;
+                const toReveal: [number, number][] = [];
+                for (let dr = -1; dr <= 1; dr++) {
+                  for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const nr = data.row + dr, nc = data.col + dc;
+                    if (nr >= 0 && nr < actualRows && nc >= 0 && nc < actualCols) {
+                      const tc = newBoard[nr][nc];
+                      if (!tc.isRevealed && !tc.isFlagged) {
+                        if (tc.isMine) {
+                          hasMine = true;
+                          tc.isRevealed = true;
+                          tc.isExploded = true;
+                        } else {
+                          toReveal.push([nr, nc]);
+                        }
+                      }
+                    }
+                  }
+                }
+                if (hasMine) {
+                  setBoard(newBoard);
+                  socket?.emit('board-update', newBoard, roomIdRef.current);
+                  setGameStatus('lost');
+                  setIsTimerRunning(false);
+                  setShowResultDialog(true);
+                  saveGameRecord(false);
+                  revealAllMines(newBoard);
+                } else {
+                  const visited = new Set<string>();
+                  while (toReveal.length) {
+                    const [r, c] = toReveal.pop()!;
+                    const k = `${r},${c}`;
+                    if (visited.has(k)) continue;
+                    visited.add(k);
+                    const cur = newBoard[r][c];
+                    if (cur.isRevealed || cur.isFlagged || cur.isMine) continue;
+                    cur.isRevealed = true;
+                    if (cur.neighborMines === 0) {
+                      for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                          const nr = r + dr, nc = c + dc;
+                          if (nr >= 0 && nr < actualRows && nc >= 0 && nc < actualCols)
+                            toReveal.push([nr, nc]);
+                        }
+                      }
+                    }
+                  }
+                  const boardWithAutoFlags = autoFlag(newBoard);
+                  setBoard(boardWithAutoFlags);
+                  socket?.emit('board-update', boardWithAutoFlags, roomIdRef.current);
+                  checkWin(boardWithAutoFlags);
+                }
+              }
           } else {
             console.log('[玩家端日志] ❌ chord操作条件不满足:', { currentGameStatus, currentFirstClick, boardSize: `${currentBoard.length}x${currentBoard[0]?.length}` });
           }
@@ -762,7 +916,7 @@ const validateCustomConfig = (config: CustomConfig): string => {
   // 自动揭开功能（弦操作）
   const chordReveal = useCallback((row: number, col: number) => {
     console.log('[玩家端日志] chordReveal 被调用，参数:', { row, col, gameStatus, firstClick });
-    const newBoard = [...board.map(row => [...row])];
+    const newBoard = [...boardRef.current.map(row => [...row])];
     const cell = newBoard[row][col];
 
     // 统计周围插旗数量
@@ -818,6 +972,7 @@ const validateCustomConfig = (config: CustomConfig): string => {
       // 如果点到地雷，游戏结束
       if (hasClickedMine) {
         setBoard(newBoard);
+        socket?.emit('board-update', newBoard, roomIdRef.current);
         setGameStatus('lost');
         setIsTimerRunning(false);
         setShowResultDialog(true);
@@ -864,9 +1019,10 @@ const validateCustomConfig = (config: CustomConfig): string => {
       // 应用自动标雷
       const boardWithAutoFlags = autoFlag(newBoard);
       setBoard(boardWithAutoFlags);
+      socket?.emit('board-update', boardWithAutoFlags, roomIdRef.current);
       checkWin(boardWithAutoFlags);
     }
-  }, [board, gameStatus, firstClick, config, autoFlag]);
+  }, [gameStatus, firstClick, config, autoFlag]);
 
   // 更新按下效果
   const updatePressedCells = useCallback((row: number, col: number) => {
