@@ -571,6 +571,7 @@ const validateCustomConfig = (config: CustomConfig): string => {
     }
 
     setBoard(newBoard);
+    boardRef.current = newBoard; // 立即同步到 ref
     setIsTimerRunning(true);
   }, [board, config]);
 
