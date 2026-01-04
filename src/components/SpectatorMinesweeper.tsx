@@ -1,7 +1,7 @@
 // src/components/SpectatorMinesweeper.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Typography, Paper, Button, Chip } from '@mui/material';
+import { Box, Typography, Paper, Chip } from '@mui/material';
 import { io, Socket } from 'socket.io-client';
 
 interface Cell {
@@ -12,6 +12,16 @@ interface Cell {
   isExploded?: boolean;
 }
 
+interface MouseDownState {
+  left: boolean;
+  right: boolean;
+}
+
+interface HoverCell {
+  row: number;
+  col: number;
+}
+
 // 内部实际的组件实现
 const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => {
   const [board, setBoard] = useState<Cell[][]>([]);
@@ -19,7 +29,13 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<string>('连接中...');
   const [highlightedCells, setHighlightedCells] = useState<Set<string>>(new Set());
-  const [roomInfo, setRoomInfo] = useState<{playerCount: number, spectatorCount: number, gameState: string} | null>(null);
+  const [roomInfo, setRoomInfo] = useState<{playerCount: number, spectatorCount: number, gameState: string, invitePlayMode: boolean} | null>(null);
+  
+  // 鼠标状态管理
+  const [, setIsMouseDown] = useState<MouseDownState>({ left: false, right: false });
+  const [pressedCells, setPressedCells] = useState<Set<string>>(new Set());
+  const [hoverCell, setHoverCell] = useState<HoverCell | null>(null);
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
 
   // 初始化 WebSocket 连接
   useEffect(() => {
@@ -103,6 +119,12 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
       // 加入旁观房间
       console.log('加入旁观房间:', roomId);
       newSocket.emit('join-spectate', { roomId });
+      
+      // 立即获取房间信息
+      setTimeout(() => {
+        console.log('[旁观端日志] 连接成功后立即获取房间信息');
+        newSocket.emit('get-room-info', { roomId });
+      }, 100);
     });
 
     newSocket.on('connect_error', (error) => {
@@ -179,24 +201,169 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
     }
   };
 
-  // 处理点击格子
-  const handleCellClick = (row: number, col: number) => {
-    // 如果没有 socket，不执行操作（roomId 已经在父组件中验证过）
+  // 更新按下效果
+  const updatePressedCells = useCallback((row: number, col: number) => {
+    const config = getDifficultyConfig();
+    const newPressed = new Set<string>();
+    
+    // 添加当前格子
+    newPressed.add(`${row},${col}`);
+    
+    // 添加周围8个格子（用于弦操作效果）
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const newRow = row + dr;
+        const newCol = col + dc;
+        if (newRow >= 0 && newRow < config.rows && newCol >= 0 && newCol < config.cols) {
+          newPressed.add(`${newRow},${newCol}`);
+        }
+      }
+    }
+    
+    setPressedCells(newPressed);
+  }, [getDifficultyConfig]);
+
+  // 处理鼠标按下
+  const handleMouseDown = useCallback((row: number, col: number, e: React.MouseEvent) => {
+    console.log('[旁观端日志] === 鼠标按下开始 ===');
+    console.log('[旁观端日志] 鼠标按下事件:');
+    console.log('[旁观端日志]   - 坐标:', `(${row}, ${col})`);
+    console.log('[旁观端日志]   - 按钮:', e.button === 0 ? '左键' : e.button === 2 ? '右键' : e.button);
+    console.log('[旁观端日志]   - socket状态:', socket ? '已连接' : '未连接');
+    console.log('[旁观端日志]   - board状态:', board[row] ? '存在' : '不存在');
+    console.log('[旁观端日志]   - roomInfo:', roomInfo);
+    
     if (!socket || !board[row]) {
+      console.log('[旁观端日志] ❌ 条件检查失败: socket或board不存在');
+      console.log('[旁观端日志] === 鼠标按下结束 ===');
       return;
     }
 
     // 发送清除所有高亮的请求
+    console.log('[旁观端日志] 发送 clear-all-highlights 事件');
     socket.emit('clear-all-highlights', { roomId });
+
+    if (roomInfo?.invitePlayMode) {
+      console.log('[旁观端日志] ✅ 同玩模式: 执行实际游戏操作');
+      
+      if (e.button === 0) {
+        // 左键按下
+        console.log('[旁观端日志] 左键按下: 设置鼠标状态');
+        setIsMouseDown(prev => ({ ...prev, left: true }));
+        
+        // 如果是已揭开且有数字的格子，显示弦操作效果
+        const cell = board[row][col];
+        console.log('[旁观端日志] 格子状态:', {
+          isRevealed: cell.isRevealed, 
+          neighborMines: cell.neighborMines
+        });
+        
+        if (cell.isRevealed && cell.neighborMines > 0) {
+          console.log('[旁观端日志] 显示弦操作效果');
+          updatePressedCells(row, col);
+        }
+      } else if (e.button === 2) {
+        // 右键按下：立即执行标记操作
+        console.log('[旁观端日志] 右键按下: 立即执行标记操作');
+        setIsMouseDown(prev => ({ ...prev, right: true }));
+        console.log('[旁观端日志] 发送 spectator-action (flag) 事件');
+        socket.emit('spectator-action', { roomId, action: 'flag', row, col });
+      }
+    } else {
+      console.log('[旁观端日志] ✅ 纯旁观模式: 发送点击事件');
+      
+      // 纯旁观模式：发送点击事件（红色高亮提示）
+      if (e.button === 0) {
+        console.log('[旁观端日志] 发送 spectator-click 事件');
+        socket.emit('spectator-click', { roomId, row, col });
+      }
+    }
+    console.log('[旁观端日志] === 鼠标按下结束 ===');
+  }, [socket, board, roomInfo, roomId, updatePressedCells]);
+
+  // 处理鼠标释放
+  const handleMouseUp = useCallback((row: number, col: number, e: React.MouseEvent) => {
+    console.log('[旁观端日志] === 鼠标释放开始 ===');
+    console.log('[旁观端日志] 鼠标释放事件:');
+    console.log('[旁观端日志]   - 坐标:', `(${row}, ${col})`);
+    console.log('[旁观端日志]   - 按钮:', e.button === 0 ? '左键' : e.button === 2 ? '右键' : e.button);
+    console.log('[旁观端日志]   - roomInfo:', roomInfo);
     
-    // 发送点击事件
-    socket.emit('spectator-click', { roomId, row, col });
-  };
+    if (!socket || !board[row]) {
+      console.log('[旁观端日志] ❌ 条件检查失败: socket或board不存在');
+      console.log('[旁观端日志] === 鼠标释放结束 ===');
+      return;
+    }
+
+    if (roomInfo?.invitePlayMode) {
+      console.log('[旁观端日志] ✅ 同玩模式: 执行实际游戏操作');
+      
+      if (e.button === 0) {
+        // 左键释放
+        console.log('[旁观端日志] 左键释放: 更新鼠标状态');
+        setIsMouseDown(prev => ({ ...prev, left: false }));
+        
+        // 检查是否应该执行弦操作
+        const cell = board[row][col];
+        console.log('[旁观端日志] 格子状态:', {
+          isRevealed: cell.isRevealed, 
+          neighborMines: cell.neighborMines
+        });
+        
+        if (cell.isRevealed && cell.neighborMines > 0) {
+          // 发送弦操作请求
+          console.log('[旁观端日志] 发送 spectator-action (chord) 事件');
+          socket.emit('spectator-action', { roomId, action: 'chord', row, col });
+        } else {
+          // 普通左键点击：发送揭开操作
+          console.log('[旁观端日志] 发送 spectator-action (reveal) 事件');
+          socket.emit('spectator-action', { roomId, action: 'reveal', row, col });
+        }
+      } else if (e.button === 2) {
+        // 右键释放 - 只更新鼠标状态，不执行操作（已在按下时执行）
+        console.log('[旁观端日志] 右键释放: 只更新鼠标状态');
+        setIsMouseDown(prev => ({ ...prev, right: false }));
+      }
+      
+      // 清除按下效果
+      console.log('[旁观端日志] 清除按下效果');
+      setPressedCells(new Set());
+    } else {
+      console.log('[旁观端日志] ❌ 非同玩模式: 不执行操作');
+    }
+    console.log('[旁观端日志] === 鼠标释放结束 ===');
+  }, [socket, board, roomInfo, roomId]);
+
+  // 处理鼠标进入格子
+  const handleMouseEnter = useCallback((row: number, col: number) => {
+    setHoverCell({ row, col });
+  }, []);
+
+  // 处理鼠标离开格子
+  const handleMouseLeave = useCallback(() => {
+    setHoverCell(null);
+  }, []);
+
+  // 全局鼠标释放监听（防止鼠标离开格子后释放）
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      setIsMouseDown({ left: false, right: false });
+      setPressedCells(new Set());
+    };
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, []);
 
   // 获取格子样式
   const getCellStyle = (cell: Cell, row: number, col: number): React.CSSProperties => {
     const cellKey = `${row},${col}`;
     const isHighlighted = highlightedCells.has(cellKey);
+    const isPressed = pressedCells.has(cellKey);
+    const isHovered = hoverCell?.row === row && hoverCell?.col === col;
     
     // 根据屏幕大小和难度动态调整格子大小
     const getCellSize = () => {
@@ -265,6 +432,15 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
       return { ...baseStyle, backgroundColor: '#fff', color: '#ff0000' };
     }
 
+    // 按下效果
+    if (isPressed) {
+      return { 
+        ...baseStyle, 
+        backgroundColor: '#ddd',
+        transform: 'scale(0.95)'
+      };
+    }
+
     // 高亮效果
     if (isHighlighted) {
       return { 
@@ -272,6 +448,15 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
         backgroundColor: '#ff6b6b', // 红色高亮
         transform: 'scale(1.1)',
         zIndex: 10
+      };
+    }
+
+    // 悬停效果
+    if (isHovered && roomInfo?.invitePlayMode) {
+      return { 
+        ...baseStyle, 
+        backgroundColor: '#aaa',
+        transform: 'scale(1.05)'
       };
     }
 
@@ -284,20 +469,126 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
     return colors[num] || '#000';
   };
 
+  // 键盘事件监听（D键触发弦操作，B键标记，C键打开）
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      console.log('[旁观端日志] === 键盘按下开始 ===');
+      console.log('[旁观端日志] 键盘按下事件:');
+      console.log('[旁观端日志]   - 按键:', e.key);
+      console.log('[旁观端日志]   - hoverCell:', hoverCell);
+      console.log('[旁观端日志]   - socket状态:', socket ? '已连接' : '未连接');
+      console.log('[旁观端日志]   - roomInfo:', roomInfo);
+      console.log('[旁观端日志]   - isSpacePressed:', isSpacePressed);
+      
+      if (!hoverCell || !socket) {
+        console.log('[旁观端日志] ❌ 条件检查失败: hoverCell或socket不存在');
+        console.log('[旁观端日志] === 键盘按下结束 ===');
+        return;
+      }
+
+      if (roomInfo?.invitePlayMode) {
+        console.log('[旁观端日志] ✅ 同玩模式: 处理键盘操作');
+        
+        // D键触发弦操作
+        if ((e.key === 'd' || e.key === 'D') && !isSpacePressed) {
+          console.log('[旁观端日志] D键按下: 设置空格键状态');
+          e.preventDefault();
+          setIsSpacePressed(true);
+          // 显示按下效果
+          console.log('[旁观端日志] 显示弦操作按下效果');
+          updatePressedCells(hoverCell.row, hoverCell.col);
+        }
+        
+        // B键标记/取消标记（相当于右键）
+        if ((e.key === 'b' || e.key === 'B')) {
+          console.log('[旁观端日志] B键按下: 标记操作');
+          e.preventDefault();
+          console.log('[旁观端日志] 发送 spectator-action (flag) 事件');
+          socket.emit('spectator-action', { roomId, action: 'flag', row: hoverCell.row, col: hoverCell.col });
+        }
+        
+        // C键打开方块（相当于左键）
+        if ((e.key === 'c' || e.key === 'C')) {
+          console.log('[旁观端日志] C键按下: 揭开操作');
+          e.preventDefault();
+          console.log('[旁观端日志] 发送 spectator-action (reveal) 事件');
+          socket.emit('spectator-action', { roomId, action: 'reveal', row: hoverCell.row, col: hoverCell.col });
+        }
+      } else {
+        console.log('[旁观端日志] ❌ 非同玩模式: 忽略键盘操作');
+      }
+      console.log('[旁观端日志] === 键盘按下结束 ===');
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      console.log('[旁观端日志] === 键盘释放开始 ===');
+      console.log('[旁观端日志] 键盘释放事件:');
+      console.log('[旁观端日志]   - 按键:', e.key);
+      console.log('[旁观端日志]   - roomInfo:', roomInfo);
+      console.log('[旁观端日志]   - isSpacePressed:', isSpacePressed);
+      console.log('[旁观端日志]   - hoverCell:', hoverCell);
+      
+        if (roomInfo?.invitePlayMode && (e.key === 'd' || e.key === 'D') && isSpacePressed && hoverCell) {
+        console.log('[旁观端日志] ✅ D键释放: 执行弦操作');
+        e.preventDefault();
+        setIsSpacePressed(false);
+        // 执行弦操作
+        console.log('[旁观端日志] 发送 spectator-action (chord) 事件');
+        socket?.emit('spectator-action', { roomId, action: 'chord', row: hoverCell.row, col: hoverCell.col });
+        // 清除按下效果
+        console.log('[旁观端日志] 清除按下效果');
+        setPressedCells(new Set());
+      } else {
+        console.log('[旁观端日志] ❌ 条件不满足: 不执行弦操作');
+      }
+      console.log('[旁观端日志] === 键盘释放结束 ===');
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [socket, roomId, roomInfo, hoverCell, isSpacePressed, updatePressedCells]);
+
   // 获取房间信息
   useEffect(() => {
+    console.log('[旁观端日志] === 获取房间信息开始 ===');
+    console.log('[旁观端日志] 检查条件: socket=', socket ? '存在' : '不存在', 'roomId=', roomId);
+    
     // 只有在有 socket 和 roomId 时才执行
     if (socket && roomId) {
+      console.log('[旁观端日志] ✅ 发送 get-room-info 事件:', roomId);
       socket.emit('get-room-info', { roomId });
       
       socket.on('room-info', (info) => {
+        console.log('[旁观端日志] === 收到 room-info 事件 ===');
+        console.log('[旁观端日志] 房间信息:', info);
+        console.log('[旁观端日志] 同玩模式状态:', info.invitePlayMode ? '开启' : '关闭');
         setRoomInfo(info);
+        console.log('[旁观端日志] === room-info 处理完成 ===');
       });
       
       socket.on('player-count-update', (data) => {
+        console.log('[旁观端日志] 收到 player-count-update:', data);
         setRoomInfo(prev => prev ? {...prev, playerCount: data.playerCount, spectatorCount: data.spectatorCount} : null);
       });
+      
+      // 接收同玩模式更新事件
+      socket.on('invite-play-mode-updated', (data) => {
+        console.log('[旁观端日志] === 收到同玩模式更新 ===');
+        console.log('[旁观端日志] 同玩模式状态:', data.invitePlayMode ? '开启' : '关闭');
+        
+        setRoomInfo(prev => prev ? {...prev, invitePlayMode: data.invitePlayMode} : null);
+        
+        console.log('[旁观端日志] 房间信息已更新');
+        console.log('[旁观端日志] === 同玩模式更新处理完成 ===');
+      });
+    } else {
+      console.log('[旁观端日志] ❌ 条件不满足，无法获取房间信息');
     }
+    console.log('[旁观端日志] === 获取房间信息结束 ===');
   }, [socket, roomId]);
 
   return (
@@ -341,7 +632,14 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
                 {row.map((cell, colIndex) => (
                   <Box
                     key={`${rowIndex}-${colIndex}`}
-                    onClick={() => handleCellClick(rowIndex, colIndex)}
+                    onMouseDown={(e) => handleMouseDown(rowIndex, colIndex, e)}
+                    onMouseUp={(e) => handleMouseUp(rowIndex, colIndex, e)}
+                    onMouseEnter={() => handleMouseEnter(rowIndex, colIndex)}
+                    onMouseLeave={handleMouseLeave}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      // 右键菜单阻止默认行为，但不需要额外处理
+                    }}
                     style={getCellStyle(cell, rowIndex, colIndex)}
                   >
                     {/* 显示已揭开的地雷 */}
@@ -364,11 +662,25 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
         </Typography>
       )}
       
-      <Box sx={{ mt: 2 }}>
-        <Typography variant="body2" color="textSecondary">
-          提示: 点击未揭开的格子可以建议玩家点击该位置
-        </Typography>
-      </Box>
+      {roomInfo?.invitePlayMode && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2" color="textSecondary">
+            同玩模式快捷键: 
+            <strong>左键</strong>揭开格子 | 
+            <strong>右键</strong>标记旗帜 | 
+            <strong>双键/空格/D键</strong>弦操作 | 
+            <strong>C键</strong>打开 | 
+            <strong>B键</strong>标记
+          </Typography>
+        </Box>
+      )}
+      {!roomInfo?.invitePlayMode && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2" color="textSecondary">
+            提示: 点击未揭开的格子可以建议玩家点击该位置
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 };

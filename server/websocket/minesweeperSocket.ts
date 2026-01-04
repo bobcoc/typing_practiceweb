@@ -21,6 +21,7 @@ interface GameRoom {
   difficulty: string;
   spectators: Set<string>;
   highlightedCells: Set<string>; // 存储需要闪烁的格子坐标 "row,col"
+  invitePlayMode: boolean; // 是否邀请同玩模式
 }
 
 // 存储所有游戏房间
@@ -148,21 +149,22 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
     }
 
     // 创建游戏房间（玩家创建）
-    socket.on('create-room', (data: { difficulty: string }) => {
-      const roomId = generateRoomId();
+    socket.on('create-room', (data: { difficulty: string; roomId?: string; invitePlayMode?: boolean }) => {
+      const roomId = data.roomId || generateRoomId();
       const room: GameRoom = {
         roomId,
         playerId: socket.id,
         board: [],
         difficulty: data.difficulty,
         spectators: new Set(),
-        highlightedCells: new Set()
+        highlightedCells: new Set(),
+        invitePlayMode: data.invitePlayMode || false
       };
       
       gameRooms.set(roomId, room);
       socket.join(roomId);
       
-      console.log(`[Socket.IO] 房间创建: ${roomId}, 玩家: ${socket.id}`);
+      console.log(`[Socket.IO] 房间创建: ${roomId}, 玩家: ${socket.id}, 邀请同玩模式: ${room.invitePlayMode}`);
       socket.emit('room-created', { roomId });
     });
 
@@ -185,6 +187,40 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
         board: room.board,
         difficulty: room.difficulty
       });
+    });
+
+    // 获取房间信息
+    socket.on('get-room-info', (data: { roomId: string }) => {
+      console.log('[服务器日志] === 获取房间信息开始 ===');
+      console.log('[服务器日志] 收到 get-room-info 事件:');
+      console.log('[服务器日志]   - 房间ID:', data.roomId);
+      console.log('[服务器日志]   - 请求者ID:', socket.id);
+      
+      const room = gameRooms.get(data.roomId);
+      
+      if (!room) {
+        console.log('[服务器日志] ❌ 房间不存在');
+        socket.emit('error', { message: '房间不存在' });
+        console.log('[服务器日志] === 获取房间信息结束 ===');
+        return;
+      }
+
+      // 构建房间信息
+      const roomInfo = {
+        roomId: room.roomId,
+        playerCount: 1, // 玩家数量固定为1
+        spectatorCount: room.spectators.size,
+        difficulty: room.difficulty,
+        invitePlayMode: room.invitePlayMode,
+        gameState: 'playing' // 默认游戏状态为进行中
+      };
+
+      console.log('[服务器日志] ✅ 发送房间信息:');
+      console.log('[服务器日志]   - 同玩模式:', roomInfo.invitePlayMode ? '开启' : '关闭');
+      console.log('[服务器日志]   - 旁观者数量:', roomInfo.spectatorCount);
+      
+      socket.emit('room-info', roomInfo);
+      console.log('[服务器日志] === 获取房间信息完成 ===');
     });
 
     // 玩家更新游戏状态
@@ -258,6 +294,51 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
       }, 3000);
     });
 
+    // 旁观者操作格子（同玩模式）
+    socket.on('spectator-action', (data: { roomId: string; action: 'reveal' | 'flag' | 'chord'; row: number; col: number }) => {
+      console.log('[服务器日志] === 旁观者操作开始 ===');
+      console.log('[服务器日志] 收到 spectator-action 事件:');
+      console.log('[服务器日志]   - 房间ID:', data.roomId);
+      console.log('[服务器日志]   - 动作类型:', data.action);
+      console.log('[服务器日志]   - 格子坐标:', `(${data.row}, ${data.col})`);
+      console.log('[服务器日志]   - 旁观者ID:', socket.id);
+      
+      const room = gameRooms.get(data.roomId);
+      
+      if (!room) {
+        console.log('[服务器日志] ❌ 房间不存在，操作失败');
+        console.log('[服务器日志] 当前存在的房间:', Array.from(gameRooms.keys()));
+        return;
+      }
+      
+      console.log('[服务器日志] 房间信息:');
+      console.log('[服务器日志]   - 玩家ID:', room.playerId);
+      console.log('[服务器日志]   - 旁观者数量:', room.spectators.size);
+      console.log('[服务器日志]   - 同玩模式:', room.invitePlayMode);
+      console.log('[服务器日志]   - 当前旁观者:', Array.from(room.spectators));
+      
+      if (!room.spectators.has(socket.id)) {
+        console.log('[服务器日志] ❌ 旁观者不在房间中，操作失败');
+        return;
+      }
+      
+      if (!room.invitePlayMode) {
+        console.log('[服务器日志] ❌ 房间未开启同玩模式，操作失败');
+        return;
+      }
+
+      console.log(`[服务器日志] ✅ 旁观者操作有效: 房间 ${data.roomId}, 动作: ${data.action}, 格子 (${data.row}, ${data.col})`);
+      
+      // 转发操作给玩家
+      console.log('[服务器日志] 转发操作给玩家:', room.playerId);
+      io.to(room.playerId).emit('spectator-action', {
+        action: data.action,
+        row: data.row,
+        col: data.col
+      });
+      console.log('[服务器日志] === 旁观者操作完成 ===');
+    });
+
     // 玩家更新难度
     socket.on('update-difficulty', (data: { roomId: string; difficulty: string; config?: any }) => {
       const room = gameRooms.get(data.roomId);
@@ -275,6 +356,36 @@ export function setupMinesweeperSocket(httpServer: HTTPServer) {
         difficulty: data.difficulty,
         config: data.config // 传递配置信息给旁观者
       });
+    });
+
+    // 玩家切换同玩模式
+    socket.on('toggle-invite-play-mode', (data: { roomId: string; invitePlayMode: boolean }) => {
+      console.log('[服务器日志] === 切换同玩模式开始 ===');
+      console.log('[服务器日志] 收到 toggle-invite-play-mode 事件:');
+      console.log('[服务器日志]   - 房间ID:', data.roomId);
+      console.log('[服务器日志]   - 同玩模式:', data.invitePlayMode ? '开启' : '关闭');
+      console.log('[服务器日志]   - 玩家ID:', socket.id);
+      
+      const room = gameRooms.get(data.roomId);
+      
+      if (!room || room.playerId !== socket.id) {
+        console.log('[服务器日志] ❌ 房间不存在或玩家不匹配，操作失败');
+        console.log('[服务器日志] === 切换同玩模式结束 ===');
+        return;
+      }
+
+      // 更新房间的同玩模式状态
+      room.invitePlayMode = data.invitePlayMode;
+      
+      console.log(`[服务器日志] ✅ 同玩模式已更新: ${data.invitePlayMode ? '开启' : '关闭'}`);
+      
+      // 广播同玩模式更新给房间内所有旁观者
+      console.log('[服务器日志] 广播同玩模式更新给旁观者');
+      io.to(data.roomId).emit('invite-play-mode-updated', { 
+        invitePlayMode: data.invitePlayMode
+      });
+      
+      console.log('[服务器日志] === 切换同玩模式完成 ===');
     });
 
     // 断开连接

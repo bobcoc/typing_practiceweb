@@ -13,14 +13,14 @@ import {
   Chip,
   Tabs,
   Tab,
-  IconButton,
   Tooltip,
-  TextField
+  TextField,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import FlagIcon from '@mui/icons-material/Flag';
 import ShareIcon from '@mui/icons-material/Share';
-import QrCodeIcon from '@mui/icons-material/QrCode';
 import QRCode from 'qrcode';
 import { io, Socket } from 'socket.io-client';
 import { API_BASE_URL } from '../config';
@@ -109,7 +109,7 @@ const saveCustomConfigToStorage = (config: CustomConfig) => {
   localStorage.setItem('minesweeper_custom_config', configString);
 };
 
-const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
+const DIFFICULTIES: Record<Exclude<Difficulty, 'fullscreen'>, DifficultyConfig> = {
   beginner: { rows: 9, cols: 9, mines: 10, label: '初级 (9×9, 10雷)' },
   intermediate: { rows: 16, cols: 16, mines: 40, label: '中级 (16×16, 40雷)' },
   expert: { rows: 16, cols: 30, mines: 99, label: '高级 (16×30, 99雷)' },
@@ -134,7 +134,7 @@ interface HighlightedCell {
 const MinesweeperGame: React.FC = () => {
   const [difficulty, setDifficulty] = useState<Difficulty>('beginner');
   const [board, setBoard] = useState<Cell[][]>([]);
-  const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>('playing');
+  const [gameStatus, setGameStatus] = useState<'waiting' | 'playing' | 'won' | 'lost'>('playing');
   const [flagsLeft, setFlagsLeft] = useState(0);
   const [timer, setTimer] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -150,9 +150,17 @@ const MinesweeperGame: React.FC = () => {
   // WebSocket 相关状态
   const [socket, setSocket] = useState<Socket | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
+  const roomIdRef = useRef<string | null>(null); // 使用ref来避免闭包问题
+  const boardRef = useRef<Cell[][]>([]);
+  const gameStatusRef = useRef<'waiting' | 'playing' | 'won' | 'lost'>('playing');
+  const firstClickRef = useRef(true);
+  const chordRevealRef = useRef<() => void>();
+  const revealCellRef = useRef<() => void>();
+  const toggleFlagRef = useRef<() => void>();
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [highlightedCells, setHighlightedCells] = useState<HighlightedCell[]>([]); // 需要闪烁的格子
+  const [invitePlayMode, setInvitePlayMode] = useState(false); // 邀请同玩模式
   
   // 自定义模式相关状态
   const [showCustomDialog, setShowCustomDialog] = useState(false);
@@ -175,6 +183,38 @@ const getCurrentConfig = (): DifficultyConfig => {
 };
 
 const config = getCurrentConfig();
+
+// 组件加载时初始化游戏
+useEffect(() => {
+  const currentConfig = getCurrentConfig();
+  const newBoard: Cell[][] = Array(currentConfig.rows)
+    .fill(null)
+    .map(() =>
+      Array(currentConfig.cols)
+        .fill(null)
+        .map(() => ({
+          isMine: false,
+          isRevealed: false,
+          isFlagged: false,
+          neighborMines: 0
+        }))
+    );
+
+  setBoard(newBoard);
+  setFlagsLeft(currentConfig.mines);
+  setTimer(0);
+  setIsTimerRunning(false);
+  setFirstClick(true);
+  setShowResultDialog(false);
+  setGameStatus('playing');
+}, []); // 只在组件挂载时执行一次
+
+// 同步状态到ref，避免闭包问题
+useEffect(() => {
+  boardRef.current = board;
+  gameStatusRef.current = gameStatus;
+  firstClickRef.current = firstClick;
+}, [board, gameStatus, firstClick]);
 
 // 构建 WebSocket URL，处理各种环境配置
 const getWebSocketUrl = () => {
@@ -225,14 +265,14 @@ const getWebSocketPath = () => {
       newSocket.on('connect_error', (error) => {
         console.error('[Socket.IO] connect_error 事件:', error);
         console.error('[Socket.IO] 连接地址:', fullUrl);
-        if (error.description) {
-          console.error('[Socket.IO] 错误描述:', error.description);
+        if (error && (error as any).description) {
+          console.error('[Socket.IO] 错误描述:', (error as any).description);
         }
         if (error.message) {
           console.error('[Socket.IO] 错误消息:', error.message);
         }
-        if (error.type) {
-          console.error('[Socket.IO] 错误类型:', error.type);
+        if (error && (error as any).type) {
+          console.error('[Socket.IO] 错误类型:', (error as any).type);
         }
         reject(error);
       });
@@ -284,6 +324,106 @@ const getWebSocketPath = () => {
           
           return newHighlighted;
         });
+      });
+
+      // 房间创建成功事件
+      newSocket.on('room-created', (data) => {
+        const roomId = data.roomId;
+        console.log('[玩家端日志] ✅ 房间创建成功:', roomId);
+        setRoomId(roomId);
+        roomIdRef.current = roomId; // 同时更新ref
+        
+        // 保存房间ID到本地存储
+        localStorage.setItem('currentRoomId', roomId);
+        localStorage.setItem('currentRoomDate', new Date().toISOString().slice(0, 10));
+        
+        // 生成二维码
+        const roomUrl = `${window.location.origin}/spectate/${roomId}`;
+        QRCode.toDataURL(roomUrl, { width: 256 })
+          .then(setQrCodeUrl)
+          .catch(err => console.error('生成二维码失败:', err));
+        
+        setShowQRDialog(true);
+        
+        // 确保游戏状态为playing
+        if (gameStatus === 'waiting') {
+          setGameStatus('playing');
+          console.log('[玩家端日志] ✅ 游戏开始，房间已准备就绪');
+        }
+      });
+
+      // 房间已存在事件
+      newSocket.on('room-already-exists', (data) => {
+        console.log('[玩家端日志] 房间已存在，加入现有房间:', data.roomId);
+        setRoomId(data.roomId);
+        roomIdRef.current = data.roomId; // 同时更新ref
+        
+        // 生成二维码
+        const roomUrl = `${window.location.origin}/spectate/${data.roomId}`;
+        QRCode.toDataURL(roomUrl, { width: 256 })
+          .then(setQrCodeUrl)
+          .catch(err => console.error('生成二维码失败:', err));
+        
+        setShowQRDialog(true);
+      });
+
+      // 处理旁观者操作（同玩模式）
+      newSocket.on('spectator-action', (data) => {
+        console.log('[玩家端日志] === 旁观者操作开始 ===');
+        console.log('[玩家端日志] 收到 spectator-action 事件:');
+        console.log('[玩家端日志]   - 动作类型:', data.action);
+        console.log('[玩家端日志]   - 格子坐标:', `(${data.row}, ${data.col})`);
+        console.log('[玩家端日志]   - 游戏状态:', gameStatusRef.current);
+        console.log('[玩家端日志]   - 当前房间ID:', roomIdRef.current);
+        console.log('[玩家端日志]   - ref房间ID:', roomIdRef.current);
+        console.log('[玩家端日志]   - firstClick:', firstClickRef.current);
+        console.log('[玩家端日志]   - board 尺寸:', boardRef.current.length, 'x', boardRef.current[0]?.length);
+        console.log('[玩家端日志]   - 当前socket状态:', newSocket.connected ? '已连接' : '未连接');
+        
+        if (gameStatusRef.current !== 'playing') {
+          console.log('[玩家端日志] ❌ 游戏状态不是playing，操作失败');
+          console.log('[玩家端日志]   - 允许的操作状态: playing');
+          console.log('[玩家端日志]   - 当前状态:', gameStatusRef.current);
+          console.log('[玩家端日志] === 旁观者操作结束 ===');
+          return;
+        }
+        
+        // 检查房间ID是否有效（使用ref避免闭包问题）
+        const currentRoomId = roomIdRef.current;
+        if (!currentRoomId) {
+          console.log('[玩家端日志] ❌ 房间ID为null，操作失败');
+          console.log('[玩家端日志]   - 可能的原因: 房间未创建或创建失败');
+          console.log('[玩家端日志] === 旁观者操作结束 ===');
+          return;
+        }
+        
+        // 检查格子是否在有效范围内
+        const config = getCurrentConfig();
+        if (data.row < 0 || data.row >= config.rows || data.col < 0 || data.col >= config.cols) {
+          console.log('[玩家端日志] ❌ 格子坐标超出范围');
+          console.log('[玩家端日志]   - 棋盘范围:', `(0-${config.rows-1}, 0-${config.cols-1})`);
+          console.log('[玩家端日志]   - 请求坐标:', `(${data.row}, ${data.col})`);
+          console.log('[玩家端日志] === 旁观者操作结束 ===');
+          return;
+        }
+        
+        if (data.action === 'reveal') {
+          // 旁观者点击揭开格子
+          console.log('[玩家端日志] ✅ 执行reveal操作');
+          revealCell(data.row, data.col);
+        } else if (data.action === 'flag') {
+          // 旁观者点击标记格子
+          console.log('[玩家端日志] ✅ 执行flag操作');
+          const mockEvent = { preventDefault: () => {} } as React.MouseEvent;
+          toggleFlag(data.row, data.col, mockEvent);
+        } else if (data.action === 'chord') {
+          // 旁观者执行弦操作
+          console.log('[玩家端日志] ✅ 执行chord操作');
+          chordReveal(data.row, data.col);
+        } else {
+          console.log('[玩家端日志] ❌ 未知的操作类型:', data.action);
+        }
+        console.log('[玩家端日志] === 旁观者操作结束 ===');
       });
     });
   }, [socket]);
@@ -374,40 +514,16 @@ const validateCustomConfig = (config: CustomConfig): string => {
       }
       
       // 创建固定房间
+      console.log('[玩家端日志] 发送 create-room 事件:');
+      console.log('[玩家端日志]   - 房间ID:', fixedRoomId);
+      console.log('[玩家端日志]   - 难度:', difficulty);
+      console.log('[玩家端日志]   - 同玩模式:', invitePlayMode);
+      console.log('[玩家端日志]   - 当前房间ID状态:', roomId);
+      
       currentSocket.emit('create-room', { 
         roomId: fixedRoomId, // 指定固定房间ID
-        difficulty 
-      });
-      
-      currentSocket.on('room-created', (data) => {
-        const roomId = data.roomId;
-        setRoomId(roomId);
-        
-        // 保存房间ID到本地存储
-        localStorage.setItem('currentRoomId', roomId);
-        localStorage.setItem('currentRoomDate', new Date().toISOString().slice(0, 10));
-        
-        // 生成二维码
-        const roomUrl = `${window.location.origin}/spectate/${roomId}`;
-        QRCode.toDataURL(roomUrl, { width: 256 })
-          .then(setQrCodeUrl)
-          .catch(err => console.error('生成二维码失败:', err));
-        
-        setShowQRDialog(true);
-      });
-      
-      // 监听房间已存在的情况
-      currentSocket.on('room-already-exists', (data) => {
-        console.log('房间已存在，加入现有房间:', data.roomId);
-        setRoomId(data.roomId);
-        
-        // 生成二维码
-        const roomUrl = `${window.location.origin}/spectate/${data.roomId}`;
-        QRCode.toDataURL(roomUrl, { width: 256 })
-          .then(setQrCodeUrl)
-          .catch(err => console.error('生成二维码失败:', err));
-        
-        setShowQRDialog(true);
+        difficulty,
+        invitePlayMode // 是否邀请同玩模式
       });
       
     } catch (error) {
@@ -573,6 +689,11 @@ const validateCustomConfig = (config: CustomConfig): string => {
       setShowResultDialog(true);
       saveGameRecord(false);  // 保存失败记录
       revealAllMines(newBoard);
+      
+      // 立即广播游戏状态
+      if (socket && roomId) {
+        socket.emit('update-game', { roomId, board: newBoard });
+      }
       return;
     }
 
@@ -614,8 +735,14 @@ const validateCustomConfig = (config: CustomConfig): string => {
     // 应用自动标雷
     const boardWithAutoFlags = autoFlag(newBoard);
     setBoard(boardWithAutoFlags);
+    
+    // 立即广播游戏状态
+    if (socket && roomId) {
+      socket.emit('update-game', { roomId, board: boardWithAutoFlags });
+    }
+    
     checkWin(boardWithAutoFlags);
-  }, [board, gameStatus, firstClick, config, placeMines, autoFlag]);
+  }, [board, gameStatus, firstClick, config, placeMines, autoFlag, socket, roomId]);
 
   // 切换旗帜
   const toggleFlag = useCallback((row: number, col: number, e: React.MouseEvent) => {
@@ -641,14 +768,20 @@ const validateCustomConfig = (config: CustomConfig): string => {
     }
 
     setBoard(newBoard);
-  }, [board, gameStatus, firstClick, flagsLeft]);
+    
+    // 立即广播游戏状态
+    if (socket && roomId) {
+      socket.emit('update-game', { roomId, board: newBoard });
+    }
+  }, [board, gameStatus, firstClick, flagsLeft, socket, roomId]);
 
-  // 双键同时按下自动揭开功能（弦操作）
+  // 自动揭开功能（弦操作）
   const chordReveal = useCallback((row: number, col: number) => {
-    if (gameStatus !== 'playing' || firstClick) return;
+    console.log('[玩家端日志] chordReveal 被调用，参数:', { row, col, gameStatus, firstClick });
     
     // 添加边界检查，防止棋盘大小变化导致的访问错误
     if (!board[row] || !board[row][col]) {
+      console.log('[玩家端日志] chordReveal 提前返回，棋盘边界检查失败');
       return;
     }
 
@@ -656,7 +789,10 @@ const validateCustomConfig = (config: CustomConfig): string => {
     const cell = newBoard[row][col];
 
     // 只有已揭开且有数字的格子才能进行弦操作
-    if (!cell.isRevealed || cell.neighborMines === 0) return;
+    if (!cell.isRevealed || cell.neighborMines === 0) {
+      console.log('[玩家端日志] chordReveal 提前返回，格子未揭开或无数字:', { isRevealed: cell.isRevealed, neighborMines: cell.neighborMines });
+      return;
+    }
 
     // 统计周围插旗数量
     let flagCount = 0;
@@ -1263,23 +1399,31 @@ const validateCustomConfig = (config: CustomConfig): string => {
           
       {/* 旁观二维码对话框 */}
       <Dialog open={showQRDialog} onClose={() => setShowQRDialog(false)}>
-        <DialogTitle>分享旁观链接</DialogTitle>
+        <DialogTitle>
+          {invitePlayMode ? '邀请同玩链接' : '分享旁观链接'}
+        </DialogTitle>
         <DialogContent>
           <Box display="flex" flexDirection="column" alignItems="center" p={2}>
             <Typography variant="body1" gutterBottom>
               房间ID: {roomId}
             </Typography>
             <Typography variant="body1" gutterBottom>
-               旁观链接: {`${window.location.origin}/spectate/${roomId}`}
+               链接: {`${window.location.origin}/spectate/${roomId}`}
             </Typography>
             <img 
               src={qrCodeUrl} 
-              alt="扫雷旁观二维码" 
+              alt="扫雷二维码" 
               style={{ width: '256px', height: '256px', margin: '16px 0' }}
             />
-            <Typography variant="body2" color="textSecondary">
-              扫描二维码开始旁观
-            </Typography>
+            {invitePlayMode ? (
+              <Typography variant="body2" color="success.main" fontWeight="bold">
+                🎮 同玩模式：旁观者可以同时操作排雷
+              </Typography>
+            ) : (
+              <Typography variant="body2" color="textSecondary">
+                扫描二维码开始旁观
+              </Typography>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -1323,9 +1467,34 @@ const validateCustomConfig = (config: CustomConfig): string => {
                   fullWidth
                   size="small"
                 >
-                  分享
+                  分享旁观
                 </Button>
               </Tooltip>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={invitePlayMode}
+                    onChange={(e) => {
+                      const newMode = e.target.checked;
+                      setInvitePlayMode(newMode);
+                      
+                      // 如果房间已存在且socket已连接，发送同玩模式切换事件
+                      if (socket && roomId) {
+                        console.log('[玩家端日志] 发送同玩模式切换事件:', newMode ? '开启' : '关闭');
+                        socket.emit('toggle-invite-play-mode', { 
+                          roomId, 
+                          invitePlayMode: newMode 
+                        });
+                      }
+                    }}
+                    size="small"
+                  />
+                }
+                label="邀请同玩（旁观者可以同时操作排雷）"
+              />
             </Grid>
 
             {personalBest && (
