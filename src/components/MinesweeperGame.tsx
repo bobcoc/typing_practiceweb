@@ -362,11 +362,6 @@ const getWebSocketPath = () => {
 
       // 处理旁观者操作（同玩模式）
       newSocket.on('spectator-action', (data) => {
-        console.log('[玩家端日志] === 旁观者操作开始 ===');
-        console.log('[玩家端日志] 收到 spectator-action 事件:');
-        console.log('[玩家端日志]   - 动作类型:', data.action);
-        console.log('[玩家端日志]   - 格子坐标:', `(${data.row}, ${data.col})`);
-        console.log('[玩家端日志]   - 游戏状态:', gameStatusRef.current);
         console.log('[玩家端日志]   - 当前房间ID:', roomIdRef.current);
         console.log('[玩家端日志]   - ref房间ID:', roomIdRef.current);
         console.log('[玩家端日志]   - firstClick:', firstClickRef.current);
@@ -382,11 +377,11 @@ const getWebSocketPath = () => {
         if (data.action === 'reveal') {
           // 旁观者点击揭开格子
           console.log('[玩家端日志] ✅ 执行reveal操作');
-          // 检查游戏状态和棋盘尺寸
-          if (currentGameStatus === 'playing' && currentBoard[data.row] && currentBoard[data.row][data.col]) {
+          // 检查游戏状态和 firstClick
+          if (currentGameStatus === 'playing' && !currentFirstClick && currentBoard[data.row] && currentBoard[data.row][data.col]) {
             revealCellRef.current?.(data.row, data.col);
           } else {
-            console.log('[玩家端日志] ❌ reveal操作条件不满足:', { currentGameStatus, boardSize: `${currentBoard.length}x${currentBoard[0]?.length}`, coordinates: `${data.row},${data.col}` });
+            console.log('[玩家端日志] ❌ reveal操作条件不满足:', { currentGameStatus, currentFirstClick, boardSize: `${currentBoard.length}x${currentBoard[0]?.length}`, coordinates: `${data.row},${data.col}` });
           }
         } else if (data.action === 'flag') {
           // 旁观者点击标记格子
@@ -662,6 +657,7 @@ const validateCustomConfig = (config: CustomConfig): string => {
     // 首次点击
     if (firstClick) {
       setFirstClick(false);
+      firstClickRef.current = false; // 立即同步到 ref
       placeMines(row, col);
       return;
     }
