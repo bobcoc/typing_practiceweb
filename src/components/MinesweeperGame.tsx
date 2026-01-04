@@ -154,9 +154,9 @@ const MinesweeperGame: React.FC = () => {
   const boardRef = useRef<Cell[][]>([]);
   const gameStatusRef = useRef<'waiting' | 'playing' | 'won' | 'lost'>('playing');
   const firstClickRef = useRef(true);
-  const chordRevealRef = useRef<() => void>();
-  const revealCellRef = useRef<() => void>();
-  const toggleFlagRef = useRef<() => void>();
+  const chordRevealRef = useRef<(row: number, col: number) => void>();
+  const revealCellRef = useRef<(row: number, col: number) => void>();
+  const toggleFlagRef = useRef<(row: number, col: number, e: React.MouseEvent) => void>();
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [highlightedCells, setHighlightedCells] = useState<HighlightedCell[]>([]); // 需要闪烁的格子
@@ -208,13 +208,6 @@ useEffect(() => {
   setShowResultDialog(false);
   setGameStatus('playing');
 }, []); // 只在组件挂载时执行一次
-
-// 同步状态到ref，避免闭包问题
-useEffect(() => {
-  boardRef.current = board;
-  gameStatusRef.current = gameStatus;
-  firstClickRef.current = firstClick;
-}, [board, gameStatus, firstClick]);
 
 // 构建 WebSocket URL，处理各种环境配置
 const getWebSocketUrl = () => {
@@ -379,47 +372,41 @@ const getWebSocketPath = () => {
         console.log('[玩家端日志]   - firstClick:', firstClickRef.current);
         console.log('[玩家端日志]   - board 尺寸:', boardRef.current.length, 'x', boardRef.current[0]?.length);
         console.log('[玩家端日志]   - 当前socket状态:', newSocket.connected ? '已连接' : '未连接');
-        
-        if (gameStatusRef.current !== 'playing') {
-          console.log('[玩家端日志] ❌ 游戏状态不是playing，操作失败');
-          console.log('[玩家端日志]   - 允许的操作状态: playing');
-          console.log('[玩家端日志]   - 当前状态:', gameStatusRef.current);
-          console.log('[玩家端日志] === 旁观者操作结束 ===');
-          return;
-        }
-        
-        // 检查房间ID是否有效（使用ref避免闭包问题）
+
+        // 获取最新的状态值
+        const currentGameStatus = gameStatusRef.current;
+        const currentFirstClick = firstClickRef.current;
+        const currentBoard = boardRef.current;
         const currentRoomId = roomIdRef.current;
-        if (!currentRoomId) {
-          console.log('[玩家端日志] ❌ 房间ID为null，操作失败');
-          console.log('[玩家端日志]   - 可能的原因: 房间未创建或创建失败');
-          console.log('[玩家端日志] === 旁观者操作结束 ===');
-          return;
-        }
-        
-        // 检查格子是否在有效范围内
-        const config = getCurrentConfig();
-        if (data.row < 0 || data.row >= config.rows || data.col < 0 || data.col >= config.cols) {
-          console.log('[玩家端日志] ❌ 格子坐标超出范围');
-          console.log('[玩家端日志]   - 棋盘范围:', `(0-${config.rows-1}, 0-${config.cols-1})`);
-          console.log('[玩家端日志]   - 请求坐标:', `(${data.row}, ${data.col})`);
-          console.log('[玩家端日志] === 旁观者操作结束 ===');
-          return;
-        }
-        
+
         if (data.action === 'reveal') {
           // 旁观者点击揭开格子
           console.log('[玩家端日志] ✅ 执行reveal操作');
-          revealCell(data.row, data.col);
+          // 检查游戏状态和棋盘尺寸
+          if (currentGameStatus === 'playing' && currentBoard[data.row] && currentBoard[data.row][data.col]) {
+            revealCellRef.current?.(data.row, data.col);
+          } else {
+            console.log('[玩家端日志] ❌ reveal操作条件不满足:', { currentGameStatus, boardSize: `${currentBoard.length}x${currentBoard[0]?.length}`, coordinates: `${data.row},${data.col}` });
+          }
         } else if (data.action === 'flag') {
           // 旁观者点击标记格子
           console.log('[玩家端日志] ✅ 执行flag操作');
-          const mockEvent = { preventDefault: () => {} } as React.MouseEvent;
-          toggleFlag(data.row, data.col, mockEvent);
+          // 检查游戏状态和 firstClick
+          if (currentGameStatus === 'playing' && !currentFirstClick && currentBoard[data.row] && currentBoard[data.row][data.col]) {
+            const mockEvent = { preventDefault: () => {} } as React.MouseEvent;
+            toggleFlagRef.current?.(data.row, data.col, mockEvent);
+          } else {
+            console.log('[玩家端日志] ❌ flag操作条件不满足:', { currentGameStatus, currentFirstClick });
+          }
         } else if (data.action === 'chord') {
           // 旁观者执行弦操作
           console.log('[玩家端日志] ✅ 执行chord操作');
-          chordReveal(data.row, data.col);
+          // 检查游戏状态和 firstClick，使用 ref 中的最新值
+          if (currentGameStatus === 'playing' && !currentFirstClick && currentBoard[data.row] && currentBoard[data.row][data.col]) {
+            chordRevealRef.current?.(data.row, data.col);
+          } else {
+            console.log('[玩家端日志] ❌ chord操作条件不满足:', { currentGameStatus, currentFirstClick, boardSize: `${currentBoard.length}x${currentBoard[0]?.length}` });
+          }
         } else {
           console.log('[玩家端日志] ❌ 未知的操作类型:', data.action);
         }
@@ -778,21 +765,8 @@ const validateCustomConfig = (config: CustomConfig): string => {
   // 自动揭开功能（弦操作）
   const chordReveal = useCallback((row: number, col: number) => {
     console.log('[玩家端日志] chordReveal 被调用，参数:', { row, col, gameStatus, firstClick });
-    
-    // 添加边界检查，防止棋盘大小变化导致的访问错误
-    if (!board[row] || !board[row][col]) {
-      console.log('[玩家端日志] chordReveal 提前返回，棋盘边界检查失败');
-      return;
-    }
-
     const newBoard = [...board.map(row => [...row])];
     const cell = newBoard[row][col];
-
-    // 只有已揭开且有数字的格子才能进行弦操作
-    if (!cell.isRevealed || cell.neighborMines === 0) {
-      console.log('[玩家端日志] chordReveal 提前返回，格子未揭开或无数字:', { isRevealed: cell.isRevealed, neighborMines: cell.neighborMines });
-      return;
-    }
 
     // 统计周围插旗数量
     let flagCount = 0;
