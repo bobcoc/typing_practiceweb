@@ -154,9 +154,10 @@ const MinesweeperGame: React.FC = () => {
   const boardRef = useRef<Cell[][]>([]);
   const gameStatusRef = useRef<'waiting' | 'playing' | 'won' | 'lost'>('playing');
   const firstClickRef = useRef(true);
-  const chordRevealRef = useRef<() => void>();
-  const revealCellRef = useRef<() => void>();
-  const toggleFlagRef = useRef<() => void>();
+  // 让 WebSocket 事件处理函数始终调用“最新一帧”的操作函数，避免闭包拿到旧棋盘/旧状态
+  const chordRevealRef = useRef<((row: number, col: number) => void) | null>(null);
+  const revealCellRef = useRef<((row: number, col: number) => void) | null>(null);
+  const toggleFlagRef = useRef<((row: number, col: number) => void) | null>(null);
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [highlightedCells, setHighlightedCells] = useState<HighlightedCell[]>([]); // 需要闪烁的格子
@@ -397,11 +398,18 @@ const getWebSocketPath = () => {
           return;
         }
         
-        // 检查格子是否在有效范围内
-        const config = getCurrentConfig();
-        if (data.row < 0 || data.row >= config.rows || data.col < 0 || data.col >= config.cols) {
+        // 检查格子是否在有效范围内（用 boardRef 的真实尺寸，避免难度/配置闭包导致的尺寸不一致）
+        const currentBoard = boardRef.current;
+        const rows = currentBoard.length;
+        const cols = currentBoard[0]?.length ?? 0;
+        if (rows === 0 || cols === 0) {
+          console.log('[玩家端日志] ❌ 当前棋盘为空，操作失败');
+          console.log('[玩家端日志] === 旁观者操作结束 ===');
+          return;
+        }
+        if (data.row < 0 || data.row >= rows || data.col < 0 || data.col >= cols) {
           console.log('[玩家端日志] ❌ 格子坐标超出范围');
-          console.log('[玩家端日志]   - 棋盘范围:', `(0-${config.rows-1}, 0-${config.cols-1})`);
+          console.log('[玩家端日志]   - 棋盘范围:', `(0-${rows - 1}, 0-${cols - 1})`);
           console.log('[玩家端日志]   - 请求坐标:', `(${data.row}, ${data.col})`);
           console.log('[玩家端日志] === 旁观者操作结束 ===');
           return;
@@ -410,16 +418,15 @@ const getWebSocketPath = () => {
         if (data.action === 'reveal') {
           // 旁观者点击揭开格子
           console.log('[玩家端日志] ✅ 执行reveal操作');
-          revealCell(data.row, data.col);
+          revealCellRef.current?.(data.row, data.col);
         } else if (data.action === 'flag') {
           // 旁观者点击标记格子
           console.log('[玩家端日志] ✅ 执行flag操作');
-          const mockEvent = { preventDefault: () => {} } as React.MouseEvent;
-          toggleFlag(data.row, data.col, mockEvent);
+          toggleFlagRef.current?.(data.row, data.col);
         } else if (data.action === 'chord') {
           // 旁观者执行弦操作
           console.log('[玩家端日志] ✅ 执行chord操作');
-          chordReveal(data.row, data.col);
+          chordRevealRef.current?.(data.row, data.col);
         } else {
           console.log('[玩家端日志] ❌ 未知的操作类型:', data.action);
         }
@@ -896,6 +903,16 @@ const validateCustomConfig = (config: CustomConfig): string => {
       checkWin(boardWithAutoFlags);
     }
   }, [board, gameStatus, firstClick, config, autoFlag]);
+
+  // 同步最新操作函数到 ref，供 WebSocket/旁观事件调用（避免闭包导致的棋盘不一致）
+  useEffect(() => {
+    revealCellRef.current = (row, col) => revealCell(row, col);
+    chordRevealRef.current = (row, col) => chordReveal(row, col);
+    toggleFlagRef.current = (row, col) => {
+      const mockEvent = { preventDefault: () => {} } as React.MouseEvent;
+      toggleFlag(row, col, mockEvent);
+    };
+  }, [revealCell, chordReveal, toggleFlag]);
 
   // 更新按下效果
   const updatePressedCells = useCallback((row: number, col: number) => {
