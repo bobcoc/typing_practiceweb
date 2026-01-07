@@ -1,5 +1,5 @@
 // src/components/MinesweeperGame.tsx
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import {
   Box,
   Button,
@@ -1629,7 +1629,65 @@ const validateCustomConfig = (config: CustomConfig): string => {
     );
   };
 
+  // 让顶部计数器面板“贴着棋盘”，并且宽度严格等于棋盘宽度
+  const cellSizeForLayout = (() => {
+    // 与 getCellStyle 内部逻辑保持一致（只用于布局计算）
+    if (difficulty === 'fullscreen') return 25;
+
+    const maxWidth = window.innerWidth - 100;
+    const maxHeight = window.innerHeight - 400;
+
+    if (difficulty === 'custom') {
+      const cellWidth = Math.min(Math.floor(maxWidth / config.cols), 40);
+      const cellHeight = Math.min(Math.floor(maxHeight / config.rows), 40);
+      return Math.min(cellWidth, cellHeight);
+    }
+
+    if (difficulty === 'brutal') {
+      const cellWidth = Math.min(Math.floor(maxWidth / 30), 28);
+      const cellHeight = Math.min(Math.floor(maxHeight / 24), 28);
+      return Math.min(cellWidth, cellHeight);
+    }
+
+    if (difficulty === 'expert') {
+      const cellWidth = Math.min(Math.floor(maxWidth / 30), 32);
+      const cellHeight = Math.min(Math.floor(maxHeight / 16), 32);
+      return Math.min(cellWidth, cellHeight);
+    }
+
+    if (difficulty === 'intermediate') return 36;
+    return 40;
+  })();
+
+  const boardPixelWidth = Math.max(0, config.cols * cellSizeForLayout);
+
+  // 真实测量棋盘外框宽度，确保顶部计数器面板与棋盘严丝合缝
+  const boardFrameRef = useRef<HTMLDivElement | null>(null);
+  const [boardFrameWidth, setBoardFrameWidth] = useState<number>(0);
+
+  useLayoutEffect(() => {
+    const el = boardFrameRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const w = Math.round(el.getBoundingClientRect().width);
+      setBoardFrameWidth(w);
+    };
+
+    update();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => update());
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [difficulty, config.rows, config.cols, board.length, boardPixelWidth]);
+
   return (
+
 
     <Box sx={{ padding: 2 }}>
       {/* 难度选择标签 */}
@@ -1691,28 +1749,155 @@ const validateCustomConfig = (config: CustomConfig): string => {
       </Dialog>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        {/* 控制面板（尽量还原 minesweeper.cn 的“计数器 + 表情按钮”风格） */}
+        {/* 经典扫雷“窗口外框”：计数器面板 + 棋盘 贴在一起（宽度=棋盘宽度），空白用方格纹理填充 */}
         <Paper
           sx={{
-            p: 1,
-            mb: 1,
-            minWidth: 320,
+            display: 'inline-block',
             backgroundColor: '#c0c0c0',
+            p: 1,
             borderTop: '2px solid #fff',
             borderLeft: '2px solid #fff',
             borderRight: '2px solid #808080',
             borderBottom: '2px solid #808080'
           }}
         >
-          <Box display="flex" alignItems="center" justifyContent="space-between" px={1}>
-            {renderDigitalCounter(flagsLeft)}
-            {renderFaceButton()}
-            {renderDigitalCounter(timer)}
+          {/* 顶部面板 */}
+          <Box
+            sx={{
+              width: boardFrameWidth ? `${boardFrameWidth}px` : boardPixelWidth ? `${boardPixelWidth + 4}px` : 'auto',
+              p: 0.75,
+              backgroundColor: '#c0c0c0',
+              borderTop: '2px solid #808080',
+              borderLeft: '2px solid #808080',
+              borderRight: '2px solid #fff',
+              borderBottom: '2px solid #fff'
+            }}
+          >
+
+            <Box display="flex" alignItems="center" justifyContent="space-between" gap={1}>
+              {renderDigitalCounter(flagsLeft)}
+
+              <Box
+                sx={{
+                  flex: 1,
+                  mx: 0.5,
+                  height: 46,
+                  backgroundColor: '#c0c0c0',
+                  backgroundImage: hasSkinImage(CLASSIC_SKIN.cell.covered) ? `url(${CLASSIC_SKIN.cell.covered})` : 'none',
+                  backgroundRepeat: 'repeat',
+                  backgroundSize: `${cellSizeForLayout}px ${cellSizeForLayout}px`,
+                  imageRendering: 'pixelated',
+                  borderTop: '2px solid #fff',
+                  borderLeft: '2px solid #fff',
+                  borderRight: '2px solid #808080',
+                  borderBottom: '2px solid #808080'
+                }}
+              />
+
+              {renderFaceButton()}
+
+              <Box
+                sx={{
+                  flex: 1,
+                  mx: 0.5,
+                  height: 46,
+                  backgroundColor: '#c0c0c0',
+                  backgroundImage: hasSkinImage(CLASSIC_SKIN.cell.covered) ? `url(${CLASSIC_SKIN.cell.covered})` : 'none',
+                  backgroundRepeat: 'repeat',
+                  backgroundSize: `${cellSizeForLayout}px ${cellSizeForLayout}px`,
+                  imageRendering: 'pixelated',
+                  borderTop: '2px solid #fff',
+                  borderLeft: '2px solid #fff',
+                  borderRight: '2px solid #808080',
+                  borderBottom: '2px solid #808080'
+                }}
+              />
+
+              {renderDigitalCounter(timer)}
+            </Box>
+          </Box>
+
+          {/* 面板与棋盘的分隔槽 */}
+          <Box
+            sx={{
+              mt: 1,
+              mb: 1,
+              height: 2,
+              backgroundColor: '#c0c0c0',
+              borderTop: '1px solid #808080',
+              borderLeft: '1px solid #808080',
+              borderRight: '1px solid #fff',
+              borderBottom: '1px solid #fff'
+            }}
+          />
+
+          {/* 棋盘（内凹边框） */}
+          <Box
+            ref={boardFrameRef}
+            sx={{
+              display: 'inline-block',
+              backgroundColor: '#c0c0c0',
+              borderTop: '2px solid #808080',
+              borderLeft: '2px solid #808080',
+              borderRight: '2px solid #fff',
+              borderBottom: '2px solid #fff'
+            }}
+          >
+
+            <Box>
+              {board.map((row, rowIndex) => (
+                <Box key={rowIndex} display="flex">
+                  {row.map((cell, colIndex) => (
+                    <Box
+                      key={`${rowIndex}-${colIndex}`}
+                      onMouseDown={(e) => {
+                        handleMouseDown(rowIndex, colIndex, e);
+                      }}
+                      onMouseUp={(e) => handleMouseUp(rowIndex, colIndex, e)}
+                      onMouseEnter={() => {
+                        setHoverCell({ row: rowIndex, col: colIndex });
+                        if (isMouseDownRef.current.left && isMouseDownRef.current.right) {
+                          updatePressedCells(rowIndex, colIndex);
+                        }
+                      }}
+                      onMouseLeave={() => {
+                        if (hoverCell?.row === rowIndex && hoverCell?.col === colIndex) {
+                          setPressedCells(new Set());
+                        }
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        toggleFlag(rowIndex, colIndex, e);
+                      }}
+                      style={getCellStyle(cell, rowIndex, colIndex)}
+                    >
+                      {(() => {
+                        const overlayUrl = getCellOverlayUrl(cell);
+                        const canUseOverlay = overlayUrl && hasSkinImage(overlayUrl);
+
+                        if (canUseOverlay) {
+                          return <Box style={getCellOverlayStyle(overlayUrl)} />;
+                        }
+
+                        // 无贴图：回退到文字/emoji
+                        if (cell.isFlagged && !cell.isRevealed && gameStatus === 'playing') return '🚩';
+                        if (cell.isFlagged && gameStatus === 'won') return '🚩';
+                        if (cell.isFlagged && !cell.isMine && gameStatus === 'lost') return '❌';
+                        if (cell.isFlagged && cell.isMine && gameStatus === 'lost') return '🚩';
+                        if (cell.isRevealed && cell.isMine) return '💣';
+                        if (cell.isRevealed && !cell.isMine && cell.neighborMines > 0) return cell.neighborMines;
+                        return null;
+                      })()}
+                    </Box>
+                  ))}
+                </Box>
+              ))}
+            </Box>
           </Box>
         </Paper>
 
         {/* 操作区 */}
-        <Paper sx={{ padding: 2, marginBottom: 2, minWidth: 320 }}>
+        <Paper sx={{ padding: 2, marginTop: 2, marginBottom: 2, minWidth: 320 }}>
           <Grid container spacing={2} alignItems="center" justifyContent="center">
             <Grid item xs={12} sm={6}>
               <Tooltip title="分享旁观链接">
@@ -1763,7 +1948,6 @@ const validateCustomConfig = (config: CustomConfig): string => {
           </Grid>
         </Paper>
 
-
         {/* 游戏状态提示 */}
         {gameStatus !== 'playing' && (
           <Paper sx={{ padding: 2, marginBottom: 2, backgroundColor: gameStatus === 'won' ? '#4caf50' : '#f44336' }}>
@@ -1773,70 +1957,6 @@ const validateCustomConfig = (config: CustomConfig): string => {
           </Paper>
         )}
 
-        {/* 游戏棋盘 */}
-        <Paper
-          sx={{
-            padding: 1,
-            display: 'inline-block',
-            backgroundColor: '#c0c0c0',
-            borderTop: '2px solid #808080',
-            borderLeft: '2px solid #808080',
-            borderRight: '2px solid #fff',
-            borderBottom: '2px solid #fff'
-          }}
-        >
-
-          <Box>
-            {board.map((row, rowIndex) => (
-              <Box key={rowIndex} display="flex">
-                {row.map((cell, colIndex) => (
-                  <Box
-                    key={`${rowIndex}-${colIndex}`}
-                    onMouseDown={(e) => {
-                      handleMouseDown(rowIndex, colIndex, e);
-                    }}
-                    onMouseUp={(e) => handleMouseUp(rowIndex, colIndex, e)}
-                    onMouseEnter={() => {
-                      setHoverCell({ row: rowIndex, col: colIndex });
-                      if (isMouseDownRef.current.left && isMouseDownRef.current.right) {
-                        updatePressedCells(rowIndex, colIndex);
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      if (hoverCell?.row === rowIndex && hoverCell?.col === colIndex) {
-                        setPressedCells(new Set());
-                      }
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      toggleFlag(rowIndex, colIndex, e);
-                    }}
-                    style={getCellStyle(cell, rowIndex, colIndex)}
-                  >
-                    {(() => {
-                      const overlayUrl = getCellOverlayUrl(cell);
-                      const canUseOverlay = overlayUrl && hasSkinImage(overlayUrl);
-
-                      if (canUseOverlay) {
-                        return <Box style={getCellOverlayStyle(overlayUrl)} />;
-                      }
-
-                      // 无贴图：回退到文字/emoji
-                      if (cell.isFlagged && !cell.isRevealed && gameStatus === 'playing') return '🚩';
-                      if (cell.isFlagged && gameStatus === 'won') return '🚩';
-                      if (cell.isFlagged && !cell.isMine && gameStatus === 'lost') return '❌';
-                      if (cell.isFlagged && cell.isMine && gameStatus === 'lost') return '🚩';
-                      if (cell.isRevealed && cell.isMine) return '💣';
-                      if (cell.isRevealed && !cell.isMine && cell.neighborMines > 0) return cell.neighborMines;
-                      return null;
-                    })()}
-                  </Box>
-
-                ))}
-              </Box>
-            ))}
-          </Box>
-        </Paper>
 
         {/* 结果对话框 */}
         <Dialog open={showResultDialog} onClose={() => setShowResultDialog(false)}>
