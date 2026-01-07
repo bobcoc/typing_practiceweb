@@ -1,5 +1,5 @@
 // src/components/SpectatorMinesweeper.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Box, Typography, Paper, Chip } from '@mui/material';
 import { io, Socket } from 'socket.io-client';
@@ -22,8 +22,36 @@ interface HoverCell {
   col: number;
 }
 
+// 经典扫雷“图片皮肤”配置（与 MinesweeperGame 保持一致）
+const CLASSIC_SKIN_BASE = '/minesweeper-skin';
+const CLASSIC_SKIN = {
+  cell: {
+    covered: `${CLASSIC_SKIN_BASE}/cell_closed.gif`,
+    coveredPressed: `${CLASSIC_SKIN_BASE}/cell_pressed.gif`,
+    revealed: `${CLASSIC_SKIN_BASE}/cell_open.gif`
+  },
+  overlay: {
+    flag: `${CLASSIC_SKIN_BASE}/flag.gif`,
+    wrongFlag: `${CLASSIC_SKIN_BASE}/wrong_flag.gif`,
+    mine: `${CLASSIC_SKIN_BASE}/mine.gif`,
+    mineExploded: `${CLASSIC_SKIN_BASE}/mine_exploded.gif`,
+    numbers: [
+      '',
+      `${CLASSIC_SKIN_BASE}/num_1.gif`,
+      `${CLASSIC_SKIN_BASE}/num_2.gif`,
+      `${CLASSIC_SKIN_BASE}/num_3.gif`,
+      `${CLASSIC_SKIN_BASE}/num_4.gif`,
+      `${CLASSIC_SKIN_BASE}/num_5.gif`,
+      `${CLASSIC_SKIN_BASE}/num_6.gif`,
+      `${CLASSIC_SKIN_BASE}/num_7.gif`,
+      `${CLASSIC_SKIN_BASE}/num_8.gif`
+    ]
+  }
+} as const;
+
 // 内部实际的组件实现
 const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => {
+
   const [board, setBoard] = useState<Cell[][]>([]);
   const [difficulty, setDifficulty] = useState<string>('beginner');
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -36,6 +64,42 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
   const [pressedCells, setPressedCells] = useState<Set<string>>(new Set());
   const [hoverCell, setHoverCell] = useState<HoverCell | null>(null);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
+
+  // 皮肤图片预加载（有素材时自动启用图片版渲染）
+  const skinUrls = useMemo(() => {
+    const urls: string[] = [];
+    urls.push(CLASSIC_SKIN.cell.covered, CLASSIC_SKIN.cell.coveredPressed, CLASSIC_SKIN.cell.revealed);
+    urls.push(CLASSIC_SKIN.overlay.flag, CLASSIC_SKIN.overlay.wrongFlag, CLASSIC_SKIN.overlay.mine, CLASSIC_SKIN.overlay.mineExploded);
+    urls.push(...CLASSIC_SKIN.overlay.numbers.slice(1));
+    return urls;
+  }, []);
+
+  const [availableImages, setAvailableImages] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOne = (url: string) =>
+      new Promise<{ url: string; ok: boolean }>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ url, ok: true });
+        img.onerror = () => resolve({ url, ok: false });
+        img.src = url;
+      });
+
+    Promise.all(skinUrls.map(loadOne)).then((results) => {
+      if (cancelled) return;
+      const okUrls = results.filter((r) => r.ok).map((r) => r.url);
+      setAvailableImages(new Set(okUrls));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [skinUrls]);
+
+  const hasSkinImage = useCallback((url: string) => availableImages.has(url), [availableImages]);
+
 
   // 初始化 WebSocket 连接
   useEffect(() => {
@@ -358,109 +422,159 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
     };
   }, []);
 
-  // 获取格子样式
+  // 获取格子样式（优先使用 public/minesweeper-skin/ 下的贴图；缺图时回退到原色块渲染）
   const getCellStyle = (cell: Cell, row: number, col: number): React.CSSProperties => {
     const cellKey = `${row},${col}`;
     const isHighlighted = highlightedCells.has(cellKey);
     const isPressed = pressedCells.has(cellKey);
     const isHovered = hoverCell?.row === row && hoverCell?.col === col;
-    
+
     // 根据屏幕大小和难度动态调整格子大小
     const getCellSize = () => {
       const config = getDifficultyConfig();
       const maxWidth = window.innerWidth - 100;
-      const maxHeight = window.innerHeight - 200; // 减少顶部空间，因为不需要菜单
-      
-      if (difficulty === 'fullscreen') {
-        // 满屏模式：固定25px格子大小（与扫雷网页一致）
-        return 25;
-      } else if (difficulty === 'custom') {
-        // 自定义模式：根据棋盘大小自动调整格子大小
+      const maxHeight = window.innerHeight - 200;
+
+      if (difficulty === 'fullscreen') return 25;
+      if (difficulty === 'custom') {
         const cellWidth = Math.min(Math.floor(maxWidth / config.cols), 40);
         const cellHeight = Math.min(Math.floor(maxHeight / config.rows), 40);
         return Math.min(cellWidth, cellHeight);
-      } else if (difficulty === 'brutal') {
-        // 残酷模式：24×30，需要更小的格子以适应屏幕
+      }
+      if (difficulty === 'brutal') {
         const cellWidth = Math.min(Math.floor(maxWidth / 30), 28);
         const cellHeight = Math.min(Math.floor(maxHeight / 24), 28);
         return Math.min(cellWidth, cellHeight);
-      } else if (difficulty === 'expert') {
-        // 高级模式：16×30，需要更小的格子以适应屏幕
+      }
+      if (difficulty === 'expert') {
         const cellWidth = Math.min(Math.floor(maxWidth / 30), 32);
         const cellHeight = Math.min(Math.floor(maxHeight / 16), 32);
         return Math.min(cellWidth, cellHeight);
-      } else if (difficulty === 'intermediate') {
-        return 36;
-      } else {
-        return 40;
       }
+      if (difficulty === 'intermediate') return 36;
+      return 40;
     };
 
     const cellSize = getCellSize();
-    
+
     const baseStyle: React.CSSProperties = {
       width: `${cellSize}px`,
       height: `${cellSize}px`,
-      borderWidth: '1px',
-      borderColor: '#999',
-      borderStyle: 'solid',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      cursor: cell.isRevealed || cell.isFlagged ? 'default' : 'pointer',
-      fontSize: difficulty === 'brutal' ? '10px' : difficulty === 'expert' ? '12px' : '14px',
-      fontWeight: 'bold',
+      cursor: 'pointer',
       userSelect: 'none',
       transition: 'all 0.05s ease',
-      margin: '0'
+      margin: '0',
+      position: 'relative',
+      imageRendering: 'pixelated'
     };
 
-    if (cell.isRevealed) {
-      if (cell.isMine) {
-        if (cell.isFlagged) {
-          // 已标记的地雷：灰色背景
-          return { ...baseStyle, backgroundColor: '#999', color: '#000' };
-        } else {
-          // 未标记的地雷：红色背景
-          return { ...baseStyle, backgroundColor: '#ff0000', color: '#000' };
+    // 选择底图（未开/按下/已开）
+    const coveredUrl = CLASSIC_SKIN.cell.covered;
+    const pressedUrl = CLASSIC_SKIN.cell.coveredPressed;
+    const openedUrl = CLASSIC_SKIN.cell.revealed;
+
+    const canUseCovered = hasSkinImage(coveredUrl);
+    const canUsePressed = hasSkinImage(pressedUrl);
+    const canUseOpened = hasSkinImage(openedUrl);
+
+    const backgroundUrl = cell.isRevealed
+      ? (canUseOpened ? openedUrl : '')
+      : isPressed
+        ? (canUsePressed ? pressedUrl : (canUseCovered ? coveredUrl : ''))
+        : (canUseCovered ? coveredUrl : '');
+
+    const fallbackStyle: React.CSSProperties = (() => {
+      if (cell.isRevealed) {
+        if (cell.isMine) {
+          if (cell.isFlagged) return { backgroundColor: '#999', color: '#000' };
+          return { backgroundColor: '#ff0000', color: '#000' };
         }
+        return { backgroundColor: '#ddd', color: getNumberColor(cell.neighborMines) };
       }
-      return { ...baseStyle, backgroundColor: '#ddd', color: getNumberColor(cell.neighborMines) };
+
+      if (cell.isFlagged) return { backgroundColor: '#fff', color: '#ff0000' };
+
+      if (isPressed) {
+        return {
+          backgroundColor: '#ddd',
+          transform: 'scale(0.95)'
+        };
+      }
+
+      return { backgroundColor: '#bbb' };
+    })();
+
+    const skinStyle: React.CSSProperties = backgroundUrl
+      ? {
+          backgroundImage: `url(${backgroundUrl})`,
+          backgroundSize: '100% 100%',
+          backgroundRepeat: 'no-repeat',
+          border: 'none'
+        }
+      : {
+          borderWidth: '1px',
+          borderColor: '#999',
+          borderStyle: 'solid'
+        };
+
+    // 高亮/悬停：尽量不遮挡贴图，用描边/阴影表现
+    const highlightStyle: React.CSSProperties = isHighlighted
+      ? {
+          boxShadow: '0 0 0 2px #ff6b6b inset, 0 0 6px rgba(255,107,107,0.9)',
+          zIndex: 10
+        }
+      : {};
+
+    const hoverStyle: React.CSSProperties = isHovered && roomInfo?.invitePlayMode
+      ? { boxShadow: '0 0 0 2px rgba(0, 123, 255, 0.8) inset' }
+      : {};
+
+    return {
+      ...baseStyle,
+      ...skinStyle,
+      ...fallbackStyle,
+      ...highlightStyle,
+      ...hoverStyle
+    };
+  };
+
+  const getCellOverlayUrl = (cell: Cell): string => {
+    const gameState = roomInfo?.gameState;
+
+    // 失败时：错误旗标
+    if (cell.isFlagged && gameState === 'lost' && !cell.isMine) return CLASSIC_SKIN.overlay.wrongFlag;
+
+    // 插旗
+    if (cell.isFlagged) return CLASSIC_SKIN.overlay.flag;
+
+    // 地雷
+    if (cell.isRevealed && cell.isMine) {
+      if (cell.isExploded) return CLASSIC_SKIN.overlay.mineExploded;
+      return CLASSIC_SKIN.overlay.mine;
     }
 
-    if (cell.isFlagged) {
-      return { ...baseStyle, backgroundColor: '#fff', color: '#ff0000' };
+    // 数字
+    if (cell.isRevealed && !cell.isMine && cell.neighborMines > 0) {
+      return CLASSIC_SKIN.overlay.numbers[cell.neighborMines] || '';
     }
 
-    // 按下效果
-    if (isPressed) {
-      return { 
-        ...baseStyle, 
-        backgroundColor: '#ddd',
-        transform: 'scale(0.95)'
-      };
-    }
+    return '';
+  };
 
-    // 高亮效果
-    if (isHighlighted) {
-      return { 
-        ...baseStyle, 
-        backgroundColor: '#ff6b6b', // 红色高亮
-        transform: 'scale(1.1)',
-        zIndex: 10
-      };
-    }
-
-    // 悬停效果
-    if (isHovered && roomInfo?.invitePlayMode) {
-      return { 
-        ...baseStyle, 
-        backgroundColor: '#aaa',
-        transform: 'scale(1.05)'
-      };
-    }
-
-    return { ...baseStyle, backgroundColor: '#bbb' };
+  const getCellOverlayStyle = (overlayUrl: string): React.CSSProperties => {
+    return {
+      position: 'absolute',
+      inset: 0,
+      backgroundImage: `url(${overlayUrl})`,
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'center',
+      backgroundSize: '100% 100%',
+      pointerEvents: 'none',
+      imageRendering: 'pixelated'
+    };
   };
 
   // 获取数字颜色
@@ -468,6 +582,7 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
     const colors = ['', '#0000ff', '#008000', '#ff0000', '#000080', '#800000', '#008080', '#000', '#808080'];
     return colors[num] || '#000';
   };
+
 
   // 键盘事件监听（D键触发弦操作，B键标记，C键打开）
   useEffect(() => {
@@ -625,7 +740,18 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
       </Typography>
       
       {board.length > 0 ? (
-        <Paper sx={{ padding: 1, display: 'inline-block' }}>
+        <Paper
+          sx={{
+            padding: 1,
+            display: 'inline-block',
+            backgroundColor: '#c0c0c0',
+            borderTop: '2px solid #808080',
+            borderLeft: '2px solid #808080',
+            borderRight: '2px solid #fff',
+            borderBottom: '2px solid #fff'
+          }}
+        >
+
           <Box>
             {board.map((row, rowIndex) => (
               <Box key={rowIndex} display="flex">
@@ -642,15 +768,22 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
                     }}
                     style={getCellStyle(cell, rowIndex, colIndex)}
                   >
-                    {/* 显示已揭开的地雷 */}
-                    {cell.isRevealed && cell.isMine && '💣'}
-                    
-                    {/* 显示已揭开格子的数字 */}
-                    {cell.isRevealed && !cell.isMine && cell.neighborMines > 0 && cell.neighborMines}
-                    
-                    {/* 显示旗帜 */}
-                    {cell.isFlagged && '🚩'}
+                    {(() => {
+                      const overlayUrl = getCellOverlayUrl(cell);
+                      const canUseOverlay = overlayUrl && hasSkinImage(overlayUrl);
+
+                      if (canUseOverlay) {
+                        return <Box style={getCellOverlayStyle(overlayUrl)} />;
+                      }
+
+                      // 无贴图：回退到文字/emoji
+                      if (cell.isRevealed && cell.isMine) return '💣';
+                      if (cell.isRevealed && !cell.isMine && cell.neighborMines > 0) return cell.neighborMines;
+                      if (cell.isFlagged) return '🚩';
+                      return null;
+                    })()}
                   </Box>
+
                 ))}
               </Box>
             ))}

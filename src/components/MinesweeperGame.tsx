@@ -1,5 +1,5 @@
 // src/components/MinesweeperGame.tsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Box,
   Button,
@@ -19,7 +19,7 @@ import {
   Checkbox
 } from '@mui/material';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import FlagIcon from '@mui/icons-material/Flag';
+
 import ShareIcon from '@mui/icons-material/Share';
 import QRCode from 'qrcode';
 import { io, Socket } from 'socket.io-client';
@@ -131,6 +131,55 @@ interface HighlightedCell {
   timestamp: number;
 }
 
+// 经典扫雷“图片皮肤”配置：素材放到 public/minesweeper-skin/ 下即可生效
+// 当前这些文件名与 minesweeper.cn 的 `gfs1.js` 一致（gif）。
+const CLASSIC_SKIN_BASE = '/minesweeper-skin';
+const CLASSIC_SKIN = {
+  cell: {
+    covered: `${CLASSIC_SKIN_BASE}/cell_closed.gif`,
+    coveredPressed: `${CLASSIC_SKIN_BASE}/cell_pressed.gif`,
+    revealed: `${CLASSIC_SKIN_BASE}/cell_open.gif`
+  },
+  overlay: {
+    flag: `${CLASSIC_SKIN_BASE}/flag.gif`,
+    wrongFlag: `${CLASSIC_SKIN_BASE}/wrong_flag.gif`,
+    mine: `${CLASSIC_SKIN_BASE}/mine.gif`,
+    mineExploded: `${CLASSIC_SKIN_BASE}/mine_exploded.gif`,
+    numbers: [
+      '',
+      `${CLASSIC_SKIN_BASE}/num_1.gif`,
+      `${CLASSIC_SKIN_BASE}/num_2.gif`,
+      `${CLASSIC_SKIN_BASE}/num_3.gif`,
+      `${CLASSIC_SKIN_BASE}/num_4.gif`,
+      `${CLASSIC_SKIN_BASE}/num_5.gif`,
+      `${CLASSIC_SKIN_BASE}/num_6.gif`,
+      `${CLASSIC_SKIN_BASE}/num_7.gif`,
+      `${CLASSIC_SKIN_BASE}/num_8.gif`
+    ]
+  },
+  panel: {
+    digits: [
+      `${CLASSIC_SKIN_BASE}/digit_0.gif`,
+      `${CLASSIC_SKIN_BASE}/digit_1.gif`,
+      `${CLASSIC_SKIN_BASE}/digit_2.gif`,
+      `${CLASSIC_SKIN_BASE}/digit_3.gif`,
+      `${CLASSIC_SKIN_BASE}/digit_4.gif`,
+      `${CLASSIC_SKIN_BASE}/digit_5.gif`,
+      `${CLASSIC_SKIN_BASE}/digit_6.gif`,
+      `${CLASSIC_SKIN_BASE}/digit_7.gif`,
+      `${CLASSIC_SKIN_BASE}/digit_8.gif`,
+      `${CLASSIC_SKIN_BASE}/digit_9.gif`
+    ],
+    face: {
+      normal: `${CLASSIC_SKIN_BASE}/face_normal.gif`,
+      win: `${CLASSIC_SKIN_BASE}/face_win.gif`,
+      lost: `${CLASSIC_SKIN_BASE}/face_lost.gif`
+    }
+  }
+} as const;
+
+
+
 const MinesweeperGame: React.FC = () => {
   const [difficulty, setDifficulty] = useState<Difficulty>('beginner');
   const [board, setBoard] = useState<Cell[][]>([]);
@@ -167,6 +216,44 @@ const MinesweeperGame: React.FC = () => {
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [customConfig, setCustomConfig] = useState<CustomConfig>(getCustomConfigFromStorage());
   const [customInputError, setCustomInputError] = useState<string>('');
+
+  // 经典扫雷皮肤图片预加载（有素材时自动启用图片版渲染）
+  const skinUrls = useMemo(() => {
+    const urls: string[] = [];
+    urls.push(CLASSIC_SKIN.cell.covered, CLASSIC_SKIN.cell.coveredPressed, CLASSIC_SKIN.cell.revealed);
+    urls.push(CLASSIC_SKIN.overlay.flag, CLASSIC_SKIN.overlay.wrongFlag, CLASSIC_SKIN.overlay.mine, CLASSIC_SKIN.overlay.mineExploded);
+    urls.push(...CLASSIC_SKIN.overlay.numbers.slice(1));
+    urls.push(...CLASSIC_SKIN.panel.digits);
+    urls.push(CLASSIC_SKIN.panel.face.normal, CLASSIC_SKIN.panel.face.win, CLASSIC_SKIN.panel.face.lost);
+    return urls;
+  }, []);
+
+  const [availableImages, setAvailableImages] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOne = (url: string) =>
+      new Promise<{ url: string; ok: boolean }>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ url, ok: true });
+        img.onerror = () => resolve({ url, ok: false });
+        img.src = url;
+      });
+
+    Promise.all(skinUrls.map(loadOne)).then((results) => {
+      if (cancelled) return;
+      const okUrls = results.filter((r) => r.ok).map((r) => r.url);
+      setAvailableImages(new Set(okUrls));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [skinUrls]);
+
+  const hasSkinImage = useCallback((url: string) => availableImages.has(url), [availableImages]);
+
 // 动态获取配置，满屏模式和自定义模式需要特殊处理
 const getCurrentConfig = (): DifficultyConfig => {
   if (difficulty === 'fullscreen') {
@@ -1274,106 +1361,159 @@ const validateCustomConfig = (config: CustomConfig): string => {
     }
   }, [difficulty, roomId, socket]);
 
-  // 获取格子样式
+  // 获取格子样式（优先使用 public/minesweeper-skin/ 下的贴图；缺图时回退到原色块渲染）
   const getCellStyle = (cell: Cell, row: number, col: number): React.CSSProperties => {
     const cellKey = `${row},${col}`;
-    const isPressed = pressedCells.has(cellKey); // 是否处于按下状态
-    
-    // 检查是否需要闪烁
-    const isHighlighted = highlightedCells.some(hc => hc.row === row && hc.col === col);
-    
+    const isPressed = pressedCells.has(cellKey);
+
+    // 旁观建议高亮
+    const isHighlighted = highlightedCells.some((hc) => hc.row === row && hc.col === col);
+
     // 根据屏幕大小和难度动态调整格子大小
     const getCellSize = () => {
-      if (difficulty === 'fullscreen') {
-        // 满屏模式：固定25px格子大小（与扫雷网页一致）
-        return 25;
-      } else if (difficulty === 'custom') {
-        // 自定义模式：根据棋盘大小自动调整格子大小
+      if (difficulty === 'fullscreen') return 25;
+      if (difficulty === 'custom') {
         const currentConfig = getCurrentConfig();
         const maxWidth = window.innerWidth - 100;
         const maxHeight = window.innerHeight - 400;
         const cellWidth = Math.min(Math.floor(maxWidth / currentConfig.cols), 40);
         const cellHeight = Math.min(Math.floor(maxHeight / currentConfig.rows), 40);
         return Math.min(cellWidth, cellHeight);
-      } else if (difficulty === 'brutal') {
-        // 残酷模式：24×30，需要更小的格子以适应屏幕
+      }
+      if (difficulty === 'brutal') {
         const maxWidth = window.innerWidth - 100;
         const maxHeight = window.innerHeight - 400;
         const cellWidth = Math.min(Math.floor(maxWidth / 30), 28);
         const cellHeight = Math.min(Math.floor(maxHeight / 24), 28);
         return Math.min(cellWidth, cellHeight);
-      } else if (difficulty === 'expert') {
-        // 高级模式：16×30，需要更小的格子以适应屏幕
+      }
+      if (difficulty === 'expert') {
         const maxWidth = window.innerWidth - 100;
         const maxHeight = window.innerHeight - 400;
         const cellWidth = Math.min(Math.floor(maxWidth / 30), 32);
         const cellHeight = Math.min(Math.floor(maxHeight / 16), 32);
         return Math.min(cellWidth, cellHeight);
-      } else if (difficulty === 'intermediate') {
-        return 36;
-      } else {
-        return 40;
       }
+      if (difficulty === 'intermediate') return 36;
+      return 40;
     };
 
     const cellSize = getCellSize();
-    
+
     const baseStyle: React.CSSProperties = {
       width: `${cellSize}px`,
       height: `${cellSize}px`,
-      borderWidth: '1px',
-      borderColor: '#999',
-      borderStyle: 'solid', // 默认实线边框
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       cursor: gameStatus === 'playing' ? 'pointer' : 'default',
-      fontSize: difficulty === 'fullscreen' || difficulty === 'custom' ? '12px' : difficulty === 'brutal' ? '10px' : difficulty === 'expert' ? '12px' : '14px',
-      fontWeight: 'bold',
       userSelect: 'none',
-      transition: 'all 0.05s ease' // 添加平滑过渡
+      transition: 'all 0.05s ease',
+      imageRendering: 'pixelated'
     };
 
-    // 闪烁效果（优先于其他状态显示）
-    if (isHighlighted) {
-      return { 
-        ...baseStyle, 
-        backgroundColor: '#ff6b6b', // 红色高亮
-        animation: 'pulse 1s infinite',
-        zIndex: 10
-      };
-    }
+    // 选择底图（未开/按下/已开）
+    const coveredUrl = CLASSIC_SKIN.cell.covered;
+    const pressedUrl = CLASSIC_SKIN.cell.coveredPressed;
+    const openedUrl = CLASSIC_SKIN.cell.revealed;
 
-    if (cell.isRevealed) {
-      if (cell.isMine) {
-        // 未标记的地雷：红色背景，已标记的地雷：灰色背景
-        if (cell.isFlagged) {
-          // 已标记的地雷：灰色背景
-          return { ...baseStyle, backgroundColor: '#999', color: '#000' };
-        } else {
-          // 未标记的地雷（包括引爆的）：红色背景
-          return { ...baseStyle, backgroundColor: '#ff0000', color: '#000' };
+    const canUseCovered = hasSkinImage(coveredUrl);
+    const canUsePressed = hasSkinImage(pressedUrl);
+    const canUseOpened = hasSkinImage(openedUrl);
+
+    const backgroundUrl = cell.isRevealed
+      ? (canUseOpened ? openedUrl : '')
+      : isPressed
+        ? (canUsePressed ? pressedUrl : (canUseCovered ? coveredUrl : ''))
+        : (canUseCovered ? coveredUrl : '');
+
+    const fallbackStyle: React.CSSProperties = (() => {
+      // 没有贴图时，尽量保持现有配色逻辑
+      if (cell.isRevealed) {
+        if (cell.isMine) {
+          if (cell.isFlagged) return { backgroundColor: '#999', color: '#000' };
+          return { backgroundColor: '#ff0000', color: '#000' };
         }
+        return { backgroundColor: '#ddd', color: getNumberColor(cell.neighborMines) };
       }
-      return { ...baseStyle, backgroundColor: '#ddd', color: getNumberColor(cell.neighborMines) };
-    }
 
-    if (cell.isFlagged) {
-      return { ...baseStyle, backgroundColor: '#fff', color: '#ff0000' };
-    }
+      if (cell.isFlagged) return { backgroundColor: '#fff', color: '#ff0000' };
 
-    // 按下效果：显示为浅灰色，模拟经典扫雷的按下效果
-    if (isPressed) {
-      return { 
-        ...baseStyle, 
-        backgroundColor: '#ddd',
-        borderStyle: 'inset', // 凹陷效果
-        transform: 'scale(0.95)' // 轻微缩小
-      };
-    }
+      if (isPressed) {
+        return {
+          backgroundColor: '#ddd',
+          borderStyle: 'inset',
+          transform: 'scale(0.95)'
+        };
+      }
 
-    return { ...baseStyle, backgroundColor: '#bbb' };
+      return { backgroundColor: '#bbb' };
+    })();
+
+    const skinStyle: React.CSSProperties = backgroundUrl
+      ? {
+          backgroundImage: `url(${backgroundUrl})`,
+          backgroundSize: 'contain',
+
+          backgroundRepeat: 'no-repeat',
+          border: 'none'
+        }
+      : {
+          borderWidth: '1px',
+          borderColor: '#999',
+          borderStyle: 'solid'
+        };
+
+    const highlightStyle: React.CSSProperties = isHighlighted
+      ? {
+          animation: 'pulse 1s infinite',
+          zIndex: 10
+        }
+      : {};
+
+    return {
+      ...baseStyle,
+      ...skinStyle,
+      ...fallbackStyle,
+      ...highlightStyle
+    };
   };
+
+  const getCellOverlayUrl = (cell: Cell): string => {
+    // 失败时：错误旗标
+    if (cell.isFlagged && gameStatus === 'lost' && !cell.isMine) return CLASSIC_SKIN.overlay.wrongFlag;
+
+    // 插旗（游戏中/胜利/失败的正确旗）
+    if (cell.isFlagged) return CLASSIC_SKIN.overlay.flag;
+
+    // 地雷
+    if (cell.isRevealed && cell.isMine) {
+      if (cell.isExploded) return CLASSIC_SKIN.overlay.mineExploded;
+      return CLASSIC_SKIN.overlay.mine;
+    }
+
+    // 数字
+    if (cell.isRevealed && !cell.isMine && cell.neighborMines > 0) {
+      return CLASSIC_SKIN.overlay.numbers[cell.neighborMines] || '';
+    }
+
+    return '';
+  };
+
+  const getCellOverlayStyle = (overlayUrl: string): React.CSSProperties => {
+    return {
+      width: '100%',
+      height: '100%',
+      backgroundImage: `url(${overlayUrl})`,
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'center',
+      backgroundSize: 'contain',
+
+      pointerEvents: 'none',
+      imageRendering: 'pixelated'
+    };
+  };
+
 
   // 获取数字颜色
   const getNumberColor = (num: number): string => {
@@ -1388,7 +1528,109 @@ const validateCustomConfig = (config: CustomConfig): string => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // 经典扫雷计数器/表情按钮（有贴图时自动使用贴图；缺图则回退为文字按钮）
+  const canUseDigitImages = useMemo(() => CLASSIC_SKIN.panel.digits.every((u) => availableImages.has(u)), [availableImages]);
+  const canUseFaceImages = useMemo(
+    () =>
+      [CLASSIC_SKIN.panel.face.normal, CLASSIC_SKIN.panel.face.win, CLASSIC_SKIN.panel.face.lost].every((u) => availableImages.has(u)),
+    [availableImages]
+  );
+
+  const renderDigitalCounter = (value: number) => {
+    const clamped = Math.max(0, Math.min(value, 999));
+    const text = clamped.toString().padStart(3, '0');
+
+    if (!canUseDigitImages) {
+      return (
+        <Box
+          sx={{
+            minWidth: 90,
+            px: 1,
+            py: 0.5,
+            backgroundColor: '#000',
+            color: '#ff0000',
+            fontFamily: 'monospace',
+            fontSize: 24,
+            textAlign: 'center',
+            border: '2px inset #808080'
+          }}
+        >
+          {text}
+        </Box>
+      );
+    }
+
+    const scale = 2;
+    const w = 13 * scale;
+    const h = 23 * scale;
+
+    return (
+      <Box sx={{ display: 'flex', gap: 0.25, backgroundColor: '#000', px: 0.5, py: 0.25, border: '2px inset #808080' }}>
+        {text.split('').map((ch, idx) => {
+          const digit = Number(ch);
+          const url = CLASSIC_SKIN.panel.digits[digit];
+          return (
+            <Box
+              key={`${idx}-${ch}`}
+              sx={{
+                width: `${w}px`,
+                height: `${h}px`,
+                backgroundImage: `url(${url})`,
+                backgroundSize: 'contain',
+
+                backgroundRepeat: 'no-repeat',
+                imageRendering: 'pixelated'
+              }}
+            />
+          );
+        })}
+      </Box>
+    );
+  };
+
+  const renderFaceButton = () => {
+    const faceUrl = gameStatus === 'won' ? CLASSIC_SKIN.panel.face.win : gameStatus === 'lost' ? CLASSIC_SKIN.panel.face.lost : CLASSIC_SKIN.panel.face.normal;
+
+    if (!canUseFaceImages || !hasSkinImage(faceUrl)) {
+      return (
+        <Button variant="contained" startIcon={<RestartAltIcon />} onClick={initializeGame} size="small">
+          重新开始
+        </Button>
+      );
+    }
+
+    const scale = 2;
+    const size = 26 * scale;
+
+    return (
+      <Box
+        role="button"
+        tabIndex={0}
+        onClick={initializeGame}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') initializeGame();
+        }}
+        sx={{
+          width: `${size}px`,
+          height: `${size}px`,
+          backgroundImage: `url(${faceUrl})`,
+          backgroundSize: 'contain',
+
+          backgroundRepeat: 'no-repeat',
+          imageRendering: 'pixelated',
+          cursor: 'pointer',
+          borderTop: '2px solid #fff',
+          borderLeft: '2px solid #fff',
+          borderRight: '2px solid #808080',
+          borderBottom: '2px solid #808080',
+          backgroundColor: '#c0c0c0'
+        }}
+      />
+    );
+  };
+
   return (
+
     <Box sx={{ padding: 2 }}>
       {/* 难度选择标签 */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
@@ -1449,46 +1691,43 @@ const validateCustomConfig = (config: CustomConfig): string => {
       </Dialog>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        {/* 控制面板 */}
-        <Paper sx={{ padding: 2, marginBottom: 2, minWidth: 400 }}>
+        {/* 控制面板（尽量还原 minesweeper.cn 的“计数器 + 表情按钮”风格） */}
+        <Paper
+          sx={{
+            p: 1,
+            mb: 1,
+            minWidth: 320,
+            backgroundColor: '#c0c0c0',
+            borderTop: '2px solid #fff',
+            borderLeft: '2px solid #fff',
+            borderRight: '2px solid #808080',
+            borderBottom: '2px solid #808080'
+          }}
+        >
+          <Box display="flex" alignItems="center" justifyContent="space-between" px={1}>
+            {renderDigitalCounter(flagsLeft)}
+            {renderFaceButton()}
+            {renderDigitalCounter(timer)}
+          </Box>
+        </Paper>
+
+        {/* 操作区 */}
+        <Paper sx={{ padding: 2, marginBottom: 2, minWidth: 320 }}>
           <Grid container spacing={2} alignItems="center" justifyContent="center">
-            <Grid item xs={4}>
-              <Box display="flex" alignItems="center" gap={0.5} justifyContent="center">
-                <FlagIcon fontSize="small" />
-                <Typography>{flagsLeft}</Typography>
-              </Box>
-            </Grid>
-
-            <Grid item xs={4}>
-              <Typography variant="h6" textAlign="center">{formatTime(timer)}</Typography>
-            </Grid>
-
-            <Grid item xs={4}>
-              <Button
-                variant="contained"
-                startIcon={<RestartAltIcon />}
-                onClick={initializeGame}
-                fullWidth
-                size="small"
-              >
-                重新开始
-              </Button>
-            </Grid>
-            
-            <Grid item xs={4}>
+            <Grid item xs={12} sm={6}>
               <Tooltip title="分享旁观链接">
-                <Button
-                  variant="outlined"
-                  startIcon={<ShareIcon />}
-                  onClick={createRoom}
-                  fullWidth
-                  size="small"
-                >
+                <Button variant="outlined" startIcon={<ShareIcon />} onClick={createRoom} fullWidth size="small">
                   分享旁观
                 </Button>
               </Tooltip>
             </Grid>
-            
+
+            <Grid item xs={12} sm={6}>
+              <Button variant="contained" startIcon={<RestartAltIcon />} onClick={initializeGame} fullWidth size="small">
+                重新开始
+              </Button>
+            </Grid>
+
             <Grid item xs={12}>
               <FormControlLabel
                 control={
@@ -1497,13 +1736,13 @@ const validateCustomConfig = (config: CustomConfig): string => {
                     onChange={(e) => {
                       const newMode = e.target.checked;
                       setInvitePlayMode(newMode);
-                      
+
                       // 如果房间已存在且socket已连接，发送同玩模式切换事件
                       if (socket && roomId) {
                         console.log('[玩家端日志] 发送同玩模式切换事件:', newMode ? '开启' : '关闭');
-                        socket.emit('toggle-invite-play-mode', { 
-                          roomId, 
-                          invitePlayMode: newMode 
+                        socket.emit('toggle-invite-play-mode', {
+                          roomId,
+                          invitePlayMode: newMode
                         });
                       }
                     }}
@@ -1517,16 +1756,13 @@ const validateCustomConfig = (config: CustomConfig): string => {
             {personalBest && (
               <Grid item xs={12}>
                 <Box display="flex" justifyContent="center">
-                  <Chip
-                    label={`个人最佳: ${formatTime(personalBest)}`}
-                    color="success"
-                    size="small"
-                  />
+                  <Chip label={`个人最佳: ${formatTime(personalBest)}`} color="success" size="small" />
                 </Box>
               </Grid>
             )}
           </Grid>
         </Paper>
+
 
         {/* 游戏状态提示 */}
         {gameStatus !== 'playing' && (
@@ -1538,7 +1774,18 @@ const validateCustomConfig = (config: CustomConfig): string => {
         )}
 
         {/* 游戏棋盘 */}
-        <Paper sx={{ padding: 1, display: 'inline-block' }}>
+        <Paper
+          sx={{
+            padding: 1,
+            display: 'inline-block',
+            backgroundColor: '#c0c0c0',
+            borderTop: '2px solid #808080',
+            borderLeft: '2px solid #808080',
+            borderRight: '2px solid #fff',
+            borderBottom: '2px solid #fff'
+          }}
+        >
+
           <Box>
             {board.map((row, rowIndex) => (
               <Box key={rowIndex} display="flex">
@@ -1566,24 +1813,25 @@ const validateCustomConfig = (config: CustomConfig): string => {
                     }}
                     style={getCellStyle(cell, rowIndex, colIndex)}
                   >
-                    {/* 游戏进行中：显示旗帜 */}
-                    {cell.isFlagged && !cell.isRevealed && gameStatus === 'playing' && '🚩'}
-                    
-                    {/* 游戏胜利时：显示旗帜 */}
-                    {cell.isFlagged && gameStatus === 'won' && '🚩'}
-                    
-                    {/* 游戏失败时：显示错误标记（不是雷却标了旗）*/}
-                    {cell.isFlagged && !cell.isMine && gameStatus === 'lost' && '❌'}
-                    
-                    {/* 游戏失败时：显示正确标记（是雷且标了旗）*/}
-                    {cell.isFlagged && cell.isMine && gameStatus === 'lost' && '🚩'}
-                    
-                    {/* 显示已揭开的地雷 */}
-                    {cell.isRevealed && cell.isMine && '💣'}
-                    
-                    {/* 显示已揭开格子的数字 */}
-                    {cell.isRevealed && !cell.isMine && cell.neighborMines > 0 && cell.neighborMines}
+                    {(() => {
+                      const overlayUrl = getCellOverlayUrl(cell);
+                      const canUseOverlay = overlayUrl && hasSkinImage(overlayUrl);
+
+                      if (canUseOverlay) {
+                        return <Box style={getCellOverlayStyle(overlayUrl)} />;
+                      }
+
+                      // 无贴图：回退到文字/emoji
+                      if (cell.isFlagged && !cell.isRevealed && gameStatus === 'playing') return '🚩';
+                      if (cell.isFlagged && gameStatus === 'won') return '🚩';
+                      if (cell.isFlagged && !cell.isMine && gameStatus === 'lost') return '❌';
+                      if (cell.isFlagged && cell.isMine && gameStatus === 'lost') return '🚩';
+                      if (cell.isRevealed && cell.isMine) return '💣';
+                      if (cell.isRevealed && !cell.isMine && cell.neighborMines > 0) return cell.neighborMines;
+                      return null;
+                    })()}
                   </Box>
+
                 ))}
               </Box>
             ))}
