@@ -1,0 +1,79 @@
+﻿<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=1.0, user-scalable=yes">
+  <title>HTML5 塔防游戏</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-size: 12px;
+      line-height: 20px;
+      font-family: Verdana, "Times New Roman", serif;
+      background: #1A74BA;
+    }
+
+    h1 {
+      padding: 0;
+      margin: 0;
+      line-height: 48px;
+      font-size: 18px;
+      font-weight: bold;
+      font-family: Verdana, "Times New Roman", serif;
+      letter-spacing: 0.12em;
+    }
+
+    #wrapper {
+      margin: 0 auto;
+      max-width: 980px;
+    }
+
+    #td-wrapper {
+      padding: 8px 24px 24px 24px;
+      background: #E0F4FC;
+    }
+
+    #td-board {
+      display: none;
+      font-size: 16px;
+    }
+
+    #td-board canvas#td-canvas {
+      position: relative;
+      background: #fff;
+      border: solid 1px #cdf;
+    }
+
+    #td-loading {
+      font-size: 18px;
+      line-height: 48px;
+      padding: 60px 0 120px 0;
+      font-style: italic;
+    }
+  </style>
+</head>
+
+<body id="tower-defense">
+<div id="wrapper">
+  <div id="td-wrapper">
+    <h1>HTML5 塔防游戏</h1>
+
+    <div id="td-loading">加载中...</div>
+    <div id="td-board">
+      <canvas id="td-canvas">抱歉，您的浏览器不支持 HTML 5 Canvas 标签，请使用 Chrome / Edge 等现代浏览器打开。</canvas>
+    </div>
+  </div>
+</div>
+
+<script src="td-pkg-zh-min.js"></script>
+<script>
+  window.onload = function () {
+    // 原站点的初始化方式：_TD.init('td-board', true)
+    _TD.init('td-board', true);
+    document.getElementById('td-loading').style.display = 'none';
+    document.getElementById('td-board').style.display = 'block';
+  };
+</script>
+</body>
+</html>

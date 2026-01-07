@@ -159,9 +159,12 @@ const NavBar: React.FC = () => {
   if (['/typing', '/leaderboard', '/practice-history'].includes(window.location.pathname)) {
     selectedKeys = [window.location.pathname, '/typing-group'];
   }
-  // 扫雷游戏相关页面的高亮逻辑
-  if (window.location.pathname.startsWith('/minesweeper')) {
-    selectedKeys = [window.location.pathname, 'minesweeper-group'];
+  // 游戏相关页面的高亮逻辑
+  if (
+    window.location.pathname.startsWith('/minesweeper') ||
+    window.location.pathname.startsWith('/tower-defense')
+  ) {
+    selectedKeys = [window.location.pathname, 'games'];
   }
 
   return (

@@ -22,6 +22,7 @@ import { message } from 'antd';
 import TypingTabs from './components/TypingTabs';
 import KMeansDemo from './components/KMeansDemo';
 import MinesweeperTabs from './components/MinesweeperTabs';
+import TowerDefensePage from './components/TowerDefensePage';
 import SpectatorMinesweeper from './components/SpectatorMinesweeper';
 
 // 创建一个包装组件来处理认证
@@ -94,7 +95,9 @@ const App: React.FC = () => {
           <Route path="/typing" element={<TypingTabs />} />
           <Route path="/kmeans" element={<KMeansDemo />} />
           <Route path="/minesweeper" element={<MinesweeperTabs />} />
+          <Route path="/tower-defense" element={<TowerDefenseTabs />} />
           <Route path="/login" element={<Login />} />
+
           <Route path="/register" element={<Register />} />
 
           {/* 需要登录的路由 */}

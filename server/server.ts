@@ -147,6 +147,8 @@ app.use('/api/visitor', visitorRoutes);
 app.use('/api/vocabulary', vocabularyRoutes);
 app.use('/api', userWordPassRouter);
 app.use('/api/minesweeper', minesweeperRouter);
+app.use('/api/tower-defense', towerDefenseRouter);
+
 
 // SPA 回退路由 - 必须放在所有路由之后
 app.get('*', (req, res, next) => {
