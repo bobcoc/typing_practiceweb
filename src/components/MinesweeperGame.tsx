@@ -16,7 +16,8 @@ import {
   Tooltip,
   TextField,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  useMediaQuery
 } from '@mui/material';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 
@@ -26,6 +27,21 @@ import { io, Socket } from 'socket.io-client';
 import { API_BASE_URL } from '../config';
 
 type Difficulty = 'beginner' | 'intermediate' | 'expert' | 'brutal' | 'fullscreen' | 'custom';
+
+type UiStyle = 'modern' | 'classic';
+
+const UI_STYLE_STORAGE_KEY = 'minesweeper_ui_style';
+
+const getSavedUiStyle = (): UiStyle | null => {
+  try {
+    const raw = localStorage.getItem(UI_STYLE_STORAGE_KEY);
+    if (raw === 'modern' || raw === 'classic') return raw;
+  } catch {
+    // ignore
+  }
+  return null;
+};
+
 
 interface DifficultyConfig {
   rows: number;
@@ -184,6 +200,33 @@ const MinesweeperGame: React.FC = () => {
   const [difficulty, setDifficulty] = useState<Difficulty>('beginner');
   const [board, setBoard] = useState<Cell[][]>([]);
   const [gameStatus, setGameStatus] = useState<'waiting' | 'playing' | 'won' | 'lost'>('playing');
+
+  // UI 风格：PC 默认现代（色块+数字/emoji），移动端默认经典（贴图+经典面板）
+  const prefersCoarsePointer = useMediaQuery('(pointer: coarse)');
+  const isSmallScreen = useMediaQuery('(max-width: 768px)');
+  const isMobileLike = prefersCoarsePointer || isSmallScreen;
+
+  const [uiStyle, setUiStyle] = useState<UiStyle>(() => getSavedUiStyle() ?? 'modern');
+  const [uiStyleTouched, setUiStyleTouched] = useState<boolean>(() => getSavedUiStyle() !== null);
+
+  useEffect(() => {
+    if (uiStyleTouched) return;
+    setUiStyle(isMobileLike ? 'classic' : 'modern');
+  }, [isMobileLike, uiStyleTouched]);
+
+  const toggleUiStyle = useCallback(() => {
+    setUiStyleTouched(true);
+    setUiStyle((prev) => {
+      const next: UiStyle = prev === 'modern' ? 'classic' : 'modern';
+      try {
+        localStorage.setItem(UI_STYLE_STORAGE_KEY, next);
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
+
   const [flagsLeft, setFlagsLeft] = useState(0);
   const [timer, setTimer] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -1412,20 +1455,25 @@ const validateCustomConfig = (config: CustomConfig): string => {
       imageRendering: 'pixelated'
     };
 
+    const useClassicSkin = uiStyle === 'classic';
+
     // 选择底图（未开/按下/已开）
     const coveredUrl = CLASSIC_SKIN.cell.covered;
     const pressedUrl = CLASSIC_SKIN.cell.coveredPressed;
     const openedUrl = CLASSIC_SKIN.cell.revealed;
 
-    const canUseCovered = hasSkinImage(coveredUrl);
-    const canUsePressed = hasSkinImage(pressedUrl);
-    const canUseOpened = hasSkinImage(openedUrl);
+    const canUseCovered = useClassicSkin && hasSkinImage(coveredUrl);
+    const canUsePressed = useClassicSkin && hasSkinImage(pressedUrl);
+    const canUseOpened = useClassicSkin && hasSkinImage(openedUrl);
 
-    const backgroundUrl = cell.isRevealed
-      ? (canUseOpened ? openedUrl : '')
-      : isPressed
-        ? (canUsePressed ? pressedUrl : (canUseCovered ? coveredUrl : ''))
-        : (canUseCovered ? coveredUrl : '');
+    const backgroundUrl = useClassicSkin
+      ? (cell.isRevealed
+          ? (canUseOpened ? openedUrl : '')
+          : isPressed
+            ? (canUsePressed ? pressedUrl : (canUseCovered ? coveredUrl : ''))
+            : (canUseCovered ? coveredUrl : ''))
+      : '';
+
 
     const fallbackStyle: React.CSSProperties = (() => {
       // 没有贴图时，尽量保持现有配色逻辑
@@ -1686,7 +1734,62 @@ const validateCustomConfig = (config: CustomConfig): string => {
     return () => window.removeEventListener('resize', update);
   }, [difficulty, config.rows, config.cols, board.length, boardPixelWidth]);
 
+  const renderBoardGrid = () => (
+    <Box>
+      {board.map((row, rowIndex) => (
+        <Box key={rowIndex} display="flex">
+          {row.map((cell, colIndex) => (
+            <Box
+              key={`${rowIndex}-${colIndex}`}
+              onMouseDown={(e) => {
+                handleMouseDown(rowIndex, colIndex, e);
+              }}
+              onMouseUp={(e) => handleMouseUp(rowIndex, colIndex, e)}
+              onMouseEnter={() => {
+                setHoverCell({ row: rowIndex, col: colIndex });
+                if (isMouseDownRef.current.left && isMouseDownRef.current.right) {
+                  updatePressedCells(rowIndex, colIndex);
+                }
+              }}
+              onMouseLeave={() => {
+                if (hoverCell?.row === rowIndex && hoverCell?.col === colIndex) {
+                  setPressedCells(new Set());
+                }
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                toggleFlag(rowIndex, colIndex, e);
+              }}
+              style={getCellStyle(cell, rowIndex, colIndex)}
+            >
+              {(() => {
+                if (uiStyle === 'classic') {
+                  const overlayUrl = getCellOverlayUrl(cell);
+                  const canUseOverlay = overlayUrl && hasSkinImage(overlayUrl);
+
+                  if (canUseOverlay) {
+                    return <Box style={getCellOverlayStyle(overlayUrl)} />;
+                  }
+                }
+
+                // 现代风格：文字/emoji
+                if (cell.isFlagged && !cell.isRevealed && gameStatus === 'playing') return '🚩';
+                if (cell.isFlagged && gameStatus === 'won') return '🚩';
+                if (cell.isFlagged && !cell.isMine && gameStatus === 'lost') return '❌';
+                if (cell.isFlagged && cell.isMine && gameStatus === 'lost') return '🚩';
+                if (cell.isRevealed && cell.isMine) return '💣';
+                if (cell.isRevealed && !cell.isMine && cell.neighborMines > 0) return cell.neighborMines;
+                return null;
+              })()}
+            </Box>
+          ))}
+        </Box>
+      ))}
+    </Box>
+  );
+
   return (
+
 
 
     <Box sx={{ padding: 2 }}>
@@ -1887,7 +1990,14 @@ const validateCustomConfig = (config: CustomConfig): string => {
             </Grid>
 
             <Grid item xs={12}>
+              <Button variant="outlined" onClick={toggleUiStyle} fullWidth size="small">
+                {uiStyle === 'classic' ? '切换到现代界面（色块+emoji）' : '切换到经典界面（贴图+经典面板）'}
+              </Button>
+            </Grid>
+
+            <Grid item xs={12}>
               <FormControlLabel
+
                 control={
                   <Checkbox
                     checked={invitePlayMode}

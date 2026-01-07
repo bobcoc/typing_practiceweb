@@ -1,7 +1,7 @@
 // src/components/SpectatorMinesweeper.tsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, Typography, Paper, Chip } from '@mui/material';
+import { Box, Typography, Paper, Chip, Button, useMediaQuery } from '@mui/material';
 import { io, Socket } from 'socket.io-client';
 
 interface Cell {
@@ -52,7 +52,47 @@ const CLASSIC_SKIN = {
 // 内部实际的组件实现
 const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => {
 
+  // UI 风格：PC 默认现代（色块+数字/emoji），移动端默认经典（贴图）
+  const prefersCoarsePointer = useMediaQuery('(pointer: coarse)');
+  const isSmallScreen = useMediaQuery('(max-width: 768px)');
+  const isMobileLike = prefersCoarsePointer || isSmallScreen;
+
+  type UiStyle = 'modern' | 'classic';
+  const UI_STYLE_STORAGE_KEY = 'minesweeper_ui_style';
+
+  const getSavedUiStyle = (): UiStyle | null => {
+    try {
+      const raw = localStorage.getItem(UI_STYLE_STORAGE_KEY);
+      if (raw === 'modern' || raw === 'classic') return raw;
+    } catch {
+      // ignore
+    }
+    return null;
+  };
+
+  const [uiStyle, setUiStyle] = useState<UiStyle>(() => getSavedUiStyle() ?? 'modern');
+  const [uiStyleTouched, setUiStyleTouched] = useState<boolean>(() => getSavedUiStyle() !== null);
+
+  useEffect(() => {
+    if (uiStyleTouched) return;
+    setUiStyle(isMobileLike ? 'classic' : 'modern');
+  }, [isMobileLike, uiStyleTouched]);
+
+  const toggleUiStyle = useCallback(() => {
+    setUiStyleTouched(true);
+    setUiStyle((prev) => {
+      const next: UiStyle = prev === 'modern' ? 'classic' : 'modern';
+      try {
+        localStorage.setItem(UI_STYLE_STORAGE_KEY, next);
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
+
   const [board, setBoard] = useState<Cell[][]>([]);
+
   const [difficulty, setDifficulty] = useState<string>('beginner');
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<string>('连接中...');
@@ -476,15 +516,21 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
     const pressedUrl = CLASSIC_SKIN.cell.coveredPressed;
     const openedUrl = CLASSIC_SKIN.cell.revealed;
 
-    const canUseCovered = hasSkinImage(coveredUrl);
-    const canUsePressed = hasSkinImage(pressedUrl);
-    const canUseOpened = hasSkinImage(openedUrl);
+    const canUseCovered = uiStyle === 'classic' && hasSkinImage(coveredUrl);
+    const canUsePressed = uiStyle === 'classic' && hasSkinImage(pressedUrl);
+    const canUseOpened = uiStyle === 'classic' && hasSkinImage(openedUrl);
 
-    const backgroundUrl = cell.isRevealed
-      ? (canUseOpened ? openedUrl : '')
-      : isPressed
-        ? (canUsePressed ? pressedUrl : (canUseCovered ? coveredUrl : ''))
-        : (canUseCovered ? coveredUrl : '');
+
+    const useClassicSkin = uiStyle === 'classic';
+
+    const backgroundUrl = useClassicSkin
+      ? (cell.isRevealed
+          ? (canUseOpened ? openedUrl : '')
+          : isPressed
+            ? (canUsePressed ? pressedUrl : (canUseCovered ? coveredUrl : ''))
+            : (canUseCovered ? coveredUrl : ''))
+      : '';
+
 
     const fallbackStyle: React.CSSProperties = (() => {
       if (cell.isRevealed) {
@@ -738,18 +784,33 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
       <Typography variant="body2" color="textSecondary" gutterBottom>
         状态: {connectionStatus}
       </Typography>
+
+      <Button variant="outlined" size="small" onClick={toggleUiStyle} sx={{ mb: 2 }}>
+        {uiStyle === 'classic' ? '切换到现代界面（色块+emoji）' : '切换到经典界面（贴图）'}
+      </Button>
       
       {board.length > 0 ? (
+
         <Paper
-          sx={{
-            padding: 1,
-            display: 'inline-block',
-            backgroundColor: '#c0c0c0',
-            borderTop: '2px solid #808080',
-            borderLeft: '2px solid #808080',
-            borderRight: '2px solid #fff',
-            borderBottom: '2px solid #fff'
-          }}
+          sx={
+            uiStyle === 'classic'
+              ? {
+                  padding: 1,
+                  display: 'inline-block',
+                  backgroundColor: '#c0c0c0',
+                  borderTop: '2px solid #808080',
+                  borderLeft: '2px solid #808080',
+                  borderRight: '2px solid #fff',
+                  borderBottom: '2px solid #fff'
+                }
+              : {
+                  padding: 2,
+                  display: 'inline-block',
+                  backgroundColor: '#fff',
+                  borderRadius: 2,
+                  boxShadow: 2
+                }
+          }
         >
 
           <Box>
@@ -769,19 +830,22 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
                     style={getCellStyle(cell, rowIndex, colIndex)}
                   >
                     {(() => {
-                      const overlayUrl = getCellOverlayUrl(cell);
-                      const canUseOverlay = overlayUrl && hasSkinImage(overlayUrl);
+                      if (uiStyle === 'classic') {
+                        const overlayUrl = getCellOverlayUrl(cell);
+                        const canUseOverlay = overlayUrl && hasSkinImage(overlayUrl);
 
-                      if (canUseOverlay) {
-                        return <Box style={getCellOverlayStyle(overlayUrl)} />;
+                        if (canUseOverlay) {
+                          return <Box style={getCellOverlayStyle(overlayUrl)} />;
+                        }
                       }
 
-                      // 无贴图：回退到文字/emoji
+                      // 现代风格：文字/emoji
                       if (cell.isRevealed && cell.isMine) return '💣';
                       if (cell.isRevealed && !cell.isMine && cell.neighborMines > 0) return cell.neighborMines;
                       if (cell.isFlagged) return '🚩';
                       return null;
                     })()}
+
                   </Box>
 
                 ))}
