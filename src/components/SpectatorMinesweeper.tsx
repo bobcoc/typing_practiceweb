@@ -117,6 +117,12 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
   const [availableImages, setAvailableImages] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    // 现代模式：不加载任何经典皮肤资源
+    if (uiStyle !== 'classic') {
+      setAvailableImages(new Set());
+      return;
+    }
+
     let cancelled = false;
 
     const loadOne = (url: string) =>
@@ -136,7 +142,8 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
     return () => {
       cancelled = true;
     };
-  }, [skinUrls]);
+  }, [skinUrls, uiStyle]);
+
 
   const hasSkinImage = useCallback((url: string) => availableImages.has(url), [availableImages]);
 
@@ -462,8 +469,113 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
     };
   }, []);
 
-  // 获取格子样式（优先使用 public/minesweeper-skin/ 下的贴图；缺图时回退到原色块渲染）
-  const getCellStyle = (cell: Cell, row: number, col: number): React.CSSProperties => {
+  // 获取格子样式：现代模式走旧“色块+数字/emoji”，经典模式才使用皮肤贴图
+  const getModernCellStyle = (cell: Cell, row: number, col: number): React.CSSProperties => {
+    const cellKey = `${row},${col}`;
+    const isHighlighted = highlightedCells.has(cellKey);
+    const isPressed = pressedCells.has(cellKey);
+    const isHovered = hoverCell?.row === row && hoverCell?.col === col;
+
+    // 根据屏幕大小和难度动态调整格子大小
+    const getCellSize = () => {
+      const config = getDifficultyConfig();
+      const maxWidth = window.innerWidth - 100;
+      const maxHeight = window.innerHeight - 200; // 减少顶部空间，因为不需要菜单
+
+      if (difficulty === 'fullscreen') {
+        // 满屏模式：固定25px格子大小（与扫雷网页一致）
+        return 25;
+      } else if (difficulty === 'custom') {
+        // 自定义模式：根据棋盘大小自动调整格子大小
+        const cellWidth = Math.min(Math.floor(maxWidth / config.cols), 40);
+        const cellHeight = Math.min(Math.floor(maxHeight / config.rows), 40);
+        return Math.min(cellWidth, cellHeight);
+      } else if (difficulty === 'brutal') {
+        // 残酷模式：24×30，需要更小的格子以适应屏幕
+        const cellWidth = Math.min(Math.floor(maxWidth / 30), 28);
+        const cellHeight = Math.min(Math.floor(maxHeight / 24), 28);
+        return Math.min(cellWidth, cellHeight);
+      } else if (difficulty === 'expert') {
+        // 高级模式：16×30，需要更小的格子以适应屏幕
+        const cellWidth = Math.min(Math.floor(maxWidth / 30), 32);
+        const cellHeight = Math.min(Math.floor(maxHeight / 16), 32);
+        return Math.min(cellWidth, cellHeight);
+      } else if (difficulty === 'intermediate') {
+        return 36;
+      } else {
+        return 40;
+      }
+    };
+
+    const cellSize = getCellSize();
+
+    const baseStyle: React.CSSProperties = {
+      width: `${cellSize}px`,
+      height: `${cellSize}px`,
+      borderWidth: '1px',
+      borderColor: '#999',
+      borderStyle: 'solid',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: cell.isRevealed || cell.isFlagged ? 'default' : 'pointer',
+      fontSize: difficulty === 'brutal' ? '10px' : difficulty === 'expert' ? '12px' : '14px',
+      fontWeight: 'bold',
+      userSelect: 'none',
+      transition: 'all 0.05s ease',
+      margin: '0'
+    };
+
+    if (cell.isRevealed) {
+      if (cell.isMine) {
+        if (cell.isFlagged) {
+          // 已标记的地雷：灰色背景
+          return { ...baseStyle, backgroundColor: '#999', color: '#000' };
+        } else {
+          // 未标记的地雷：红色背景
+          return { ...baseStyle, backgroundColor: '#ff0000', color: '#000' };
+        }
+      }
+      return { ...baseStyle, backgroundColor: '#ddd', color: getNumberColor(cell.neighborMines) };
+    }
+
+    if (cell.isFlagged) {
+      return { ...baseStyle, backgroundColor: '#fff', color: '#ff0000' };
+    }
+
+    // 按下效果
+    if (isPressed) {
+      return {
+        ...baseStyle,
+        backgroundColor: '#ddd',
+        transform: 'scale(0.95)'
+      };
+    }
+
+    // 高亮效果
+    if (isHighlighted) {
+      return {
+        ...baseStyle,
+        backgroundColor: '#ff6b6b', // 红色高亮
+        transform: 'scale(1.1)',
+        zIndex: 10
+      };
+    }
+
+    // 悬停效果
+    if (isHovered && roomInfo?.invitePlayMode) {
+      return {
+        ...baseStyle,
+        backgroundColor: '#aaa',
+        transform: 'scale(1.05)'
+      };
+    }
+
+    return { ...baseStyle, backgroundColor: '#bbb' };
+  };
+
+  // 经典模式：优先使用 public/minesweeper-skin/ 下的贴图；缺图时回退到原色块渲染
+  const getClassicCellStyle = (cell: Cell, row: number, col: number): React.CSSProperties => {
     const cellKey = `${row},${col}`;
     const isHighlighted = highlightedCells.has(cellKey);
     const isPressed = pressedCells.has(cellKey);
@@ -516,21 +628,15 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
     const pressedUrl = CLASSIC_SKIN.cell.coveredPressed;
     const openedUrl = CLASSIC_SKIN.cell.revealed;
 
-    const canUseCovered = uiStyle === 'classic' && hasSkinImage(coveredUrl);
-    const canUsePressed = uiStyle === 'classic' && hasSkinImage(pressedUrl);
-    const canUseOpened = uiStyle === 'classic' && hasSkinImage(openedUrl);
+    const canUseCovered = hasSkinImage(coveredUrl);
+    const canUsePressed = hasSkinImage(pressedUrl);
+    const canUseOpened = hasSkinImage(openedUrl);
 
-
-    const useClassicSkin = uiStyle === 'classic';
-
-    const backgroundUrl = useClassicSkin
-      ? (cell.isRevealed
-          ? (canUseOpened ? openedUrl : '')
-          : isPressed
-            ? (canUsePressed ? pressedUrl : (canUseCovered ? coveredUrl : ''))
-            : (canUseCovered ? coveredUrl : ''))
-      : '';
-
+    const backgroundUrl = cell.isRevealed
+      ? (canUseOpened ? openedUrl : '')
+      : isPressed
+        ? (canUsePressed ? pressedUrl : (canUseCovered ? coveredUrl : ''))
+        : (canUseCovered ? coveredUrl : '');
 
     const fallbackStyle: React.CSSProperties = (() => {
       if (cell.isRevealed) {
@@ -586,6 +692,10 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
       ...hoverStyle
     };
   };
+
+  const getCellStyle = (cell: Cell, row: number, col: number): React.CSSProperties =>
+    uiStyle === 'classic' ? getClassicCellStyle(cell, row, col) : getModernCellStyle(cell, row, col);
+
 
   const getCellOverlayUrl = (cell: Cell): string => {
     const gameState = roomInfo?.gameState;
@@ -804,11 +914,8 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
                   borderBottom: '2px solid #fff'
                 }
               : {
-                  padding: 2,
-                  display: 'inline-block',
-                  backgroundColor: '#fff',
-                  borderRadius: 2,
-                  boxShadow: 2
+                  padding: 1,
+                  display: 'inline-block'
                 }
           }
         >

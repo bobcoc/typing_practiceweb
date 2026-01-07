@@ -20,6 +20,7 @@ import {
   useMediaQuery
 } from '@mui/material';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import FlagIcon from '@mui/icons-material/Flag';
 
 import ShareIcon from '@mui/icons-material/Share';
 import QRCode from 'qrcode';
@@ -274,6 +275,12 @@ const MinesweeperGame: React.FC = () => {
   const [availableImages, setAvailableImages] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    // 现代模式：不加载任何经典皮肤资源
+    if (uiStyle !== 'classic') {
+      setAvailableImages(new Set());
+      return;
+    }
+
     let cancelled = false;
 
     const loadOne = (url: string) =>
@@ -293,7 +300,8 @@ const MinesweeperGame: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [skinUrls]);
+  }, [skinUrls, uiStyle]);
+
 
   const hasSkinImage = useCallback((url: string) => availableImages.has(url), [availableImages]);
 
@@ -1404,8 +1412,116 @@ const validateCustomConfig = (config: CustomConfig): string => {
     }
   }, [difficulty, roomId, socket]);
 
-  // 获取格子样式（优先使用 public/minesweeper-skin/ 下的贴图；缺图时回退到原色块渲染）
-  const getCellStyle = (cell: Cell, row: number, col: number): React.CSSProperties => {
+  // 获取格子样式：现代模式走旧“色块+数字/emoji”，经典模式才使用皮肤贴图
+  const getModernCellStyle = (cell: Cell, row: number, col: number): React.CSSProperties => {
+    const cellKey = `${row},${col}`;
+    const isPressed = pressedCells.has(cellKey); // 是否处于按下状态
+
+    // 检查是否需要闪烁
+    const isHighlighted = highlightedCells.some((hc) => hc.row === row && hc.col === col);
+
+    // 根据屏幕大小和难度动态调整格子大小
+    const getCellSize = () => {
+      if (difficulty === 'fullscreen') {
+        // 满屏模式：固定25px格子大小（与扫雷网页一致）
+        return 25;
+      } else if (difficulty === 'custom') {
+        // 自定义模式：根据棋盘大小自动调整格子大小
+        const currentConfig = getCurrentConfig();
+        const maxWidth = window.innerWidth - 100;
+        const maxHeight = window.innerHeight - 400;
+        const cellWidth = Math.min(Math.floor(maxWidth / currentConfig.cols), 40);
+        const cellHeight = Math.min(Math.floor(maxHeight / currentConfig.rows), 40);
+        return Math.min(cellWidth, cellHeight);
+      } else if (difficulty === 'brutal') {
+        // 残酷模式：24×30，需要更小的格子以适应屏幕
+        const maxWidth = window.innerWidth - 100;
+        const maxHeight = window.innerHeight - 400;
+        const cellWidth = Math.min(Math.floor(maxWidth / 30), 28);
+        const cellHeight = Math.min(Math.floor(maxHeight / 24), 28);
+        return Math.min(cellWidth, cellHeight);
+      } else if (difficulty === 'expert') {
+        // 高级模式：16×30，需要更小的格子以适应屏幕
+        const maxWidth = window.innerWidth - 100;
+        const maxHeight = window.innerHeight - 400;
+        const cellWidth = Math.min(Math.floor(maxWidth / 30), 32);
+        const cellHeight = Math.min(Math.floor(maxHeight / 16), 32);
+        return Math.min(cellWidth, cellHeight);
+      } else if (difficulty === 'intermediate') {
+        return 36;
+      } else {
+        return 40;
+      }
+    };
+
+    const cellSize = getCellSize();
+
+    const baseStyle: React.CSSProperties = {
+      width: `${cellSize}px`,
+      height: `${cellSize}px`,
+      borderWidth: '1px',
+      borderColor: '#999',
+      borderStyle: 'solid', // 默认实线边框
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: gameStatus === 'playing' ? 'pointer' : 'default',
+      fontSize:
+        difficulty === 'fullscreen' || difficulty === 'custom'
+          ? '12px'
+          : difficulty === 'brutal'
+            ? '10px'
+            : difficulty === 'expert'
+              ? '12px'
+              : '14px',
+      fontWeight: 'bold',
+      userSelect: 'none',
+      transition: 'all 0.05s ease' // 添加平滑过渡
+    };
+
+    // 闪烁效果（优先于其他状态显示）
+    if (isHighlighted) {
+      return {
+        ...baseStyle,
+        backgroundColor: '#ff6b6b', // 红色高亮
+        animation: 'pulse 1s infinite',
+        zIndex: 10
+      };
+    }
+
+    if (cell.isRevealed) {
+      if (cell.isMine) {
+        // 未标记的地雷：红色背景，已标记的地雷：灰色背景
+        if (cell.isFlagged) {
+          // 已标记的地雷：灰色背景
+          return { ...baseStyle, backgroundColor: '#999', color: '#000' };
+        } else {
+          // 未标记的地雷（包括引爆的）：红色背景
+          return { ...baseStyle, backgroundColor: '#ff0000', color: '#000' };
+        }
+      }
+      return { ...baseStyle, backgroundColor: '#ddd', color: getNumberColor(cell.neighborMines) };
+    }
+
+    if (cell.isFlagged) {
+      return { ...baseStyle, backgroundColor: '#fff', color: '#ff0000' };
+    }
+
+    // 按下效果：显示为浅灰色，模拟经典扫雷的按下效果
+    if (isPressed) {
+      return {
+        ...baseStyle,
+        backgroundColor: '#ddd',
+        borderStyle: 'inset', // 凹陷效果
+        transform: 'scale(0.95)' // 轻微缩小
+      };
+    }
+
+    return { ...baseStyle, backgroundColor: '#bbb' };
+  };
+
+  // 经典模式：优先使用 public/minesweeper-skin/ 下的贴图；缺图时回退到原色块渲染
+  const getClassicCellStyle = (cell: Cell, row: number, col: number): React.CSSProperties => {
     const cellKey = `${row},${col}`;
     const isPressed = pressedCells.has(cellKey);
 
@@ -1455,25 +1571,20 @@ const validateCustomConfig = (config: CustomConfig): string => {
       imageRendering: 'pixelated'
     };
 
-    const useClassicSkin = uiStyle === 'classic';
-
     // 选择底图（未开/按下/已开）
     const coveredUrl = CLASSIC_SKIN.cell.covered;
     const pressedUrl = CLASSIC_SKIN.cell.coveredPressed;
     const openedUrl = CLASSIC_SKIN.cell.revealed;
 
-    const canUseCovered = useClassicSkin && hasSkinImage(coveredUrl);
-    const canUsePressed = useClassicSkin && hasSkinImage(pressedUrl);
-    const canUseOpened = useClassicSkin && hasSkinImage(openedUrl);
+    const canUseCovered = hasSkinImage(coveredUrl);
+    const canUsePressed = hasSkinImage(pressedUrl);
+    const canUseOpened = hasSkinImage(openedUrl);
 
-    const backgroundUrl = useClassicSkin
-      ? (cell.isRevealed
-          ? (canUseOpened ? openedUrl : '')
-          : isPressed
-            ? (canUsePressed ? pressedUrl : (canUseCovered ? coveredUrl : ''))
-            : (canUseCovered ? coveredUrl : ''))
-      : '';
-
+    const backgroundUrl = cell.isRevealed
+      ? (canUseOpened ? openedUrl : '')
+      : isPressed
+        ? (canUsePressed ? pressedUrl : (canUseCovered ? coveredUrl : ''))
+        : (canUseCovered ? coveredUrl : '');
 
     const fallbackStyle: React.CSSProperties = (() => {
       // 没有贴图时，尽量保持现有配色逻辑
@@ -1502,7 +1613,6 @@ const validateCustomConfig = (config: CustomConfig): string => {
       ? {
           backgroundImage: `url(${backgroundUrl})`,
           backgroundSize: 'contain',
-
           backgroundRepeat: 'no-repeat',
           border: 'none'
         }
@@ -1526,6 +1636,10 @@ const validateCustomConfig = (config: CustomConfig): string => {
       ...highlightStyle
     };
   };
+
+  const getCellStyle = (cell: Cell, row: number, col: number): React.CSSProperties =>
+    uiStyle === 'classic' ? getClassicCellStyle(cell, row, col) : getModernCellStyle(cell, row, col);
+
 
   const getCellOverlayUrl = (cell: Cell): string => {
     // 失败时：错误旗标
@@ -1852,193 +1966,231 @@ const validateCustomConfig = (config: CustomConfig): string => {
       </Dialog>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        {/* 经典扫雷“窗口外框”：计数器面板 + 棋盘 贴在一起（宽度=棋盘宽度），空白使用纯灰底 */}
-
-        <Paper
-          sx={{
-            display: 'inline-block',
-            backgroundColor: '#c0c0c0',
-            p: 1,
-            borderTop: '2px solid #fff',
-            borderLeft: '2px solid #fff',
-            borderRight: '2px solid #808080',
-            borderBottom: '2px solid #808080'
-          }}
-        >
-          {/* 顶部面板 */}
-          <Box
-            sx={{
-              width: boardFrameWidth ? `${boardFrameWidth}px` : boardPixelWidth ? `${boardPixelWidth + 4}px` : 'auto',
-              p: 0.75,
-              backgroundColor: '#c0c0c0',
-              borderTop: '2px solid #808080',
-              borderLeft: '2px solid #808080',
-              borderRight: '2px solid #fff',
-              borderBottom: '2px solid #fff'
-            }}
-          >
-
-            <Box
+        {uiStyle === 'classic' ? (
+          <>
+            {/* 经典扫雷“窗口外框”：计数器面板 + 棋盘 贴在一起（宽度=棋盘宽度） */}
+            <Paper
               sx={{
-                display: 'grid',
-                gridTemplateColumns: 'auto 1fr auto',
-                alignItems: 'center',
-                columnGap: 1
+                display: 'inline-block',
+                backgroundColor: '#c0c0c0',
+                p: 1,
+                borderTop: '2px solid #fff',
+                borderLeft: '2px solid #fff',
+                borderRight: '2px solid #808080',
+                borderBottom: '2px solid #808080'
               }}
             >
-              <Box sx={{ justifySelf: 'start' }}>{renderDigitalCounter(flagsLeft)}</Box>
-              <Box sx={{ justifySelf: 'center' }}>{renderFaceButton()}</Box>
-              <Box sx={{ justifySelf: 'end' }}>{renderDigitalCounter(timer)}</Box>
-            </Box>
-
-          </Box>
-
-          {/* 面板与棋盘的分隔槽 */}
-          <Box
-            sx={{
-              mt: 1,
-              mb: 1,
-              height: 2,
-              backgroundColor: '#c0c0c0',
-              borderTop: '1px solid #808080',
-              borderLeft: '1px solid #808080',
-              borderRight: '1px solid #fff',
-              borderBottom: '1px solid #fff'
-            }}
-          />
-
-          {/* 棋盘（内凹边框） */}
-          <Box
-            ref={boardFrameRef}
-            sx={{
-              display: 'inline-block',
-              backgroundColor: '#c0c0c0',
-              borderTop: '2px solid #808080',
-              borderLeft: '2px solid #808080',
-              borderRight: '2px solid #fff',
-              borderBottom: '2px solid #fff'
-            }}
-          >
-
-            <Box>
-              {board.map((row, rowIndex) => (
-                <Box key={rowIndex} display="flex">
-                  {row.map((cell, colIndex) => (
-                    <Box
-                      key={`${rowIndex}-${colIndex}`}
-                      onMouseDown={(e) => {
-                        handleMouseDown(rowIndex, colIndex, e);
-                      }}
-                      onMouseUp={(e) => handleMouseUp(rowIndex, colIndex, e)}
-                      onMouseEnter={() => {
-                        setHoverCell({ row: rowIndex, col: colIndex });
-                        if (isMouseDownRef.current.left && isMouseDownRef.current.right) {
-                          updatePressedCells(rowIndex, colIndex);
-                        }
-                      }}
-                      onMouseLeave={() => {
-                        if (hoverCell?.row === rowIndex && hoverCell?.col === colIndex) {
-                          setPressedCells(new Set());
-                        }
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        toggleFlag(rowIndex, colIndex, e);
-                      }}
-                      style={getCellStyle(cell, rowIndex, colIndex)}
-                    >
-                      {(() => {
-                        const overlayUrl = getCellOverlayUrl(cell);
-                        const canUseOverlay = overlayUrl && hasSkinImage(overlayUrl);
-
-                        if (canUseOverlay) {
-                          return <Box style={getCellOverlayStyle(overlayUrl)} />;
-                        }
-
-                        // 无贴图：回退到文字/emoji
-                        if (cell.isFlagged && !cell.isRevealed && gameStatus === 'playing') return '🚩';
-                        if (cell.isFlagged && gameStatus === 'won') return '🚩';
-                        if (cell.isFlagged && !cell.isMine && gameStatus === 'lost') return '❌';
-                        if (cell.isFlagged && cell.isMine && gameStatus === 'lost') return '🚩';
-                        if (cell.isRevealed && cell.isMine) return '💣';
-                        if (cell.isRevealed && !cell.isMine && cell.neighborMines > 0) return cell.neighborMines;
-                        return null;
-                      })()}
-                    </Box>
-                  ))}
+              {/* 顶部面板 */}
+              <Box
+                sx={{
+                  width: boardFrameWidth ? `${boardFrameWidth}px` : boardPixelWidth ? `${boardPixelWidth + 4}px` : 'auto',
+                  p: 0.75,
+                  backgroundColor: '#c0c0c0',
+                  borderTop: '2px solid #808080',
+                  borderLeft: '2px solid #808080',
+                  borderRight: '2px solid #fff',
+                  borderBottom: '2px solid #fff'
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'auto 1fr auto',
+                    alignItems: 'center',
+                    columnGap: 1
+                  }}
+                >
+                  <Box sx={{ justifySelf: 'start' }}>{renderDigitalCounter(flagsLeft)}</Box>
+                  <Box sx={{ justifySelf: 'center' }}>{renderFaceButton()}</Box>
+                  <Box sx={{ justifySelf: 'end' }}>{renderDigitalCounter(timer)}</Box>
                 </Box>
-              ))}
-            </Box>
-          </Box>
-        </Paper>
+              </Box>
 
-        {/* 操作区 */}
-        <Paper sx={{ padding: 2, marginTop: 2, marginBottom: 2, minWidth: 320 }}>
-          <Grid container spacing={2} alignItems="center" justifyContent="center">
-            <Grid item xs={12} sm={6}>
-              <Tooltip title="分享旁观链接">
-                <Button variant="outlined" startIcon={<ShareIcon />} onClick={createRoom} fullWidth size="small">
-                  分享旁观
-                </Button>
-              </Tooltip>
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <Button variant="contained" startIcon={<RestartAltIcon />} onClick={initializeGame} fullWidth size="small">
-                重新开始
-              </Button>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Button variant="outlined" onClick={toggleUiStyle} fullWidth size="small">
-                {uiStyle === 'classic' ? '切换到现代界面（色块+emoji）' : '切换到经典界面（贴图+经典面板）'}
-              </Button>
-            </Grid>
-
-            <Grid item xs={12}>
-              <FormControlLabel
-
-                control={
-                  <Checkbox
-                    checked={invitePlayMode}
-                    onChange={(e) => {
-                      const newMode = e.target.checked;
-                      setInvitePlayMode(newMode);
-
-                      // 如果房间已存在且socket已连接，发送同玩模式切换事件
-                      if (socket && roomId) {
-                        console.log('[玩家端日志] 发送同玩模式切换事件:', newMode ? '开启' : '关闭');
-                        socket.emit('toggle-invite-play-mode', {
-                          roomId,
-                          invitePlayMode: newMode
-                        });
-                      }
-                    }}
-                    size="small"
-                  />
-                }
-                label="邀请同玩（旁观者可以同时操作排雷）"
+              {/* 面板与棋盘的分隔槽 */}
+              <Box
+                sx={{
+                  mt: 1,
+                  mb: 1,
+                  height: 2,
+                  backgroundColor: '#c0c0c0',
+                  borderTop: '1px solid #808080',
+                  borderLeft: '1px solid #808080',
+                  borderRight: '1px solid #fff',
+                  borderBottom: '1px solid #fff'
+                }}
               />
-            </Grid>
 
-            {personalBest && (
-              <Grid item xs={12}>
-                <Box display="flex" justifyContent="center">
-                  <Chip label={`个人最佳: ${formatTime(personalBest)}`} color="success" size="small" />
-                </Box>
+              {/* 棋盘（内凹边框） */}
+              <Box
+                ref={boardFrameRef}
+                sx={{
+                  display: 'inline-block',
+                  backgroundColor: '#c0c0c0',
+                  borderTop: '2px solid #808080',
+                  borderLeft: '2px solid #808080',
+                  borderRight: '2px solid #fff',
+                  borderBottom: '2px solid #fff'
+                }}
+              >
+                {renderBoardGrid()}
+              </Box>
+            </Paper>
+
+            {/* 操作区（经典模式） */}
+            <Paper sx={{ padding: 2, marginTop: 2, marginBottom: 2, minWidth: 320 }}>
+              <Grid container spacing={2} alignItems="center" justifyContent="center">
+                <Grid item xs={12} sm={6}>
+                  <Tooltip title="分享旁观链接">
+                    <Button variant="outlined" startIcon={<ShareIcon />} onClick={createRoom} fullWidth size="small">
+                      分享旁观
+                    </Button>
+                  </Tooltip>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <Button variant="contained" startIcon={<RestartAltIcon />} onClick={initializeGame} fullWidth size="small">
+                    重新开始
+                  </Button>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Button variant="outlined" onClick={toggleUiStyle} fullWidth size="small">
+                    切换到现代界面（色块+emoji）
+                  </Button>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={invitePlayMode}
+                        onChange={(e) => {
+                          const newMode = e.target.checked;
+                          setInvitePlayMode(newMode);
+
+                          // 如果房间已存在且socket已连接，发送同玩模式切换事件
+                          if (socket && roomId) {
+                            console.log('[玩家端日志] 发送同玩模式切换事件:', newMode ? '开启' : '关闭');
+                            socket.emit('toggle-invite-play-mode', {
+                              roomId,
+                              invitePlayMode: newMode
+                            });
+                          }
+                        }}
+                        size="small"
+                      />
+                    }
+                    label="邀请同玩（旁观者可以同时操作排雷）"
+                  />
+                </Grid>
+
+                {personalBest && (
+                  <Grid item xs={12}>
+                    <Box display="flex" justifyContent="center">
+                      <Chip label={`个人最佳: ${formatTime(personalBest)}`} color="success" size="small" />
+                    </Box>
+                  </Grid>
+                )}
               </Grid>
-            )}
-          </Grid>
-        </Paper>
+            </Paper>
+          </>
+        ) : (
+          <>
+            {/* 现代模式：回退到提交 948b25f 的布局与棋盘样式 */}
+            <Paper sx={{ padding: 2, marginBottom: 2, minWidth: 400 }}>
+              <Grid container spacing={2} alignItems="center" justifyContent="center">
+                <Grid item xs={4}>
+                  <Box display="flex" alignItems="center" gap={0.5} justifyContent="center">
+                    <FlagIcon fontSize="small" />
+                    <Typography>{flagsLeft}</Typography>
+                  </Box>
+                </Grid>
 
-        {/* 游戏状态提示 */}
-        {gameStatus !== 'playing' && (
+                <Grid item xs={4}>
+                  <Typography variant="h6" textAlign="center">
+                    {formatTime(timer)}
+                  </Typography>
+                </Grid>
+
+                <Grid item xs={4}>
+                  <Button variant="contained" startIcon={<RestartAltIcon />} onClick={initializeGame} fullWidth size="small">
+                    重新开始
+                  </Button>
+                </Grid>
+
+                <Grid item xs={4}>
+                  <Tooltip title="分享旁观链接">
+                    <Button variant="outlined" startIcon={<ShareIcon />} onClick={createRoom} fullWidth size="small">
+                      分享旁观
+                    </Button>
+                  </Tooltip>
+                </Grid>
+
+                <Grid item xs={8}>
+                  <Button variant="outlined" onClick={toggleUiStyle} fullWidth size="small">
+                    切换到经典界面（贴图+经典面板）
+                  </Button>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={invitePlayMode}
+                        onChange={(e) => {
+                          const newMode = e.target.checked;
+                          setInvitePlayMode(newMode);
+
+                          // 如果房间已存在且socket已连接，发送同玩模式切换事件
+                          if (socket && roomId) {
+                            console.log('[玩家端日志] 发送同玩模式切换事件:', newMode ? '开启' : '关闭');
+                            socket.emit('toggle-invite-play-mode', {
+                              roomId,
+                              invitePlayMode: newMode
+                            });
+                          }
+                        }}
+                        size="small"
+                      />
+                    }
+                    label="邀请同玩（旁观者可以同时操作排雷）"
+                  />
+                </Grid>
+
+                {personalBest && (
+                  <Grid item xs={12}>
+                    <Box display="flex" justifyContent="center">
+                      <Chip label={`个人最佳: ${formatTime(personalBest)}`} color="success" size="small" />
+                    </Box>
+                  </Grid>
+                )}
+              </Grid>
+            </Paper>
+
+            {/* 游戏状态提示（现代模式位置与旧版一致：在棋盘上方） */}
+            {gameStatus !== 'playing' && (
+              <Paper sx={{ padding: 2, marginBottom: 2, backgroundColor: gameStatus === 'won' ? '#4caf50' : '#f44336' }}>
+                <Typography variant="h6" color="white">
+                  {gameStatus === 'won' ? `🎉 胜利！用时 ${formatTime(timer)}` : '💥 游戏结束！'}
+                </Typography>
+              </Paper>
+            )}
+
+            {/* 游戏棋盘（现代模式：旧版样式） */}
+            <Paper sx={{ padding: 1, display: 'inline-block' }}>{renderBoardGrid()}</Paper>
+          </>
+        )}
+
+
+        {/* 游戏状态提示（经典模式仍在这里显示；现代模式已在棋盘上方显示） */}
+        {uiStyle === 'classic' && gameStatus !== 'playing' && (
           <Paper sx={{ padding: 2, marginBottom: 2, backgroundColor: gameStatus === 'won' ? '#4caf50' : '#f44336' }}>
             <Typography variant="h6" color="white">
               {gameStatus === 'won' ? `🎉 胜利！用时 ${formatTime(timer)}` : '💥 游戏结束！'}
             </Typography>
           </Paper>
         )}
+
 
 
         {/* 结果对话框 */}
