@@ -2055,7 +2055,7 @@ const validateCustomConfig = (config: CustomConfig): string => {
 
                 <Grid item xs={12}>
                   <Button variant="outlined" onClick={toggleUiStyle} fullWidth size="small">
-                    切换到现代界面（色块+emoji）
+                    切换到现代界面
                   </Button>
                 </Grid>
 

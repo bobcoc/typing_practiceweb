@@ -896,7 +896,7 @@ const SpectatorMinesweeperInner: React.FC<{ roomId: string }> = ({ roomId }) => 
       </Typography>
 
       <Button variant="outlined" size="small" onClick={toggleUiStyle} sx={{ mb: 2 }}>
-        {uiStyle === 'classic' ? '切换到现代界面（色块+emoji）' : '切换到经典界面（贴图）'}
+        {uiStyle === 'classic' ? '切换到现代界面' : '切换到经典界面'}
       </Button>
       
       {board.length > 0 ? (
