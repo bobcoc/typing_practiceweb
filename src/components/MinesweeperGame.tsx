@@ -1749,7 +1749,8 @@ const validateCustomConfig = (config: CustomConfig): string => {
       </Dialog>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        {/* 经典扫雷“窗口外框”：计数器面板 + 棋盘 贴在一起（宽度=棋盘宽度），空白用方格纹理填充 */}
+        {/* 经典扫雷“窗口外框”：计数器面板 + 棋盘 贴在一起（宽度=棋盘宽度），空白使用纯灰底 */}
+
         <Paper
           sx={{
             display: 'inline-block',
@@ -1774,47 +1775,19 @@ const validateCustomConfig = (config: CustomConfig): string => {
             }}
           >
 
-            <Box display="flex" alignItems="center" justifyContent="space-between" gap={1}>
-              {renderDigitalCounter(flagsLeft)}
-
-              <Box
-                sx={{
-                  flex: 1,
-                  mx: 0.5,
-                  height: 46,
-                  backgroundColor: '#c0c0c0',
-                  backgroundImage: hasSkinImage(CLASSIC_SKIN.cell.covered) ? `url(${CLASSIC_SKIN.cell.covered})` : 'none',
-                  backgroundRepeat: 'repeat',
-                  backgroundSize: `${cellSizeForLayout}px ${cellSizeForLayout}px`,
-                  imageRendering: 'pixelated',
-                  borderTop: '2px solid #fff',
-                  borderLeft: '2px solid #fff',
-                  borderRight: '2px solid #808080',
-                  borderBottom: '2px solid #808080'
-                }}
-              />
-
-              {renderFaceButton()}
-
-              <Box
-                sx={{
-                  flex: 1,
-                  mx: 0.5,
-                  height: 46,
-                  backgroundColor: '#c0c0c0',
-                  backgroundImage: hasSkinImage(CLASSIC_SKIN.cell.covered) ? `url(${CLASSIC_SKIN.cell.covered})` : 'none',
-                  backgroundRepeat: 'repeat',
-                  backgroundSize: `${cellSizeForLayout}px ${cellSizeForLayout}px`,
-                  imageRendering: 'pixelated',
-                  borderTop: '2px solid #fff',
-                  borderLeft: '2px solid #fff',
-                  borderRight: '2px solid #808080',
-                  borderBottom: '2px solid #808080'
-                }}
-              />
-
-              {renderDigitalCounter(timer)}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'auto 1fr auto',
+                alignItems: 'center',
+                columnGap: 1
+              }}
+            >
+              <Box sx={{ justifySelf: 'start' }}>{renderDigitalCounter(flagsLeft)}</Box>
+              <Box sx={{ justifySelf: 'center' }}>{renderFaceButton()}</Box>
+              <Box sx={{ justifySelf: 'end' }}>{renderDigitalCounter(timer)}</Box>
             </Box>
+
           </Box>
 
           {/* 面板与棋盘的分隔槽 */}
