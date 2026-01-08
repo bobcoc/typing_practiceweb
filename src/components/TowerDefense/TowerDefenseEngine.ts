@@ -177,14 +177,18 @@ export class TowerDefenseEngine {
         let x = this.x2, y = this.y2;
         while (x != this.x1 || y != this.y1) {
           this.way.unshift([x, y]);
-          let minV = -1, next: number[] | null = null;
+          let minV = -1, next_p: number[] | null = null;
           [[x, y-1], [x+1, y], [x, y+1], [x-1, y]].forEach(([nx, ny]) => {
             if (nx>=0 && nx<this.w && ny>=0 && ny<this.h) {
               let v = this.m[ny*this.w+nx];
-              if (v >= 0 && (minV == -1 || v < minV)) { minV = v; next = [nx, ny]; }
+              if (v >= 0 && (minV == -1 || v < minV)) { minV = v; next_p = [nx, ny]; }
             }
           });
-          if (next) { [x, y] = next; } else break;
+          if (next_p) {
+            x = next_p[0];
+            y = next_p[1];
+          } else break;
+
 
         }
       };
