@@ -95,77 +95,95 @@ const TowerDefenseGame: React.FC = () => {
     };
   }, [submitRecord]);
 
+  // 复刻原版布局与配色
+  const boardBg = '#d8ecf6';
+  const panelBg = '#e0f4fc';
+  const canvasSize = 560; // 接近原版 16x16 网格（32px）+ padding
+  const statItem = (label: string, value: number | string, color?: string) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+      <span>{label}</span>
+      <span style={{ color }}>{value}</span>
+    </div>
+  );
+
+  const towerButton = (type: string, label: string, circleColor: string) => (
+    <Button
+      size="small"
+      style={{
+        width: 44,
+        height: 44,
+        padding: 0,
+        border: selectedTower === type ? '2px solid #f90' : '1px solid #999',
+        background: '#fff'
+      }}
+      onClick={() => setSelectedTower(type)}
+    >
+      <span style={{
+        display: 'inline-block',
+        width: 20,
+        height: 20,
+        borderRadius: '50%',
+        background: circleColor,
+        border: '2px solid #444'
+      }} />
+      <div style={{ fontSize: 10, marginTop: 2 }}>{label}</div>
+    </Button>
+  );
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-      <Card size="small" style={{ width: 800 }}>
-        <Space size="large" style={{ width: '100%', justifyContent: 'space-between' }}>
-          <Space size="middle">
-            <Text strong>金钱: <Text type="warning">{stats.money}</Text></Text>
-            <Text strong>积分: <Text type="success">{stats.score}</Text></Text>
-            <Text strong>生命: <Text type="danger">{stats.life}</Text></Text>
-            <Text strong>波次: {stats.wave}</Text>
-          </Space>
-          <Space>
-            <Button 
-              type={selectedTower === 'cannon' ? 'primary' : 'default'} 
-              onClick={() => setSelectedTower('cannon')}
-            >
-              加农炮 ($100)
-            </Button>
-            <Button 
-              type={selectedTower === 'LMG' ? 'primary' : 'default'} 
-              onClick={() => setSelectedTower('LMG')}
-            >
-              轻机枪 ($150)
-            </Button>
-            <Button 
-              type={selectedTower === 'HMG' ? 'primary' : 'default'} 
-              onClick={() => setSelectedTower('HMG')}
-            >
-              重机枪 ($300)
-            </Button>
-            <Button 
-              type={selectedTower === 'wall' ? 'primary' : 'default'} 
-              onClick={() => setSelectedTower('wall')}
-            >
-              墙 ($10)
-            </Button>
-          </Space>
+    <div style={{ background: boardBg, minHeight: '100vh', padding: '16px 0' }}>
+      <div style={{ width: 760, margin: '0 auto', background: panelBg, padding: '12px 16px 24px 16px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+        <h2 style={{ margin: '4px 0 12px', fontSize: 18, letterSpacing: '0.12em' }}>HTML5 塔防游戏</h2>
 
-        </Space>
-      </Card>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <div style={{ position: 'relative', background: '#fff', border: '1px solid #cdf', padding: 4 }}>
+            <canvas
+              ref={canvasRef}
+              width={canvasSize}
+              height={canvasSize}
+              style={{ background: '#fff', display: 'block', cursor: 'crosshair' }}
+            />
 
-
-      <div style={{ position: 'relative', border: '2px solid #1A74BA', borderRadius: 8, overflow: 'hidden' }}>
-        <canvas 
-          ref={canvasRef} 
-          width={800} 
-          height={600} 
-          style={{ background: '#E0F4FC', display: 'block', cursor: 'crosshair' }} 
-        />
-        
-        {isGameOver && (
-          <div style={{
-            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)',
-            display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
-            color: '#fff', zIndex: 10
-          }}>
-            <Typography.Title level={2} style={{ color: '#fff' }}>游戏结束</Typography.Title>
-            <Text style={{ color: '#fff', fontSize: 18, marginBottom: 24 }}>最终得分: {stats.score}</Text>
-            <Button type="primary" size="large" onClick={() => window.location.reload()}>
-              重新开始
-            </Button>
+            {isGameOver && (
+              <div style={{
+                position: 'absolute', inset: 4, background: 'rgba(0,0,0,0.7)',
+                display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+                color: '#fff', zIndex: 10
+              }}>
+                <Typography.Title level={3} style={{ color: '#fff', margin: 0, marginBottom: 8 }}>游戏结束</Typography.Title>
+                <Text style={{ color: '#fff', fontSize: 16, marginBottom: 16 }}>最终得分: {stats.score}</Text>
+                <Button type="primary" size="middle" onClick={() => window.location.reload()}>
+                  重新开始
+                </Button>
+              </div>
+            )}
           </div>
-        )}
+
+          <div style={{ width: 160, background: '#fff', border: '1px solid #ddd', padding: 8 }}>
+            {statItem('金钱', stats.money, '#d26900')}
+            {statItem('积分', stats.score, '#2a8a1f')}
+            {statItem('生命', stats.life, '#d11')}
+            {statItem('波次', stats.wave)}
+            <div style={{ borderTop: '1px solid #eee', margin: '8px 0' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+              {towerButton('cannon', '炮', '#3a3')}
+              {towerButton('LMG', '轻机', '#36f')}
+              {towerButton('HMG', '重机', '#933')}
+              {towerButton('wall', '墙', '#666')}
+            </div>
+            <div style={{ marginTop: 10, fontSize: 12 }}>第 {stats.wave} 波</div>
+            <Button style={{ marginTop: 8, width: '100%' }} onClick={() => window.location.reload()}>重开</Button>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 8, fontSize: 12, color: '#666', display: 'flex', justifyContent: 'space-between' }}>
+          <span>FPS: {Math.round(engineRef.current?.fps || 0)}</span>
+          <span>version: 0.1.17 | oldj.net</span>
+        </div>
       </div>
-      
-      <Card size="small" style={{ width: 800 }}>
-        <Text type="secondary">
-          玩法：从左侧面板选择防御塔，点击地图空白处建造。保护终点不被怪物侵入！
-        </Text>
-      </Card>
     </div>
   );
 };
+
 
 export default TowerDefenseGame;
