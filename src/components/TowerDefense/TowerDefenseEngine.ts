@@ -299,30 +299,45 @@ export class TowerDefenseEngine {
     // --- Building 类 ---
     class Building extends Element {
       type: string; map: any; grid: any; target: any = null; range: number; range_px: number; damage: number; speed: number; bullet_speed: number;
-      _fire_wait: number = 0; color: string;
+      _fire_wait: number = 0; _fire_wait2: number = 0; color: string; is_weapon: boolean; muzzle: number[] = [0, 0]; is_pre_building: boolean = false;
       constructor(id: string, cfg: any) {
         super(id, cfg);
         this.type = cfg.type; this.map = cfg.map; this.grid = cfg.grid;
+        this.is_pre_building = !!cfg.is_pre_building;
         const attr = self.getBuildingAttr(this.type);
         this.range = attr.range; this.damage = attr.damage; this.speed = attr.speed; this.bullet_speed = attr.bullet_speed;
         this.range_px = this.range * self.grid_size;
         this.color = attr.color;
+        this.is_weapon = this.range > 0 && this.type !== "wall" && !this.is_pre_building;
         this._fire_wait = Math.floor(24 / this.speed);
+        this._fire_wait2 = this._fire_wait;
       }
       locate(grid: any) { this.grid = grid; this.x = grid.x; this.y = grid.y; this.calculatePos(); }
+      getTargetPosition() {
+        if (!this.target) {
+          const grid = this.map && this.map.is_main_map ? this.map.entrance : this.grid;
+          return [grid.cx, grid.cy];
+        }
+        return [this.target.cx, this.target.cy];
+      }
       step() {
+        if (!this.is_weapon) return;
         this.findTarget();
         if (this.target) {
           this._fire_wait--;
-          if (this._fire_wait <= 0) { this.fire(); this._fire_wait = Math.floor(24 / this.speed); }
+          if (this._fire_wait <= 0) { this.fire(); this._fire_wait = this._fire_wait2; }
         }
       }
       findTarget() {
-        if (this.target && this.target.is_valid && Math.sqrt(Math.pow(this.target.cx-this.cx, 2)+Math.pow(this.target.cy-this.cy, 2)) <= this.range_px) return;
-        this.target = self.lang.any(this.map.monsters, (m: any) => Math.sqrt(Math.pow(m.cx-this.cx, 2)+Math.pow(m.cy-this.cy, 2)) <= this.range_px);
+        if (!this.map) return;
+        const range2 = Math.pow(this.range_px, 2);
+        if (this.target && this.target.is_valid && Math.pow(this.target.cx-this.cx, 2)+Math.pow(this.target.cy-this.cy, 2) <= range2) return;
+        this.target = self.lang.any(self.lang.rndSort(this.map.monsters), (m: any) => Math.pow(m.cx-this.cx, 2)+Math.pow(m.cy-this.cy, 2) <= range2);
       }
       fire() {
-        new Bullet("", { building: this, target: this.target, damage: this.damage, speed: this.bullet_speed, x: this.cx, y: this.cy });
+        if (!this.target || !this.target.is_valid) return;
+        const muzzle = this.muzzle && this.muzzle.length === 2 ? this.muzzle : [this.cx, this.cy];
+        new Bullet("", { building: this, target: this.target, damage: this.damage, speed: this.bullet_speed, x: muzzle[0], y: muzzle[1] });
       }
 
       render() {
@@ -335,6 +350,7 @@ export class TowerDefenseEngine {
         }
       }
     }
+
 
     // --- Monster 类 ---
     class Monster extends Element {
@@ -406,21 +422,28 @@ export class TowerDefenseEngine {
     // --- Map 类 ---
     class Map extends Element {
       grid_x: number; grid_y: number; grids: any[] = []; entrance: any; exit: any; buildings: any[] = []; monsters: any[] = [];
-      pre_building: any;
+      pre_building: any; is_main_map = false;
       constructor(id: string, cfg: any) {
         super(id, cfg);
         this.grid_x = cfg.grid_x; this.grid_y = cfg.grid_y;
+        this.is_main_map = true;
+        this.width = this.grid_x * self.grid_size;
+        this.height = this.grid_y * self.grid_size;
+        this.calculatePos();
         for (let i = 0; i < this.grid_x * this.grid_y; i++) {
           this.grids.push(new Grid(this.id+"-g-"+i, { map: this, mx: i % this.grid_x, my: Math.floor(i / this.grid_x) }));
         }
         this.entrance = this.getGrid(cfg.entrance[0], cfg.entrance[1]); this.entrance.is_entrance = true;
         this.exit = this.getGrid(cfg.exit[0], cfg.exit[1]); this.exit.is_exit = true;
-        this.pre_building = new Building("pre", { type: "cannon", map: this });
+        this.pre_building = new Building("pre", { type: "cannon", map: this, is_pre_building: true });
         this.pre_building.is_visiable = false;
+        this.scene && this.scene.addElement && this.scene.addElement(this.pre_building, 1, 10);
       }
+
       getGrid(x: number, y: number) { return this.grids[y * this.grid_x + x]; }
       checkPassable(x: number, y: number) { let g = this.getGrid(x, y); return g && g.passable_flag == 1 && g.build_flag != 2; }
       step() {
+
         this.buildings = this.buildings.filter(b => b.is_valid);
         this.monsters = this.monsters.filter(m => m.is_valid);
       }
@@ -493,18 +516,83 @@ export class TowerDefenseEngine {
   // --- 渲染移植 ---
   private renderBuildingVisual(b: any) {
     const ctx = this.ctx;
-    const gs2 = this.grid_size / 2;
-    if (b.type == "wall") {
-      ctx.fillStyle = "#666"; ctx.fillRect(b.x+2, b.y+2, this.grid_size-4, this.grid_size-4);
-      ctx.strokeStyle = "#000"; ctx.strokeRect(b.x+2, b.y+2, this.grid_size-4, this.grid_size-4);
-      return;
-    }
-    ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(b.cx, b.cy, gs2 - 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(b.cx, b.cy);
-    let tx = b.target ? b.target.cx : b.cx, ty = b.target ? b.target.cy : b.cy - 100;
-    let angle = Math.atan2(ty - b.cy, tx - b.cx);
-    ctx.lineTo(b.cx + Math.cos(angle)*gs2, b.cy + Math.sin(angle)*gs2); ctx.stroke();
+    const gs = this.grid_size;
+    const gs2 = gs / 2;
+    const r = this.retina;
+    const lineTo2 = (x0: number, y0: number, x1: number, y1: number, len: number) => {
+      let x2 = x0, y2 = y0;
+      if (x0 == x1) {
+        x2 = x0; y2 = y1 > y0 ? y0 + len : y0 - len;
+      } else if (y0 == y1) {
+        y2 = y0; x2 = x1 > x0 ? x0 + len : x0 - len;
+      } else {
+        const a = (y0 - y1) / (x0 - x1);
+        const b0 = y0 - x0 * a;
+        const a2 = a * a + 1;
+        const b2 = 2 * (a * (b0 - y0) - x0);
+        const c2 = Math.pow(b0 - y0, 2) + x0 * x0 - Math.pow(len, 2);
+        let p = Math.pow(b2, 2) - 4 * a2 * c2;
+        if (p < 0) return [x0, y0];
+        p = Math.sqrt(p);
+        let xt = (-b2 + p) / (2 * a2);
+        if ((x1 - x0 > 0 && xt - x0 > 0) || (x1 - x0 < 0 && xt - x0 < 0)) {
+          x2 = xt; y2 = a * x2 + b0;
+        } else {
+          x2 = (-b2 - p) / (2 * a2); y2 = a * x2 + b0;
+        }
+      }
+      ctx.lineCap = "round";
+      ctx.moveTo(x0, y0); ctx.lineTo(x2, y2);
+      return [x2, y2];
+    };
+
+    const renderMap: any = {
+      "cannon": () => {
+        const tp = b.getTargetPosition();
+        ctx.fillStyle = "#393"; ctx.strokeStyle = "#000";
+        ctx.beginPath(); ctx.lineWidth = r; ctx.arc(b.cx, b.cy, gs2 - 5, 0, Math.PI * 2, true); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.lineWidth = 3 * r; ctx.beginPath(); ctx.moveTo(b.cx, b.cy); b.muzzle = lineTo2(b.cx, b.cy, tp[0], tp[1], gs2); ctx.closePath(); ctx.stroke();
+        ctx.lineWidth = r; ctx.fillStyle = "#060"; ctx.beginPath(); ctx.arc(b.cx, b.cy, 7 * r, 0, Math.PI * 2, true); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#cec"; ctx.beginPath(); ctx.arc(b.cx + 2, b.cy - 2, 3 * r, 0, Math.PI * 2, true); ctx.closePath(); ctx.fill();
+      },
+      "LMG": () => {
+        const tp = b.getTargetPosition();
+        ctx.fillStyle = "#36f"; ctx.strokeStyle = "#000";
+        ctx.beginPath(); ctx.lineWidth = r; ctx.arc(b.cx, b.cy, 7 * r, 0, Math.PI * 2, true); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.lineWidth = 2 * r; ctx.beginPath(); ctx.moveTo(b.cx, b.cy); b.muzzle = lineTo2(b.cx, b.cy, tp[0], tp[1], gs2); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.lineWidth = r; ctx.fillStyle = "#66c"; ctx.beginPath(); ctx.arc(b.cx, b.cy, 5 * r, 0, Math.PI * 2, true); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#ccf"; ctx.beginPath(); ctx.arc(b.cx + 1, b.cy - 1, 2 * r, 0, Math.PI * 2, true); ctx.closePath(); ctx.fill();
+      },
+      "HMG": () => {
+        const tp = b.getTargetPosition();
+        ctx.fillStyle = "#933"; ctx.strokeStyle = "#000";
+        ctx.beginPath(); ctx.lineWidth = r; ctx.arc(b.cx, b.cy, gs2 - 2, 0, Math.PI * 2, true); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.lineWidth = 5 * r; ctx.beginPath(); ctx.moveTo(b.cx, b.cy); b.muzzle = lineTo2(b.cx, b.cy, tp[0], tp[1], gs2); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.lineWidth = r; ctx.fillStyle = "#630"; ctx.beginPath(); ctx.arc(b.cx, b.cy, gs2 - 5 * r, 0, Math.PI * 2, true); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#960"; ctx.beginPath(); ctx.arc(b.cx + 1, b.cy - 1, 8 * r, 0, Math.PI * 2, true); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#fcc"; ctx.beginPath(); ctx.arc(b.cx + 3, b.cy - 3, 4 * r, 0, Math.PI * 2, true); ctx.closePath(); ctx.fill();
+      },
+      "wall": () => {
+        ctx.lineWidth = r; ctx.fillStyle = "#666"; ctx.strokeStyle = "#000";
+        ctx.fillRect(b.cx - gs2 + 1, b.cy - gs2 + 1, gs - 1, gs - 1);
+        ctx.beginPath();
+        ctx.moveTo(b.cx - gs2 + 0.5, b.cy - gs2 + 0.5);
+        ctx.lineTo(b.cx - gs2 + 0.5, b.cy + gs2 + 0.5);
+        ctx.lineTo(b.cx + gs2 + 0.5, b.cy + gs2 + 0.5);
+        ctx.lineTo(b.cx + gs2 + 0.5, b.cy - gs2 + 0.5);
+        ctx.lineTo(b.cx - gs2 + 0.5, b.cy - gs2 + 0.5);
+        ctx.moveTo(b.cx - gs2 + 0.5, b.cy + gs2 + 0.5);
+        ctx.lineTo(b.cx + gs2 + 0.5, b.cy - gs2 + 0.5);
+        ctx.moveTo(b.cx - gs2 + 0.5, b.cy - gs2 + 0.5);
+        ctx.lineTo(b.cx + gs2 + 0.5, b.cy + gs2 + 0.5);
+        ctx.closePath();
+        ctx.stroke();
+      }
+    };
+
+    (renderMap[b.type] || renderMap["wall"])();
   }
+
 
   private updateStats() {
     this.onUpdateStats({ money: this.money, score: this.score, life: this.life, wave: this.wave, difficulty: this.difficulty });
