@@ -230,16 +230,20 @@ export class TowerDefenseEngine {
         super(id, cfg);
         this.map = cfg.map; this.mx = cfg.mx; this.my = cfg.my;
         this.width = self.grid_size; this.height = self.grid_size;
-        this.calculatePos();
+        if (this.map) {
+          this.calculatePos();
+        }
         this.on("enter", () => this.onEnter());
         this.on("out", () => this.onOut());
         this.on("click", () => this.onClick());
       }
       calculatePos() {
+        if (!this.map) return;
         this.x = this.map.x + this.mx * self.grid_size;
         this.y = this.map.y + this.my * self.grid_size;
         super.calculatePos();
       }
+
       onEnter() {
         if (self.stage.mode == "build" && this.build_flag == 1) {
           this.map.pre_building.is_visiable = true;
