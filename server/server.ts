@@ -20,6 +20,7 @@ import visitorRoutes from './routes/visitor';
 import vocabularyRoutes from './routes/vocabulary';
 import userWordPassRouter from './routes/userWordPass';
 import minesweeperRouter from './routes/minesweeper';
+import towerDefenseRouter from './routes/towerDefense';
 // 加载环境变量
 dotenv.config();
 

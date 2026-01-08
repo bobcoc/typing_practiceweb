@@ -1,7 +1,7 @@
 // src/components/TowerDefenseTabs.tsx
 import React, { useMemo } from 'react';
 import { Tabs, Card } from 'antd';
-import TowerDefensePage from './TowerDefensePage'; // 目前还是 iframe 那个，稍后改名或替换
+import TowerDefenseGame from './TowerDefenseGame';
 import TowerDefenseLeaderboard from './TowerDefenseLeaderboard';
 
 const TowerDefenseTabs: React.FC = () => {

@@ -96,7 +96,7 @@ export class TDEngine {
     // 定义核心类
     class Element {
       id: string; is_valid = true; is_visiable = true; is_paused = false; is_hover = false;
-      x: number; y: number; width: number; height: number; cx: number; cy: number; x2: number; y2: number;
+      x: number = 0; y: number = 0; width: number = 0; height: number = 0; cx: number = 0; cy: number = 0; x2: number = 0; y2: number = 0;
       step_level: number; render_level: number; scene: any;
       constructor(id: string, cfg: any) {
         this.id = id || "el-" + (Math.random()*1e9|0);

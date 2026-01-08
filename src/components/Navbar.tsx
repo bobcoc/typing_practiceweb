@@ -96,7 +96,7 @@ const NavBar: React.FC = () => {
   };
 
   // 使用 MenuProps['items'] 作为类型
-  const getMenuItems = (): NonNullable<MenuProps['items']> => {
+    const getMenuItems = (): NonNullable<MenuProps['items']> => {
     const baseItems = [
       {
         key: 'd1ktc',
@@ -115,6 +115,11 @@ const NavBar: React.FC = () => {
       {
         key: '/minesweeper',
         label: <Link to="/minesweeper">扫雷游戏</Link>,
+      },
+      // 塔防游戏分组
+      {
+        key: '/tower-defense',
+        label: <Link to="/tower-defense">塔防游戏</Link>,
       },
       // 词汇学习菜单项
       {

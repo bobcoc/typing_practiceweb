@@ -14,6 +14,7 @@ const TowerDefenseGame: React.FC = () => {
   const engineRef = useRef<any>(null);
   const [stats, setStats] = useState({ money: 0, score: 0, life: 0, wave: 0 });
   const [isGameOver, setIsGameOver] = useState(false);
+  const [selectedTower, setSelectedTower] = useState<number | null>(null);
   const startTimeRef = useRef<number>(0);
 
   // 提交记录
