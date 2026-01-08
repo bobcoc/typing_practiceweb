@@ -177,14 +177,15 @@ export class TowerDefenseEngine {
         let x = this.x2, y = this.y2;
         while (x != this.x1 || y != this.y1) {
           this.way.unshift([x, y]);
-          let minV = -1, next = null;
+          let minV = -1, next: number[] | null = null;
           [[x, y-1], [x+1, y], [x, y+1], [x-1, y]].forEach(([nx, ny]) => {
             if (nx>=0 && nx<this.w && ny>=0 && ny<this.h) {
               let v = this.m[ny*this.w+nx];
               if (v >= 0 && (minV == -1 || v < minV)) { minV = v; next = [nx, ny]; }
             }
           });
-          if (next) [x, y] = next; else break;
+          if (next) { [x, y] = next; } else break;
+
         }
       };
       this.init();
@@ -313,8 +314,9 @@ export class TowerDefenseEngine {
         this.target = self.lang.any(this.map.monsters, (m: any) => Math.sqrt(Math.pow(m.cx-this.cx, 2)+Math.pow(m.cy-this.cy, 2)) <= this.range_px);
       }
       fire() {
-        new Bullet(null, { building: this, target: this.target, damage: this.damage, speed: this.bullet_speed, x: this.cx, y: this.cy });
+        new Bullet("", { building: this, target: this.target, damage: this.damage, speed: this.bullet_speed, x: this.cx, y: this.cy });
       }
+
       render() {
         const ctx = self.ctx;
         self.renderBuildingVisual(this);
@@ -472,12 +474,13 @@ export class TowerDefenseEngine {
 
   private getMonsterAttr(idx: number) {
     const attrs = [
-      { name: "m1", life: 50, speed: 3, damage: 1, color: "#f00" },
-      { name: "m2", life: 80, speed: 5, damage: 2, color: "#0f0" },
-      { name: "m3", life: 120, speed: 7, damage: 3, color: "#00f" }
+      { name: "m1", life: 50, speed: 3, damage: 1, color: "#f00", money: 10 },
+      { name: "m2", life: 80, speed: 5, damage: 2, color: "#0f0", money: 20 },
+      { name: "m3", life: 120, speed: 7, damage: 3, color: "#00f", money: 30 }
     ];
     return attrs[idx % attrs.length];
   }
+
 
   // --- 渲染移植 ---
   private renderBuildingVisual(b: any) {
@@ -520,10 +523,11 @@ export class TowerDefenseEngine {
       for(let i=0; i<5+this.wave; i++) {
         setTimeout(() => {
           if (this.is_paused) return;
-          const m = new (this as any).Monster(null, { idx: Math.floor(Math.random()*3), step_level: 1, render_level: 4 });
+          const m = new (this as any).Monster("", { idx: Math.floor(Math.random()*3), step_level: 1, render_level: 4 });
           m.beAddToGrid(this.stage.map.entrance);
         }, i * 1000);
       }
+
       this.updateStats();
     }
 
