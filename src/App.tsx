@@ -23,8 +23,6 @@ import TypingTabs from './components/TypingTabs';
 import KMeansDemo from './components/KMeansDemo';
 import MinesweeperTabs from './components/MinesweeperTabs';
 import TowerDefenseTabs from './components/TowerDefenseTabs';
-
-import TowerDefenseTabs from './components/TowerDefenseTabs';
 import SpectatorMinesweeper from './components/SpectatorMinesweeper';
 
 
