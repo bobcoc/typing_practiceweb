@@ -354,20 +354,25 @@ export class TowerDefenseEngine {
 
     // --- Monster 类 ---
     class Monster extends Element {
-      idx: number; hp: number; maxHp: number; speed: number; money: number; damage: number;
-      grid: any; next_grid: any = null; way: any[] = []; color: string;
+      idx: number; hp: number; maxHp: number; speed: number; money: number; damage: number; shield: number;
+      grid: any; next_grid: any = null; way: any[] = []; color: string; r: number;
       constructor(id: string, cfg: any) {
         super(id, cfg);
         this.idx = cfg.idx;
         const attr = self.getMonsterAttr(this.idx);
-        this.hp = this.maxHp = attr.life * (self.difficulty + 0.5);
-        this.speed = attr.speed * self.global_speed;
+        this.hp = this.maxHp = Math.floor(attr.life * (self.difficulty + 1) * 0.75);
+        this.speed = Math.max(1, attr.speed * self.global_speed * (Math.random() * 0.5 + 0.75));
+        this.shield = Math.max(0, attr.shield || 0);
         this.money = attr.money || 10;
         this.damage = attr.damage || 1;
-        this.color = attr.color || "#f00";
-        this.width = self.grid_size * 0.5; this.height = self.grid_size * 0.5;
+        this.color = attr.color || "#00f";
+        // 半径与原版一致的限制
+        const baseR = Math.floor(this.damage * 1.2 * self.retina);
+        this.r = Math.min(Math.max(baseR, 4 * self.retina), self.grid_size / 2 - 4 * self.retina);
+        this.width = this.height = this.r * 2;
       }
-      beAddToGrid(grid: any) { this.grid = grid; this.x = grid.x; this.y = grid.y; this.calculatePos(); this.findWay(); }
+      beAddToGrid(grid: any) { this.grid = grid; this.x = grid.x; this.y = grid.y; this.cx = grid.cx; this.cy = grid.cy; this.calculatePos(); this.findWay(); }
+
       findWay() {
         let fw = new FindWay(this.grid.map.grid_x, this.grid.map.grid_y, this.grid.mx, this.grid.my, this.grid.map.exit.mx, this.grid.map.exit.my, (x: number, y: number) => this.grid.map.checkPassable(x, y));
         this.way = fw.way;
@@ -388,15 +393,35 @@ export class TowerDefenseEngine {
         this.x = this.cx - this.width/2; this.y = this.cy - this.height/2; this.calculatePos();
       }
       beHit(damage: number) {
-        this.hp -= damage;
-        if (this.hp <= 0) { this.del(); self.money += this.money; self.score += 10; self.updateStats(); }
+        const minDamage = Math.ceil(damage * 0.1);
+        const realDamage = Math.max(minDamage, damage - this.shield);
+        this.hp -= realDamage;
+        if (this.hp <= 0) { this.del(); self.money += this.money; self.score += Math.floor(Math.sqrt(realDamage)); self.updateStats(); }
       }
       render() {
+        if (!this.is_valid || !this.grid) return;
         const ctx = self.ctx;
-        ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.cx, this.cy, this.width/2, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = "#000"; ctx.fillRect(this.cx - 10, this.cy - this.width - 5, 20, 4);
-        ctx.fillStyle = "#f00"; ctx.fillRect(this.cx - 10, this.cy - this.width - 5, (this.hp/this.maxHp)*20, 4);
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 1 * self.retina;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.cx, this.cy, this.r, 0, Math.PI * 2, true);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        const s = Math.floor(self.grid_size / 4);
+        const l = s * 2 - 2 * self.retina;
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.fillRect(this.cx - s, this.cy - this.r - 6, s * 2, 4 * self.retina);
+        ctx.closePath();
+        ctx.fillStyle = "#f00";
+        ctx.beginPath();
+        ctx.fillRect(this.cx - s + self.retina, this.cy - this.r - (6 - self.retina), (this.hp/this.maxHp)*l, 2 * self.retina);
+        ctx.closePath();
       }
+
     }
 
     // --- Bullet 类 ---
@@ -505,12 +530,16 @@ export class TowerDefenseEngine {
 
   private getMonsterAttr(idx: number) {
     const attrs = [
-      { name: "m1", life: 50, speed: 3, damage: 1, color: "#f00", money: 10 },
-      { name: "m2", life: 80, speed: 5, damage: 2, color: "#0f0", money: 20 },
-      { name: "m3", life: 120, speed: 7, damage: 3, color: "#00f", money: 30 }
+      { name: "monster 1", life: 50, speed: 3, damage: 1, shield: 0, money: 5, color: "#58f" },
+      { name: "monster 2", life: 50, speed: 6, damage: 2, shield: 1, money: 8, color: "#3af" },
+      { name: "monster speed", life: 50, speed: 12, damage: 3, shield: 1, money: 10, color: "#38c" },
+      { name: "monster life", life: 500, speed: 5, damage: 3, shield: 1, money: 20, color: "#36a" },
+      { name: "monster shield", life: 50, speed: 5, damage: 3, shield: 20, money: 15, color: "#269" },
+      { name: "monster damage", life: 50, speed: 7, damage: 10, shield: 2, money: 25, color: "#d33" },
     ];
     return attrs[idx % attrs.length];
   }
+
 
 
   // --- 渲染移植 ---
