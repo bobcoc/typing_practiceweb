@@ -22,8 +22,11 @@ import { message } from 'antd';
 import TypingTabs from './components/TypingTabs';
 import KMeansDemo from './components/KMeansDemo';
 import MinesweeperTabs from './components/MinesweeperTabs';
-import TowerDefensePage from './components/TowerDefensePage';
+import TowerDefenseTabs from './components/TowerDefenseTabs';
+
+import TowerDefenseTabs from './components/TowerDefenseTabs';
 import SpectatorMinesweeper from './components/SpectatorMinesweeper';
+
 
 // 创建一个包装组件来处理认证
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {

@@ -14,8 +14,21 @@ const TowerDefenseGame: React.FC = () => {
   const engineRef = useRef<any>(null);
   const [stats, setStats] = useState({ money: 0, score: 0, life: 0, wave: 0 });
   const [isGameOver, setIsGameOver] = useState(false);
-  const [selectedTower, setSelectedTower] = useState<number | null>(null);
+  const [selectedTower, setSelectedTower] = useState<string>('cannon');
   const startTimeRef = useRef<number>(0);
+
+  // 同步塔类型并设置建造模式
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.selectedTowerType = selectedTower;
+      engineRef.current.stage.mode = "build";
+      if (engineRef.current.stage.map && engineRef.current.stage.map.pre_building) {
+        engineRef.current.stage.map.pre_building.type = selectedTower;
+      }
+    }
+  }, [selectedTower]);
+
+
 
   // 提交记录
   const submitRecord = useCallback(async (finalScore: number, finalWave: number) => {
@@ -64,8 +77,13 @@ const TowerDefenseGame: React.FC = () => {
       });
       
       engineRef.current = engine;
+      // 初始化建造模式
+      engine.stage.mode = "build";
+      engine.selectedTowerType = selectedTower;
+      
       startTimeRef.current = Date.now();
       engine.start();
+
     };
 
     initGame();
@@ -89,18 +107,31 @@ const TowerDefenseGame: React.FC = () => {
           </Space>
           <Space>
             <Button 
-              type={selectedTower === 1 ? 'primary' : 'default'} 
-              onClick={() => setSelectedTower(1)}
+              type={selectedTower === 'cannon' ? 'primary' : 'default'} 
+              onClick={() => setSelectedTower('cannon')}
             >
               加农炮 ($100)
             </Button>
             <Button 
-              type={selectedTower === 2 ? 'primary' : 'default'} 
-              onClick={() => setSelectedTower(2)}
+              type={selectedTower === 'LMG' ? 'primary' : 'default'} 
+              onClick={() => setSelectedTower('LMG')}
             >
-              机枪 ($150)
+              轻机枪 ($150)
+            </Button>
+            <Button 
+              type={selectedTower === 'HMG' ? 'primary' : 'default'} 
+              onClick={() => setSelectedTower('HMG')}
+            >
+              重机枪 ($300)
+            </Button>
+            <Button 
+              type={selectedTower === 'wall' ? 'primary' : 'default'} 
+              onClick={() => setSelectedTower('wall')}
+            >
+              墙 ($10)
             </Button>
           </Space>
+
         </Space>
       </Card>
 
