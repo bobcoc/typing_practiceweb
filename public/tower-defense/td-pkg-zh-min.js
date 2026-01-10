@@ -2931,6 +2931,25 @@ _TD.a.push(function (TD) {
 					this.scene.map.selected_building.tryToSell(this);
 				}
 			});
+
+			// 速度控制滑动条
+			this.speed_slider = new TD.Slider("panel-speed-slider", {
+				scene: this.scene,
+				x: this.x,
+				y: this.y + 400 * _TD.retina,
+				width: 80 * _TD.retina,
+				height: 10 * _TD.retina,
+				min: 0,
+				max: 4,
+				value: 0, // 默认 1x (2^0)
+				step_level: this.step_level,
+				render_level: this.render_level + 1,
+				onChange: function (value) {
+					// value: 0->1x, 1->2x, 2->4x, 3->8x, 4->16x
+					var multiplier = Math.pow(2, value); // 2^value
+					TD.global_speed = 0.1 * multiplier;
+				}
+			});
 		},
 		step: function () {
 			if (TD.life_recover) {
@@ -3263,6 +3282,100 @@ _TD.a.push(function (TD) {
 		TD.log("life recover: " + n);
 	};
 
+	// 滑动条控件
+	var slider_obj = {
+		_init: function (cfg) {
+			cfg = cfg || {};
+			this.x = cfg.x || 0;
+			this.y = cfg.y || 0;
+			this.width = cfg.width || 80 * _TD.retina;
+			this.height = cfg.height || 10 * _TD.retina;
+			this.min = cfg.min || 0;
+			this.max = cfg.max || 10;
+			this.value = cfg.value || 0;
+			this.onChange = cfg.onChange || function(){};
+			this.scene = cfg.scene;
+			this.is_hover = false;
+			
+			this.addToScene(this.scene, this.step_level, this.render_level);
+		},
+		step: function () {
+			// 检查鼠标是否在滑动条上
+			if (TD.eventManager.isOn(this)) {
+				this.is_hover = true;
+			}
+		},
+		render: function () {
+			var ctx = TD.ctx;
+			var track_y = this.y + this.height / 2;
+			
+			// 绘制轨道
+			ctx.fillStyle = "#ddd";
+			ctx.fillRect(this.x, track_y - 2, this.width, 4);
+			
+			// 绘制已填充部分
+			var fill_width = (this.value - this.min) / (this.max - this.min) * this.width;
+			ctx.fillStyle = "#4a90e2";
+			ctx.fillRect(this.x, track_y - 2, fill_width, 4);
+			
+			// 绘制滑块
+			var knob_x = this.x + fill_width;
+			ctx.fillStyle = this.is_hover ? "#2563eb" : "#4a90e2";
+			ctx.beginPath();
+			ctx.arc(knob_x, track_y, 6 * _TD.retina, 0, Math.PI * 2);
+			ctx.fill();
+			
+			// 绘制标签
+			ctx.textAlign = "center";
+			ctx.textBaseline = "top";
+			ctx.fillStyle = "#666";
+			ctx.font = "normal " + (10 * _TD.retina) + "px 'Arial'";
+			
+			// 显示速度标签
+			var labels = ["1x", "2x", "4x", "8x", "16x"];
+			for (var i = 0; i <= this.max; i++) {
+				var label_x = this.x + (i / this.max) * this.width;
+				ctx.fillText(labels[i] || (Math.pow(2, i) + "x"), label_x, track_y + 12);
+				
+				// 绘制刻度线
+				ctx.strokeStyle = "#ccc";
+				ctx.lineWidth = 1;
+				ctx.beginPath();
+				ctx.moveTo(label_x, track_y - 5);
+				ctx.lineTo(label_x, track_y + 5);
+				ctx.stroke();
+			}
+		},
+		onEnter: function () {
+			this.is_hover = true;
+			TD.mouseHand(true);
+		},
+		onOut: function () {
+			this.is_hover = false;
+			TD.mouseHand(false);
+		},
+		onClick: function () {
+			// 点击滑动条时更新值
+			if (TD.eventManager.ex !== undefined && TD.eventManager.ey !== undefined) {
+				var relative_x = TD.eventManager.ex - this.x;
+				var new_value = Math.round((relative_x / this.width) * (this.max - this.min) + this.min);
+				new_value = Math.max(this.min, Math.min(this.max, new_value));
+				if (new_value !== this.value) {
+					this.value = new_value;
+					this.onChange(this.value);
+				}
+			}
+		}
+	};
+
+	TD.Slider = function (id, cfg) {
+		cfg.on_events = ["enter", "out", "click"];
+		var slider = new TD.Element(id, cfg);
+		TD.lang.mix(slider, slider_obj);
+		slider._init(cfg);
+		return slider;
+	};
+
 }); // _TD.a.push end
 
 /*
@@ -3358,8 +3471,8 @@ _TD.a.push(function (TD) {
 	TD.getDefaultStageData = function (k) {
 		var data = {
 			stage_main: {
-				width: 640 * _TD.retina, // px
-				height: 560 * _TD.retina,
+				width: 900 * _TD.retina, // px (增加到 900 以容纳更大的棋盘和控制面板)
+				height: 580 * _TD.retina,
 				init: _stage_main_init,
 				step2: _stage_main_step2
 			},
@@ -3367,12 +3480,12 @@ _TD.a.push(function (TD) {
 			scene_endless: {
 				// scene 1
 				map: {
-					grid_x: 16,
-					grid_y: 16,
+					grid_x: 21,
+					grid_y: 17,
 					x: TD.padding,
 					y: TD.padding,
 					entrance: [0, 0],
-					exit: [15, 15],
+					exit: [20, 16],
 					grids_cfg: [
 						{
 							pos: [3, 3],
@@ -3406,7 +3519,7 @@ _TD.a.push(function (TD) {
 					]
 				},
 				panel: {
-					x: TD.padding * 2 + TD.grid_size * 16,
+					x: TD.padding * 2 + TD.grid_size * 21,
 					y: TD.padding,
 					map: {
 						grid_x: 3,

@@ -91,8 +91,8 @@ _TD.a.push(function (TD) {
 	TD.getDefaultStageData = function (k) {
 		var data = {
 			stage_main: {
-				width: 640 * _TD.retina, // px
-				height: 560 * _TD.retina,
+				width: 900 * _TD.retina, // px (增加到 900 以容纳更大的棋盘和控制面板)
+				height: 580 * _TD.retina,
 				init: _stage_main_init,
 				step2: _stage_main_step2
 			},
@@ -100,12 +100,12 @@ _TD.a.push(function (TD) {
 			scene_endless: {
 				// scene 1
 				map: {
-					grid_x: 16,
-					grid_y: 16,
+					grid_x: 21,
+					grid_y: 17,
 					x: TD.padding,
 					y: TD.padding,
 					entrance: [0, 0],
-					exit: [15, 15],
+					exit: [20, 16],
 					grids_cfg: [
 						{
 							pos: [3, 3],
@@ -139,7 +139,7 @@ _TD.a.push(function (TD) {
 					]
 				},
 				panel: {
-					x: TD.padding * 2 + TD.grid_size * 16,
+					x: TD.padding * 2 + TD.grid_size * 21,
 					y: TD.padding,
 					map: {
 						grid_x: 3,
