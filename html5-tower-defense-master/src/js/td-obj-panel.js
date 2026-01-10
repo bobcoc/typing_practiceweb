@@ -377,6 +377,7 @@ _TD.a.push(function (TD) {
 		_init: function (cfg) {
 			this.panel = cfg.panel;
 			this.scene = cfg.scene;
+			this._score_submitted = false;  // 添加标志，确保只提交一次成绩
 
 			this.addToScene(this.scene, 1, 9);
 		},
@@ -395,6 +396,31 @@ _TD.a.push(function (TD) {
 			ctx.beginPath();
 			ctx.fillText("GAME OVER", this.width / 2, this.height / 2);
 			ctx.closePath();
+
+			// 尝试将成绩通过 postMessage 通知父窗口（若被嵌入在 iframe 中）
+			// 仅在第一次渲染时发送，防止重复提交
+			if (!this._score_submitted) {
+				this._score_submitted = true;
+				try {
+					var timeSeconds = 0;
+					if (typeof TD.startedAt === 'number') {
+						timeSeconds = Math.round(((new Date()).getTime() - TD.startedAt) / 1000);
+					}
+					var wave = (this.scene && typeof this.scene.wave === 'number') ? this.scene.wave : (TD && TD.stage && TD.stage.current_scene ? TD.stage.current_scene.wave : 0);
+					var score = typeof TD.score === 'number' ? TD.score : 0;
+					if (window && window.parent && window !== window.parent) {
+						window.parent.postMessage({
+							type: 'tower-defense:complete',
+							wave: wave,
+							score: score,
+							timeSeconds: timeSeconds
+						}, '*');
+					}
+				} catch (e) {
+					// 忽略 postMessage 错误
+					console.error('Failed to send tower defense score:', e);
+				}
+			}
 			ctx.fillStyle = "#f00";
 			ctx.font = "bold 60px 'Verdana'";
 			ctx.beginPath();

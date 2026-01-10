@@ -44,6 +44,13 @@ var _TD = {
 				//this.obj_info = TD.lang.$e(ob_info);
 				if (!this.canvas.getContext) return; // 不支持 canvas
 				this.ctx = this.canvas.getContext("2d");
+				// 让 canvas 可聚焦以确保能接收键盘/鼠标交互
+				try {
+					this.canvas.tabIndex = 0;
+					this.canvas.style.outline = 'none';
+				} catch (e) {}
+
+
 				this.monster_type_count = TD.getDefaultMonsterAttributes(); // 一共有多少种怪物
 				this.iframe = 0; // 当前播放到第几帧了
 				this.last_iframe_time = (new Date()).getTime();
@@ -74,15 +81,19 @@ var _TD = {
 
 				this.canvas.onmousemove = function (e) {
 					var xy = _this.getEventXY.call(_this, e);
-					_this.hover(xy[0], xy[1]);
-				};
-				this.canvas.onclick = function (e) {
-					var xy = _this.getEventXY.call(_this, e);
-					_this.click(xy[0], xy[1]);
-				};
+				_this.hover(xy[0], xy[1]);
+			};
+			this.canvas.onclick = function (e) {
+				var xy = _this.getEventXY.call(_this, e);
+				_this.click(xy[0], xy[1]);
+			};
 
 				this.is_paused = false;
 				this.stage.start();
+
+				// 记录游戏开始时间（用于计算时长并在结束时上报）
+				this.startedAt = (new Date()).getTime();
+
 				this.step();
 
 				return this;
@@ -171,11 +182,23 @@ var _TD = {
 			 * @param e
 			 */
 			getEventXY: function (e) {
-				var wra = TD.lang.$e("wrapper"),
-					x = e.clientX - wra.offsetLeft - this.canvas.offsetLeft + Math.max(document.documentElement.scrollLeft, document.body.scrollLeft),
-					y = e.clientY - wra.offsetTop - this.canvas.offsetTop + Math.max(document.documentElement.scrollTop, document.body.scrollTop);
-
-				return [x * _TD.retina, y * _TD.retina];
+				// Use bounding client rect to correctly map event coordinates to canvas,
+				// this handles iframe offsets, CSS scaling, and scrolling more reliably.
+				try {
+					var rect = this.canvas.getBoundingClientRect();
+					var x = (e.clientX - rect.left);
+					var y = (e.clientY - rect.top);
+					// map to canvas pixel coordinates in case canvas is scaled via CSS
+					var scaleX = this.canvas.width / rect.width;
+					var scaleY = this.canvas.height / rect.height;
+					return [Math.round(x * scaleX), Math.round(y * scaleY)];
+				} catch (err) {
+					// fallback to old method if something goes wrong
+					var wra = TD.lang.$e("wrapper"),
+						x = e.clientX - wra.offsetLeft - this.canvas.offsetLeft + Math.max(document.documentElement.scrollLeft, document.body.scrollLeft),
+						y = e.clientY - wra.offsetTop - this.canvas.offsetTop + Math.max(document.documentElement.scrollTop, document.body.scrollTop);
+					return [x * _TD.retina, y * _TD.retina];
+				}
 			},
 
 			/**

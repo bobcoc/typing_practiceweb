@@ -5,6 +5,12 @@ import { auth } from '../middleware/auth';
 
 const router = express.Router();
 
+// 简单的内存去重/速率限制（仅用于示例，生产环境请使用 Redis 等持久/分布式存储）
+const lastSubmissionByUser = new Map<string, { ts: number; score: number; wave: number }>();
+const submissionWindow = new Map<string, { windowStart: number; count: number }>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX = 20; // max submissions per user per window
+
 // 提交塔防记录（需要登录）
 router.post('/record', auth, async (req: Request, res: Response) => {
   try {
@@ -12,6 +18,25 @@ router.post('/record', auth, async (req: Request, res: Response) => {
     
     if (!req.user?._id) {
       return res.status(401).json({ error: '未登录' });
+    }
+
+    const uid = String(req.user._id);
+
+    // rate limit
+    try {
+      const now = Date.now();
+      const win = submissionWindow.get(uid) || { windowStart: now, count: 0 };
+      if (now - win.windowStart > RATE_LIMIT_WINDOW_MS) {
+        win.windowStart = now;
+        win.count = 0;
+      }
+      win.count++;
+      submissionWindow.set(uid, win);
+      if (win.count > RATE_LIMIT_MAX) {
+        return res.status(429).json({ error: '提交过于频繁，请稍后再试' });
+      }
+    } catch (e) {
+      console.warn('rate limit check error', e);
     }
 
     if (typeof wave !== 'number' || wave < 0) {
@@ -26,6 +51,20 @@ router.post('/record', auth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: '无效的游戏时长' });
     }
 
+    // dedupe:防止重复上报（比如 iframe 连续发送多次）
+    try {
+      const last = lastSubmissionByUser.get(uid);
+      const now = Date.now();
+      if (last && last.score === score && last.wave === wave && (now - last.ts) < 5000) {
+        // 视为重复提交
+        return res.status(200).json({ message: '重复提交，已忽略' });
+      }
+      // 保存最近提交摘要
+      lastSubmissionByUser.set(uid, { ts: now, score, wave });
+    } catch (e) {
+      console.warn('dedupe check error', e);
+    }
+
     const record = new TowerDefenseRecord({
       userId: req.user._id,
       username: req.user.username,
@@ -36,6 +75,9 @@ router.post('/record', auth, async (req: Request, res: Response) => {
     });
 
     await record.save();
+
+    // 存储成功后可以清理或记录更多指标
+    // (保留 lastSubmission 已记录)
 
     res.status(201).json({
       message: '记录保存成功',

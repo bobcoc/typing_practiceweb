@@ -119,7 +119,17 @@ const NavBar: React.FC = () => {
       // 塔防游戏分组
       {
         key: '/tower-defense',
-        label: <Link to="/tower-defense">塔防游戏</Link>,
+        label: '塔防游戏',
+        children: [
+          {
+            key: '/tower-defense/play',
+            label: <Link to="/tower-defense/play">开始游戏</Link>
+          },
+          {
+            key: '/tower-defense/leaderboard',
+            label: <Link to="/tower-defense/leaderboard">排行榜</Link>
+          }
+        ]
       },
       // 词汇学习菜单项
       {

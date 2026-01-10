@@ -1,7 +1,7 @@
 // src/components/TowerDefenseTabs.tsx
 import React, { useMemo } from 'react';
 import { Tabs, Card } from 'antd';
-import TowerDefenseGame from './TowerDefenseGame';
+import TowerDefenseEmbed from './TowerDefenseEmbed';
 import TowerDefenseLeaderboard from './TowerDefenseLeaderboard';
 
 const TowerDefenseTabs: React.FC = () => {
@@ -10,7 +10,7 @@ const TowerDefenseTabs: React.FC = () => {
       {
         key: 'game',
         label: '塔防游戏',
-        children: <TowerDefenseGame />,
+        children: <TowerDefenseEmbed />,
 
       },
       {

@@ -97,6 +97,8 @@ const App: React.FC = () => {
           <Route path="/kmeans" element={<KMeansDemo />} />
           <Route path="/minesweeper" element={<MinesweeperTabs />} />
           <Route path="/tower-defense" element={<TowerDefenseTabs />} />
+          <Route path="/tower-defense/play" element={<TowerDefenseTabs />} />
+          <Route path="/tower-defense/leaderboard" element={<TowerDefenseTabs />} />
           <Route path="/login" element={<Login />} />
 
           <Route path="/register" element={<Register />} />

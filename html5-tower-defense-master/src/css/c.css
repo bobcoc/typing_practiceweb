@@ -27,8 +27,11 @@ letter-spacing: 0.12em;
 margin: 0 auto;
 }
 #td-wrapper {
-padding: 8px 24px 60px 24px;
-background: #E0F4FC;
+	padding: 8px 24px 60px 24px;
+	background: #E0F4FC;
+	/* constrain width to center the game inside the iframe */
+	max-width: 920px;
+	margin: 0 auto;
 }
 #td-board {
 display: none;
@@ -36,6 +39,8 @@ font-size: 16px;
 }
 #td-board canvas#td-canvas {
 position: relative;
+display: block; /* ensure margin auto centering works */
+margin: 0 auto;
 background: #fff;
 border: solid 1px #cdf;
 }
