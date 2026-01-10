@@ -245,6 +245,15 @@ _TD.a.push(function (TD) {
 			if (!this.is_weapon || !this.target)
 				return;
 
+			// 动态计算发射间隔，实时支持倍速模式
+			var base_fire_wait = Math.floor(Math.max(2 / this.speed, 1));
+			var current_fire_wait = Math.max(Math.floor(base_fire_wait / TD.global_speed), 1);
+			
+			// 如果速度倍数改变，更新发射间隔
+			if (current_fire_wait !== this._fire_wait2) {
+				this._fire_wait2 = current_fire_wait;
+			}
+
 			this._fire_wait--;
 			if (this._fire_wait > 0) {
 //			return;
