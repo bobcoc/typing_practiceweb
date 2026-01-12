@@ -111,23 +111,18 @@ const NavBar: React.FC = () => {
         key: '/typing',
         label: <Link to="/typing">打字练习</Link>,
       },
-      // 扫雷游戏分组
+      // 游戏分组
       {
-        key: '/minesweeper',
-        label: <Link to="/minesweeper">扫雷游戏</Link>,
-      },
-      // 塔防游戏分组
-      {
-        key: '/tower-defense',
-        label: '塔防游戏',
+        key: 'games',
+        label: '游戏',
         children: [
           {
-            key: '/tower-defense/play',
-            label: <Link to="/tower-defense/play">开始游戏</Link>
+            key: '/minesweeper',
+            label: <Link to="/minesweeper">扫雷游戏</Link>,
           },
           {
-            key: '/tower-defense/leaderboard',
-            label: <Link to="/tower-defense/leaderboard">排行榜</Link>
+            key: '/tower-defense/play',
+            label: <Link to="/tower-defense/play">塔防游戏</Link>,
           }
         ]
       },
