@@ -1,6 +1,7 @@
 // server/routes/towerDefense.ts
 import express, { Request, Response } from 'express';
 import { TowerDefenseRecord } from '../models/TowerDefenseRecord';
+import { TowerDefenseSave } from '../models/TowerDefenseSave';
 import { auth } from '../middleware/auth';
 
 const router = express.Router();
@@ -139,4 +140,88 @@ router.get('/personal-best', auth, async (req: Request, res: Response) => {
   }
 });
 
+// 保存当前游戏进度（需要登录）
+router.post('/save', auth, async (req: Request, res: Response) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ error: '未登录' });
+    }
+
+    const { state } = req.body;
+    if (!state) {
+      return res.status(400).json({ error: '缺少保存的游戏状态' });
+    }
+
+    const name = String(Date.now());
+
+    const saveDoc = new TowerDefenseSave({
+      userId: req.user._id,
+      name,
+      state
+    });
+
+    await saveDoc.save();
+
+    res.status(201).json({ message: '已保存进度', save: saveDoc });
+  } catch (error) {
+    console.error('保存游戏进度失败:', error);
+    res.status(500).json({ error: '保存游戏进度失败' });
+  }
+});
+
+// 列出当前用户的保存记录
+router.get('/saves', auth, async (req: Request, res: Response) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ error: '未登录' });
+    }
+
+    const saves = await TowerDefenseSave.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(50);
+    res.json({ saves });
+  } catch (error) {
+    console.error('获取保存列表失败:', error);
+    res.status(500).json({ error: '获取保存列表失败' });
+  }
+});
+
+// 获取指定的保存项
+router.get('/save/:id', auth, async (req: Request, res: Response) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ error: '未登录' });
+    }
+
+    const { id } = req.params;
+    const save = await TowerDefenseSave.findById(id);
+    if (!save) return res.status(404).json({ error: '未找到保存项' });
+    if (String(save.userId) !== String(req.user._id)) return res.status(403).json({ error: '无权访问该保存项' });
+
+    res.json({ save });
+  } catch (error) {
+    console.error('获取保存项失败:', error);
+    res.status(500).json({ error: '获取保存项失败' });
+  }
+});
+
+// 删除指定保存项
+router.delete('/save/:id', auth, async (req: Request, res: Response) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ error: '未登录' });
+    }
+
+    const { id } = req.params;
+    const save = await TowerDefenseSave.findById(id);
+    if (!save) return res.status(404).json({ error: '未找到保存项' });
+    if (String(save.userId) !== String(req.user._id)) return res.status(403).json({ error: '无权删除该保存项' });
+
+    await save.remove();
+    res.json({ message: '已删除' });
+  } catch (error) {
+    console.error('删除保存项失败:', error);
+    res.status(500).json({ error: '删除保存项失败' });
+  }
+});
+
 export default router;
+

@@ -14,8 +14,15 @@ export const fetchLeaderboard = (page = 1, limit = 20) =>
 
 export const fetchPersonalBest = () => api.get('/tower-defense/personal-best');
 
+export const saveGame = (state: any) => api.post('/tower-defense/save', { state });
+
+export const fetchSaves = () => api.get('/tower-defense/saves');
+
+export const fetchSave = (id: string) => api.get(`/tower-defense/save/${id}`);
+
 export default {
   submitTowerRecord,
   fetchLeaderboard,
   fetchPersonalBest
+  , saveGame, fetchSaves, fetchSave
 };

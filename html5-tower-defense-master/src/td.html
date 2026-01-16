@@ -48,6 +48,24 @@
 		document.getElementById("td-loading").style.display = "none";
 		document.getElementById("td-board").style.display = "block";
 	};
+
+	// Message bridge for parent window to request/load game state
+	window.addEventListener('message', function (e) {
+		try {
+			// only accept same-origin
+			if (e.origin !== window.location.origin) return;
+			if (!e.data || !e.data.type) return;
+			if (e.data.type === 'tower-defense:request-state') {
+				var state = (window.__TD_getState && window.__TD_getState()) || null;
+				e.source.postMessage({ type: 'tower-defense:state', state: state }, e.origin);
+			} else if (e.data.type === 'tower-defense:load') {
+				var s = e.data.state;
+				window.__TD_loadState && window.__TD_loadState(s);
+			}
+		} catch (err) {
+			console.error('message bridge error', err);
+		}
+	}, false);
 </script>
 </body>
 </html>

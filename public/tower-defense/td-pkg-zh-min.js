@@ -253,6 +253,65 @@ var _TD = {
 		}
 		delete this.a;
 
+		// Expose simple save/load helpers to window so parent can request state from iframe
+		try {
+			window.__TD_INSTANCE = TD;
+			window.__TD_getState = function () {
+				try {
+					var scene = TD.stage && TD.stage.current_act && TD.stage.current_act.current_scene;
+					var map = (TD.stage && TD.stage.map) || (scene && scene.map) || null;
+					var buildings = [];
+					if (map && map.buildings && map.buildings.length) {
+						for (var i = 0; i < map.buildings.length; i++) {
+							var b = map.buildings[i];
+							if (!b || !b.grid) continue;
+							buildings.push({ type: b.type, mx: b.grid.mx, my: b.grid.my, level: b.level, money: b.money });
+						}
+					}
+					return { money: TD.money, life: TD.life, score: TD.score, wave: (scene && scene.wave) || 0, buildings: buildings };
+				} catch (e) {
+					console.error('__TD_getState error', e);
+					return null;
+				}
+			};
+
+			window.__TD_loadState = function (s) {
+				try {
+					if (!s) return;
+					var scene = TD.stage && TD.stage.current_act && TD.stage.current_act.current_scene;
+					var map = (TD.stage && TD.stage.map) || (scene && scene.map) || null;
+					if (!map) return;
+					// remove existing buildings
+					for (var gi = 0; gi < map.grids.length; gi++) {
+						var g = map.grids[gi];
+						if (g && g.building) g.removeBuilding();
+					}
+					// add saved buildings
+					if (s.buildings && s.buildings.length) {
+						for (var j = 0; j < s.buildings.length; j++) {
+							var bi = s.buildings[j];
+							var grid = map.getGrid(bi.mx, bi.my);
+							if (grid) grid.addBuilding(bi.type);
+							var b = grid && grid.building;
+							if (b) {
+								if (typeof bi.level !== 'undefined') b.level = bi.level;
+								if (typeof bi.money !== 'undefined') b.money = bi.money;
+								b.updateBtnDesc && b.updateBtnDesc();
+							}
+						}
+					}
+					if (typeof s.money !== 'undefined') TD.money = s.money;
+					if (typeof s.life !== 'undefined') TD.life = s.life;
+					if (typeof s.score !== 'undefined') TD.score = s.score;
+					if (typeof s.wave !== 'undefined' && scene) scene.wave = s.wave;
+				} catch (e) {
+					console.error('__TD_loadState error', e);
+				}
+			};
+		} catch (e) {
+			console.warn('expose TD api failed', e);
+		}
+
 		TD.init(td_board);
 	}
 };

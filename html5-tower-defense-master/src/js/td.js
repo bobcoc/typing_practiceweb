@@ -254,5 +254,66 @@ var _TD = {
 		delete this.a;
 
 		TD.init(td_board);
+
+		// Expose a small API for parent page to save/load minimal game state.
+		try {
+			if (typeof window !== 'undefined') {
+				window.TD = TD;
+				window.__TD_getState = function () {
+					try {
+						var scene = TD.stage && TD.stage.current_act && TD.stage.current_act.current_scene;
+						var map = (TD.stage && TD.stage.map) || (scene && scene.map) || TD.map;
+						var buildings = [];
+						if (map && map.buildings && map.buildings.length) {
+							for (var i = 0; i < map.buildings.length; i++) {
+								var b = map.buildings[i];
+								if (!b || !b.grid) continue;
+								buildings.push({ type: b.type, mx: b.grid.mx, my: b.grid.my, level: b.level, money: b.money });
+							}
+						}
+						return { money: TD.money, life: TD.life, score: TD.score, wave: (scene && scene.wave) || 0, buildings: buildings };
+					} catch (e) {
+						console.error('__TD_getState error', e);
+						return null;
+					}
+				};
+
+				window.__TD_loadState = function (s) {
+					try {
+						if (!s) return;
+						var scene = TD.stage && TD.stage.current_act && TD.stage.current_act.current_scene;
+						var map = (TD.stage && TD.stage.map) || (scene && scene.map) || TD.map;
+						if (!map) return;
+						// remove existing buildings
+						for (var i = 0; i < map.grids.length; i++) {
+							var g = map.grids[i];
+							if (g && g.building) g.removeBuilding();
+						}
+						// add saved buildings
+						if (s.buildings && s.buildings.length) {
+							for (var j = 0; j < s.buildings.length; j++) {
+								var bi = s.buildings[j];
+								var grid = map.getGrid(bi.mx, bi.my);
+								if (grid) grid.addBuilding(bi.type);
+								var b = grid && grid.building;
+								if (b) {
+									if (typeof bi.level !== 'undefined') b.level = bi.level;
+									if (typeof bi.money !== 'undefined') b.money = bi.money;
+									b.updateBtnDesc && b.updateBtnDesc();
+								}
+							}
+						}
+						if (typeof s.money !== 'undefined') TD.money = s.money;
+						if (typeof s.life !== 'undefined') TD.life = s.life;
+						if (typeof s.score !== 'undefined') TD.score = s.score;
+						if (typeof s.wave !== 'undefined' && scene) scene.wave = s.wave;
+					} catch (e) {
+						console.error('__TD_loadState error', e);
+					}
+				};
+			}
+		} catch (e) {
+			console.warn('expose TD api failed', e);
+		}
 	}
 };

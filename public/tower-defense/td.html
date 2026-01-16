@@ -72,6 +72,78 @@
     document.getElementById('td-loading').style.display = 'none';
     document.getElementById('td-board').style.display = 'block';
   };
+  // Bridge: respond to parent requests for game state (debug-friendly)
+  window.addEventListener('message', function (e) {
+    try {
+      console.debug('td.html received postMessage', e.origin, e.data);
+      if (!e.data || !e.data.type) return;
+      // only accept same-origin or allow if parent is our host during dev
+      if (e.origin !== window.location.origin && !e.origin.startsWith('http://localhost')) {
+        console.debug('Ignoring postMessage from', e.origin);
+        return;
+      }
+
+      if (e.data.type === 'tower-defense:request-state') {
+        // Try several possible getters
+        var state = null;
+        try {
+          if (typeof window.__TD_getState === 'function') {
+            state = window.__TD_getState();
+          } else if (typeof window.TD === 'object' && typeof window.TD.stage !== 'undefined') {
+            // best-effort shallow extraction
+            try {
+              var scene = window.TD.stage && window.TD.stage.current_act && window.TD.stage.current_act.current_scene;
+              var map = (window.TD.stage && window.TD.stage.map) || (scene && scene.map) || null;
+              var buildings = [];
+              if (map && map.buildings && map.buildings.length) {
+                for (var i = 0; i < map.buildings.length; i++) {
+                  var b = map.buildings[i];
+                  if (!b || !b.grid) continue;
+                  buildings.push({ type: b.type, mx: b.grid.mx, my: b.grid.my, level: b.level, money: b.money });
+                }
+              }
+              state = { money: window.TD.money, life: window.TD.life, score: window.TD.score, wave: (scene && scene.wave) || 0, buildings: buildings };
+            } catch (err) {
+              console.warn('shallow TD read failed', err);
+            }
+          } else {
+            console.debug('No known TD getter found');
+          }
+        } catch (err) {
+          console.error('state getter threw', err);
+        }
+
+        e.source.postMessage({ type: 'tower-defense:state', state: state }, e.origin);
+        console.debug('Replied with tower-defense:state', state);
+      } else if (e.data.type === 'tower-defense:load') {
+        // Forward load to any exposed loader
+        try {
+          if (typeof window.__TD_loadState === 'function') {
+            window.__TD_loadState(e.data.state);
+            console.debug('Invoked __TD_loadState');
+          } else if (typeof window.TD === 'object' && typeof window.TD.stage !== 'undefined') {
+            try {
+              // best-effort: set values if present
+              if (e.data.state) {
+                if (typeof e.data.state.money !== 'undefined') window.TD.money = e.data.state.money;
+                if (typeof e.data.state.life !== 'undefined') window.TD.life = e.data.state.life;
+                if (typeof e.data.state.score !== 'undefined') window.TD.score = e.data.state.score;
+                // buildings restore not attempted here in fallback
+              }
+            } catch (err) {
+              console.warn('shallow TD load failed', err);
+            }
+          } else {
+            console.debug('No load API available');
+          }
+        } catch (err) {
+          console.error('load handling error', err);
+        }
+      }
+    } catch (err) {
+      console.error('postMessage bridge error', err);
+    }
+  }, false);
 </script>
 </body>
 </html>
