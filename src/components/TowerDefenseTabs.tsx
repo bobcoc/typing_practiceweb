@@ -23,7 +23,7 @@ const TowerDefenseTabs: React.FC = () => {
 
   return (
     <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
-      <Card bordered={false} bodyStyle={{ padding: 0 }}>
+      <Card bordered={false} styles={{ body: { padding: 0 } }}>
         <Tabs
           defaultActiveKey="game"
           items={items}

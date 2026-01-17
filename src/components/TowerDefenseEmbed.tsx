@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { submitTowerRecord, saveGame, fetchSaves, fetchSave } from '../api/towerDefense';
+import { submitTowerRecord, saveGame, fetchSaves, fetchSave, deleteSave } from '../api/towerDefense';
 import { message, Button, Modal, List, Space } from 'antd';
 
 const TowerDefenseEmbed: React.FC<{ width?: string | number; height?: string | number }> = ({
@@ -178,7 +178,7 @@ const TowerDefenseEmbed: React.FC<{ width?: string | number; height?: string | n
 
       <Modal
         title="已保存的进度"
-        visible={showSavesModal}
+        open={showSavesModal}
         onCancel={() => setShowSavesModal(false)}
         footer={null}
       >
@@ -191,9 +191,15 @@ const TowerDefenseEmbed: React.FC<{ width?: string | number; height?: string | n
                 <Button key="load" type="link" onClick={() => loadSaveToIframe(item._id)}>加载</Button>,
                 <Button key="delete" type="link" danger onClick={() => {
                   // 删除后刷新列表
-                  fetch(`/api/tower-defense/save/${item._id}`, { method: 'DELETE' })
-                    .then(() => openSaves())
-                    .catch(() => message.error('删除失败'));
+                  deleteSave(item._id)
+                    .then(() => {
+                      message.success('存档已删除');
+                      openSaves();
+                    })
+                    .catch((err) => {
+                      console.error('删除存档失败', err);
+                      message.error('删除失败');
+                    });
                 }}>删除</Button>
               ]}
             >

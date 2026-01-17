@@ -20,9 +20,14 @@ export const fetchSaves = () => api.get('/tower-defense/saves');
 
 export const fetchSave = (id: string) => api.get(`/tower-defense/save/${id}`);
 
+export const deleteSave = (id: string) => api.delete(`/tower-defense/save/${id}`);
+
 export default {
   submitTowerRecord,
   fetchLeaderboard,
-  fetchPersonalBest
-  , saveGame, fetchSaves, fetchSave
+  fetchPersonalBest,
+  saveGame,
+  fetchSaves,
+  fetchSave,
+  deleteSave
 };

@@ -215,7 +215,7 @@ router.delete('/save/:id', auth, async (req: Request, res: Response) => {
     if (!save) return res.status(404).json({ error: '未找到保存项' });
     if (String(save.userId) !== String(req.user._id)) return res.status(403).json({ error: '无权删除该保存项' });
 
-    await save.remove();
+    await TowerDefenseSave.deleteOne({ _id: id });
     res.json({ message: '已删除' });
   } catch (error) {
     console.error('删除保存项失败:', error);

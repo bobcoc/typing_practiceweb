@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(perl:*)",
+      "Bash(git checkout:*)",
+      "Bash(node -c:*)"
+    ]
+  }
+}

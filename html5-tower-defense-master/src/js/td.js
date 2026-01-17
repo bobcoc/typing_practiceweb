@@ -271,7 +271,50 @@ var _TD = {
 								buildings.push({ type: b.type, mx: b.grid.mx, my: b.grid.my, level: b.level, money: b.money });
 							}
 						}
-						return { money: TD.money, life: TD.life, score: TD.score, wave: (scene && scene.wave) || 0, buildings: buildings };
+
+						// 添加怪物保存逻辑
+						var monsters_data = [];
+						if (scene && scene._step_elements) {
+							// 遍历所有 step 元素层（共3层）
+							for (var level = 0; level < scene._step_elements.length; level++) {
+								var elements = scene._step_elements[level];
+								for (var mi = 0; mi < elements.length; mi++) {
+									var el = elements[mi];
+									// 筛选有效的怪物
+									if (el && el.is_monster && el.is_valid && el.grid) {
+										var monster_data = {
+											idx: el.idx,
+											difficulty: el.difficulty,
+											life: el.life,
+											life0: el.life0,
+											shield: el.shield,
+											speed: el.speed,
+											damage: el.damage,
+											money: el.money,
+											mx: el.grid.mx,
+											my: el.grid.my,
+											cx: el.cx,
+											cy: el.cy,
+											r: el.r,
+											color: el.color,
+											toward: el.toward,
+											way: el.way || [],
+											next_grid_mx: el.next_grid ? el.next_grid.mx : null,
+											next_grid_my: el.next_grid ? el.next_grid.my : null,
+											_dx: el._dx || 0,
+											_dy: el._dy || 0,
+											step_level: el.step_level,
+											render_level: el.render_level,
+											is_paused: el.is_paused,
+											is_blocked: el.is_blocked
+										};
+										monsters_data.push(monster_data);
+									}
+								}
+							}
+						}
+
+						return { money: TD.money, life: TD.life, score: TD.score, wave: (scene && scene.wave) || 0, buildings: buildings, monsters: monsters_data };
 					} catch (e) {
 						console.error('__TD_getState error', e);
 						return null;
@@ -284,11 +327,30 @@ var _TD = {
 						var scene = TD.stage && TD.stage.current_act && TD.stage.current_act.current_scene;
 						var map = (TD.stage && TD.stage.map) || (scene && scene.map) || TD.map;
 						if (!map) return;
+
 						// remove existing buildings
 						for (var i = 0; i < map.grids.length; i++) {
 							var g = map.grids[i];
 							if (g && g.building) g.removeBuilding();
 						}
+
+						// 清除现有怪物（新增）
+						if (scene && scene._step_elements) {
+							for (var level = 0; level < scene._step_elements.length; level++) {
+								var elements = scene._step_elements[level];
+								for (var ei = elements.length - 1; ei >= 0; ei--) {
+									var el = elements[ei];
+									if (el && el.is_monster) {
+										el.pause && el.pause();
+										el.del && el.del();
+									}
+								}
+							}
+						}
+						if (map.monsters) {
+							map.monsters = [];
+						}
+
 						// add saved buildings
 						if (s.buildings && s.buildings.length) {
 							for (var j = 0; j < s.buildings.length; j++) {
@@ -303,6 +365,84 @@ var _TD = {
 								}
 							}
 						}
+
+						// 恢复保存的怪物（新增）
+						if (s.monsters && s.monsters.length) {
+							for (var mj = 0; mj < s.monsters.length; mj++) {
+								var md = s.monsters[mj];
+
+								// 验证生命值
+								if (md.life <= 0 || md.life > md.life0) {
+									md.life = md.life0;
+								}
+
+								var monster_grid = map.getGrid(md.mx, md.my);
+								if (!monster_grid || monster_grid === map.exit) {
+									continue;
+								}
+
+								try {
+									// 创建怪物实例
+									var monster = new TD.Monster(null, {
+										idx: md.idx,
+										difficulty: md.difficulty,
+										step_level: md.step_level,
+										render_level: md.render_level
+									});
+
+									// 手动设置保存的属性
+									monster.life = md.life;
+									monster.life0 = md.life0;
+									monster.shield = md.shield;
+									monster.speed = md.speed;
+									monster.damage = md.damage;
+									monster.money = md.money;
+									monster.r = md.r;
+									monster.color = md.color;
+									monster.toward = md.toward;
+									monster._dx = md._dx;
+									monster._dy = md._dy;
+									monster.is_paused = md.is_paused;
+									monster.is_blocked = md.is_blocked;
+
+									// 设置位置
+									monster.beAddToGrid(monster_grid);
+									monster.cx = md.cx;
+									monster.cy = md.cy;
+									monster.caculatePos();
+
+									// 设置下一个目标格子
+									if (md.next_grid_mx !== null && md.next_grid_my !== null) {
+										monster.next_grid = map.getGrid(md.next_grid_mx, md.next_grid_my);
+									}
+
+									// 设置路径
+									var validWay = [];
+									for (var wi = 0; wi < md.way.length; wi++) {
+										var wp = md.way[wi];
+										var wpgrid = map.getGrid(wp[0], wp[1]);
+										if (wpgrid) validWay.push(wp);
+									}
+									monster.way = validWay;
+
+									// 检查路径并重新寻路
+									if (validWay.length === 0 || !monster.next_grid || monster.is_blocked) {
+										monster.findWay && monster.findWay();
+										if (!monster.next_grid) monster.beBlocked && monster.beBlocked();
+									}
+
+									// 添加到场景和地图
+									monster_grid.scene.addElement(monster, monster.step_level, monster.render_level);
+									map.monsters.push(monster);
+
+									// 启动怪物
+									if (!monster.is_paused) monster.start && monster.start();
+								} catch (monsterErr) {
+									console.warn('__TD_loadState: Failed to restore monster:', monsterErr);
+								}
+							}
+						}
+
 						if (typeof s.money !== 'undefined') TD.money = s.money;
 						if (typeof s.life !== 'undefined') TD.life = s.life;
 						if (typeof s.score !== 'undefined') TD.score = s.score;

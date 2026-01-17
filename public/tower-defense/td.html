@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh">
 <head>
   <meta charset="utf-8">
@@ -64,14 +64,190 @@
   </div>
 </div>
 
-<script src="td-pkg-zh-min.js"></script>
+<script src="td-pkg-zh.js"></script>
 <script>
   window.onload = function () {
+    console.log('[init] window.onload called');
     // 原站点的初始化方式：_TD.init('td-board', true)
     _TD.init('td-board', true);
     document.getElementById('td-loading').style.display = 'none';
     document.getElementById('td-board').style.display = 'block';
   };
+
+  // --- Monster save/load enhancement ---
+  (function() {
+    setTimeout(function() {
+      if (typeof TD === 'undefined') {
+        console.error('[MonsterSaveLoad] TD is still undefined after 500ms');
+        return;
+      }
+      console.log('[MonsterSaveLoad] Applying monster save/load enhancement...');
+
+      window.__TD_getState = function () {
+        try {
+          console.log('[__TD_getState] ===== START SAVING STATE =====');
+
+          var scene = TD.stage && TD.stage.current_act && TD.stage.current_act.current_scene;
+          var map = scene && scene.map;
+
+          var buildings = [];
+          if (map && map.buildings && map.buildings.length) {
+            for (var i = 0; i < map.buildings.length; i++) {
+              var b = map.buildings[i];
+              if (!b || !b.grid) continue;
+              buildings.push({ type: b.type, mx: b.grid.mx, my: b.grid.my, level: b.level, money: b.money });
+            }
+          }
+
+          var monsters_data = [];
+          if (map && map.monsters && map.monsters.length) {
+            console.log('[__TD_getState] Found ' + map.monsters.length + ' monsters');
+            for (var i = 0; i < map.monsters.length; i++) {
+              var m = map.monsters[i];
+              if (!m || !m.is_valid || !m.grid) continue;
+
+              var monster_data = {
+                idx: m.idx,
+                difficulty: m.difficulty,
+                life: m.life,
+                life0: m.life0,
+                shield: m.shield,
+                speed: m.speed,
+                damage: m.damage,
+                money: m.money,
+                mx: m.grid.mx,
+                my: m.grid.my,
+                cx: m.cx,
+                cy: m.cy,
+                r: m.r,
+                color: m.color,
+                toward: m.toward,
+                way: m.way || [],
+                next_grid_mx: m.next_grid ? m.next_grid.mx : null,
+                next_grid_my: m.next_grid ? m.next_grid.my : null,
+                _dx: m._dx || 0,
+                _dy: m._dy || 0,
+                step_level: m.step_level,
+                render_level: m.render_level,
+                is_paused: m.is_paused,
+                is_blocked: m.is_blocked
+              };
+              monsters_data.push(monster_data);
+            }
+            console.log('[__TD_getState] Gathered ' + monsters_data.length + ' valid monsters data:', monsters_data);
+          }
+
+          var state = {
+            money: TD.money,
+            life: TD.life,
+            score: TD.score,
+            wave: (scene && scene.wave) || 0,
+            buildings: buildings,
+            monsters: monsters_data
+          };
+          console.log('[__TD_getState] Returning state:', state);
+          return state;
+        } catch (e) {
+          console.error('[__TD_getState] error', e);
+          return null;
+        }
+      };
+
+      window.__TD_loadState = function (s) {
+        try {
+          console.log('[__TD_loadState] ===== START LOADING STATE =====', s);
+          if (!s) return;
+
+          var scene = TD.stage && TD.stage.current_act && TD.stage.current_act.current_scene;
+          var map = scene && scene.map;
+          if (!map) return;
+
+          // clear existing
+          for (var i = 0; i < map.grids.length; i++) {
+            var g = map.grids[i];
+            if (g && g.building) g.removeBuilding();
+          }
+          if (map.monsters && map.monsters.length) {
+            for (var mi = 0; mi < map.monsters.length; mi++) {
+              if (map.monsters[mi]) {
+                map.monsters[mi].pause();
+                map.monsters[mi].del();
+              }
+            }
+            map.monsters = [];
+          }
+
+          // restore buildings
+          if (s.buildings) {
+            for (var j = 0; j < s.buildings.length; j++) {
+              var bi = s.buildings[j];
+              var grid = map.getGrid(bi.mx, bi.my);
+              if (grid) {
+                grid.addBuilding(bi.type);
+                var b = grid.building;
+                if (b) {
+                  if (typeof bi.level !== 'undefined') b.level = bi.level;
+                  if (typeof bi.money !== 'undefined') b.money = bi.money;
+                  b.updateBtnDesc && b.updateBtnDesc();
+                }
+              }
+            }
+          }
+
+          // restore monsters
+          if (s.monsters) {
+            for (var mj = 0; mj < s.monsters.length; mj++) {
+              var md = s.monsters[mj];
+              if (md.life <= 0) continue;
+              var m_grid = map.getGrid(md.mx, md.my);
+              if (!m_grid || m_grid === map.exit) continue;
+
+              var monster = new TD.Monster(null, {
+                idx: md.idx,
+                difficulty: md.difficulty,
+                step_level: md.step_level,
+                render_level: md.render_level
+              });
+              monster.life = md.life;
+              monster.life0 = md.life0;
+              monster.shield = md.shield;
+              monster.speed = md.speed;
+              monster.damage = md.damage;
+              monster.money = md.money;
+              monster.r = md.r;
+              monster.color = md.color;
+              monster.toward = md.toward;
+              monster._dx = md._dx;
+              monster._dy = md._dy;
+              monster.beAddToGrid(m_grid);
+              monster.cx = md.cx;
+              monster.cy = md.cy;
+              monster.caculatePos();
+              if (md.next_grid_mx !== null && md.next_grid_my !== null) {
+                monster.next_grid = map.getGrid(md.next_grid_mx, md.next_grid_my);
+              }
+              monster.way = md.way || [];
+              m_grid.scene.addElement(monster, monster.step_level, monster.render_level);
+              map.monsters.push(monster);
+              if (!monster.is_paused) monster.start();
+            }
+          }
+
+          if (typeof s.money !== 'undefined') TD.money = s.money;
+          if (typeof s.life !== 'undefined') TD.life = s.life;
+          if (typeof s.score !== 'undefined') TD.score = s.score;
+          if (typeof s.wave !== 'undefined' && scene) scene.wave = s.wave;
+
+          console.log('[__TD_loadState] Load completed');
+        } catch (e) {
+          console.error('[__TD_loadState] error', e);
+        }
+      };
+
+      console.log('[MonsterSaveLoad] Enhancement applied successfully!');
+    }, 500);
+  })();
+
   // Bridge: respond to parent requests for game state (debug-friendly)
   window.addEventListener('message', function (e) {
     try {
@@ -88,26 +264,11 @@
         var state = null;
         try {
           if (typeof window.__TD_getState === 'function') {
+            console.log('[request-state] Using window.__TD_getState()');
             state = window.__TD_getState();
-          } else if (typeof window.TD === 'object' && typeof window.TD.stage !== 'undefined') {
-            // best-effort shallow extraction
-            try {
-              var scene = window.TD.stage && window.TD.stage.current_act && window.TD.stage.current_act.current_scene;
-              var map = (window.TD.stage && window.TD.stage.map) || (scene && scene.map) || null;
-              var buildings = [];
-              if (map && map.buildings && map.buildings.length) {
-                for (var i = 0; i < map.buildings.length; i++) {
-                  var b = map.buildings[i];
-                  if (!b || !b.grid) continue;
-                  buildings.push({ type: b.type, mx: b.grid.mx, my: b.grid.my, level: b.level, money: b.money });
-                }
-              }
-              state = { money: window.TD.money, life: window.TD.life, score: window.TD.score, wave: (scene && scene.wave) || 0, buildings: buildings };
-            } catch (err) {
-              console.warn('shallow TD read failed', err);
-            }
+            console.log('[request-state] State from __TD_getState:', state);
           } else {
-            console.debug('No known TD getter found');
+            console.log('[request-state] No TD getter available');
           }
         } catch (err) {
           console.error('state getter threw', err);
@@ -121,18 +282,6 @@
           if (typeof window.__TD_loadState === 'function') {
             window.__TD_loadState(e.data.state);
             console.debug('Invoked __TD_loadState');
-          } else if (typeof window.TD === 'object' && typeof window.TD.stage !== 'undefined') {
-            try {
-              // best-effort: set values if present
-              if (e.data.state) {
-                if (typeof e.data.state.money !== 'undefined') window.TD.money = e.data.state.money;
-                if (typeof e.data.state.life !== 'undefined') window.TD.life = e.data.state.life;
-                if (typeof e.data.state.score !== 'undefined') window.TD.score = e.data.state.score;
-                // buildings restore not attempted here in fallback
-              }
-            } catch (err) {
-              console.warn('shallow TD load failed', err);
-            }
           } else {
             console.debug('No load API available');
           }
