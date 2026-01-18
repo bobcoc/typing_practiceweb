@@ -293,6 +293,40 @@
       console.error('postMessage bridge error', err);
     }
   }, false);
+
+  // --- Shortcut keys enhancement ---
+  window.addEventListener('keydown', function (e) {
+    if (typeof TD === 'undefined' || !TD.stage || !TD.stage.current_act || !TD.stage.current_act.current_scene) return;
+    var map = TD.stage.current_act.current_scene.map;
+    if (!map) return;
+
+    var key = e.key.toLowerCase();
+    if (key === 's') {
+      // S: Sell selected building
+      if (map.selected_building) {
+        console.log('[Shortcut] Selling building:', map.selected_building.id);
+        map.selected_building.tryToSell();
+      }
+    } else if (key === 'w') {
+      // W: Select Wall (路障)
+      if (!map.selected_building) {
+        console.log('[Shortcut] Pre-building Wall');
+        map.preBuild('wall');
+      }
+    } else if (key === 'e') {
+      // E: Select Laser Gun (激光枪)
+      if (!map.selected_building) {
+        console.log('[Shortcut] Pre-building Laser Gun');
+        map.preBuild('laser_gun');
+      }
+    } else if (key === 'r') {
+      // R: Select Heavy Machine Gun (重机枪)
+      if (!map.selected_building) {
+        console.log('[Shortcut] Pre-building HMG');
+        map.preBuild('HMG');
+      }
+    }
+  });
 </script>
 </body>
 </html>
