@@ -242,7 +242,14 @@
           if (typeof s.score !== 'undefined') TD.score = s.score;
           if (typeof s.difficulty !== 'undefined') TD.difficulty = s.difficulty;
           if (typeof s.wave_damage !== 'undefined') TD.wave_damage = s.wave_damage;
-          if (typeof s.wave !== 'undefined' && scene) scene.wave = s.wave;
+          if (typeof s.wave !== 'undefined' && scene) {
+            scene.wave = s.wave;
+            // 补偿逻辑：如果难度系数过低，根据波数自动修正
+            var min_difficulty = Math.pow(1.05, scene.wave - 1);
+            if (TD.difficulty < min_difficulty) {
+              TD.difficulty = min_difficulty;
+            }
+          }
           if (typeof s.map_step_level !== 'undefined' && map) map.step_level = s.map_step_level;
           if (typeof s.map_render_level !== 'undefined' && map) map.render_level = s.map_render_level;
 
