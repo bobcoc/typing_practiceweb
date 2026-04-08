@@ -2,29 +2,94 @@ import React, { useState, useMemo, useEffect } from 'react';
 
 type GameBoard = number[][];
 
+const shuffleArray = (arr: number[]) => {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+};
+
+const createEmptyBoard = (): GameBoard => Array.from({ length: 9 }, () => Array(9).fill(0));
+
+const isSafeForGeneration = (board: GameBoard, row: number, col: number, num: number): boolean => {
+  for (let c = 0; c < 9; c++) {
+    if (board[row][c] === num) return false;
+  }
+  for (let r = 0; r < 9; r++) {
+    if (board[r][col] === num) return false;
+  }
+  const startRow = Math.floor(row / 3) * 3;
+  const startCol = Math.floor(col / 3) * 3;
+  for (let r = startRow; r < startRow + 3; r++) {
+    for (let c = startCol; c < startCol + 3; c++) {
+      if (board[r][c] === num) return false;
+    }
+  }
+  return true;
+};
+
+const fillBoard = (board: GameBoard): boolean => {
+  for (let row = 0; row < 9; row++) {
+    for (let col = 0; col < 9; col++) {
+      if (board[row][col] !== 0) continue;
+      const numbers = shuffleArray([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      for (const num of numbers) {
+        if (isSafeForGeneration(board, row, col, num)) {
+          board[row][col] = num;
+          if (fillBoard(board)) {
+            return true;
+          }
+          board[row][col] = 0;
+        }
+      }
+      return false;
+    }
+  }
+  return true;
+};
+
+const generateFullBoard = (): GameBoard => {
+  const board = createEmptyBoard();
+  fillBoard(board);
+  return board;
+};
+
+const getRemovalCount = (difficulty: 'easy' | 'medium' | 'hard') => {
+  switch (difficulty) {
+    case 'easy':
+      return 35;
+    case 'medium':
+      return 45;
+    case 'hard':
+      return 55;
+    default:
+      return 45;
+  }
+};
+
+const generatePuzzle = (difficulty: 'easy' | 'medium' | 'hard'): GameBoard => {
+  const fullBoard = generateFullBoard();
+  const puzzle = fullBoard.map(row => [...row]);
+  const positions = Array.from({ length: 81 }, (_, idx) => idx);
+  const toRemove = shuffleArray(positions).slice(0, getRemovalCount(difficulty));
+  for (const idx of toRemove) {
+    const row = Math.floor(idx / 9);
+    const col = idx % 9;
+    puzzle[row][col] = 0;
+  }
+  return puzzle;
+};
+
 const SudokuGame: React.FC = () => {
-  // 初始数独板，0 表示空格
-  const initialBoardData: number[][] = [
-    [5, 3, 0, 0, 7, 0, 0, 0, 0],
-    [6, 0, 0, 1, 9, 5, 0, 0, 0],
-    [0, 9, 8, 0, 0, 0, 0, 6, 0],
-    [8, 0, 0, 0, 6, 0, 0, 0, 3],
-    [4, 0, 0, 8, 0, 3, 0, 0, 1],
-    [7, 0, 0, 0, 2, 0, 0, 0, 6],
-    [0, 6, 0, 0, 0, 0, 2, 8, 0],
-    [0, 0, 0, 4, 1, 9, 0, 0, 5],
-    [0, 0, 0, 0, 8, 0, 0, 7, 9],
-  ];
-
   // 游戏难度
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('hard');
 
-  // 游戏板状态
-  const [board, setBoard] = useState<GameBoard>(() => initialBoardData.map(row => [...row]));
+  const [board, setBoard] = useState<GameBoard>(() => generatePuzzle('hard'));
 
-  // 已固定的初始格子（不可修改）
   const [fixedCells, setFixedCells] = useState<boolean[][]>(() =>
-    initialBoardData.map(row => row.map(cell => cell !== 0))
+    board.map(row => row.map(cell => cell !== 0))
   );
 
   // 选中的格子 [row, col]
@@ -140,12 +205,22 @@ const SudokuGame: React.FC = () => {
     setBoard(newBoard);
   };
 
-  const handleNewGame = () => {
-    setBoard(initialBoardData.map(row => [...row]));
-    setFixedCells(initialBoardData.map(row => row.map(cell => cell !== 0)));
+  const createNewGame = (level: 'easy' | 'medium' | 'hard') => {
+    const newPuzzle = generatePuzzle(level);
+    setBoard(newPuzzle);
+    setFixedCells(newPuzzle.map(row => row.map(cell => cell !== 0)));
     setSelectedCell(null);
     setIsGameComplete(false);
     setShowCompleteDialog(false);
+  };
+
+  const handleNewGame = () => {
+    createNewGame(difficulty);
+  };
+
+  const handleDifficultyChange = (level: 'easy' | 'medium' | 'hard') => {
+    setDifficulty(level);
+    createNewGame(level);
   };
 
   const handleCellClick = (row: number, col: number) => {
@@ -344,7 +419,7 @@ const SudokuGame: React.FC = () => {
           {(['easy', 'medium', 'hard'] as const).map((d) => (
             <button
               key={d}
-              onClick={() => setDifficulty(d)}
+              onClick={() => handleDifficultyChange(d)}
               style={{
                 padding: '5px 10px',
                 fontSize: '14px',
