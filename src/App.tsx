@@ -24,6 +24,7 @@ import KMeansDemo from './components/KMeansDemo';
 import MinesweeperTabs from './components/MinesweeperTabs';
 import TowerDefenseTabs from './components/TowerDefenseTabs';
 import SpectatorMinesweeper from './components/SpectatorMinesweeper';
+import SudokuTabs from './components/SudokuTabs';
 
 
 // 创建一个包装组件来处理认证
@@ -97,6 +98,7 @@ const App: React.FC = () => {
           <Route path="/kmeans" element={<KMeansDemo />} />
           <Route path="/minesweeper" element={<MinesweeperTabs />} />
           <Route path="/tower-defense" element={<TowerDefenseTabs />} />
+          <Route path="/sudoku" element={<SudokuTabs />} />
           <Route path="/tower-defense/play" element={<TowerDefenseTabs />} />
           <Route path="/tower-defense/leaderboard" element={<TowerDefenseTabs />} />
           <Route path="/login" element={<Login />} />

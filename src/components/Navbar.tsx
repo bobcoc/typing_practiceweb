@@ -123,6 +123,10 @@ const NavBar: React.FC = () => {
           {
             key: '/tower-defense/play',
             label: <Link to="/tower-defense/play">塔防游戏</Link>,
+          },
+          {
+            key: '/sudoku',
+            label: <Link to="/sudoku">数独游戏</Link>,
           }
         ]
       },
