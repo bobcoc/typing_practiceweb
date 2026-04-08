@@ -273,7 +273,7 @@ const SudokuGame: React.FC = () => {
     } else if (highlightType === 'col') {
       backgroundColor = '#ffe58f'; // 列 - 浅黄色
     } else if (highlightType === 'sameNumber') {
-      backgroundColor = '#e6f7ff'; // 相同数字 - 更浅的蓝色
+      backgroundColor = '#ff4444'; // 相同数字 - 更醒目的红色
     } else if (isFixed) {
       backgroundColor = '#f0f0f0'; // 初始固定格子
     }
