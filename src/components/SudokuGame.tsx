@@ -30,11 +30,16 @@ const SudokuGame: React.FC = () => {
   // 选中的格子 [row, col]
   const [selectedCell, setSelectedCell] = useState<[number, number] | null>(null);
 
+  // 游戏完成状态
+  const [isGameComplete, setIsGameComplete] = useState(false);
+
+  // 完成对话框显示状态
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+
   // 配置选项
   const [config, setConfig] = useState({
     highlightRegion: true,           // 突出显示区域（行、列、宫）
     highlightSameNumbers: true,      // 突出显示相同数字
-    showConflictInCandidates: true,  // 候选数面板提示冲突
     showRemainingCount: true,        // 显示剩余数字数量
   });
 
@@ -77,28 +82,58 @@ const SudokuGame: React.FC = () => {
     return true;
   };
 
-  const selectedCellValue = useMemo(() => {
-    if (!selectedCell) return null;
-    const [row, col] = selectedCell;
-    return board[row][col] || null;
-  }, [board, selectedCell]);
-
   const getCellValue = (cell: number): number | null => {
     return cell === 0 ? null : cell;
   };
 
   const handleNumberInput = (num: number) => {
-    if (!selectedCell) return;
+    if (!selectedCell || isGameComplete) return;
     const [row, col] = selectedCell;
     if (fixedCells[row][col]) return;
 
     const newBoard = board.map(row => [...row]);
     newBoard[row][col] = num;
     setBoard(newBoard);
+
+    // 检查是否完成
+    setTimeout(() => {
+      if (checkIsComplete(newBoard)) {
+        setIsGameComplete(true);
+        setShowCompleteDialog(true);
+      }
+    }, 0);
+  };
+
+  const checkIsComplete = (boardToCheck: GameBoard): boolean => {
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const cell = boardToCheck[r][c];
+        if (cell === 0) return false;
+        if (!isValidInBoard(r, c, cell, boardToCheck)) return false;
+      }
+    }
+    return true;
+  };
+
+  const isValidInBoard = (row: number, col: number, num: number, boardToCheck: GameBoard): boolean => {
+    for (let c = 0; c < 9; c++) {
+      if (c !== col && boardToCheck[row][c] === num) return false;
+    }
+    for (let r = 0; r < 9; r++) {
+      if (r !== row && boardToCheck[r][col] === num) return false;
+    }
+    const startRow = Math.floor(row / 3) * 3;
+    const startCol = Math.floor(col / 3) * 3;
+    for (let r = startRow; r < startRow + 3; r++) {
+      for (let c = startCol; c < startCol + 3; c++) {
+        if ((r !== row || c !== col) && boardToCheck[r][c] === num) return false;
+      }
+    }
+    return true;
   };
 
   const handleClear = () => {
-    if (!selectedCell) return;
+    if (!selectedCell || isGameComplete) return;
     const [row, col] = selectedCell;
     const newBoard = board.map(row => [...row]);
     newBoard[row][col] = 0;
@@ -109,6 +144,8 @@ const SudokuGame: React.FC = () => {
     setBoard(initialBoardData.map(row => [...row]));
     setFixedCells(initialBoardData.map(row => row.map(cell => cell !== 0)));
     setSelectedCell(null);
+    setIsGameComplete(false);
+    setShowCompleteDialog(false);
   };
 
   const handleCellClick = (row: number, col: number) => {
@@ -143,6 +180,18 @@ const SudokuGame: React.FC = () => {
         case ' ':
           e.preventDefault();
           handleClear();
+          break;
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+          e.preventDefault();
+          handleNumberInput(Number(e.key));
           break;
       }
     };
@@ -194,44 +243,12 @@ const SudokuGame: React.FC = () => {
     return highlighted;
   }, [board, selectedCell, config]);
 
-  // 检查某个数字在候选数面板中是否冲突
-  const isCandidateConflict = (num: number): boolean => {
-    if (!selectedCell) return false;
-    const [row, col] = selectedCell;
-
-    // 检查行、列、宫中是否已有该数字
-    // 行
-    for (let c = 0; c < 9; c++) {
-      if (c !== col && typeof board[row][c] === 'number' && board[row][c] === num) {
-        return true;
-      }
-    }
-    // 列
-    for (let r = 0; r < 9; r++) {
-      if (r !== row && typeof board[r][col] === 'number' && board[r][col] === num) {
-        return true;
-      }
-    }
-    // 宫
-    const startRow = Math.floor(row / 3) * 3;
-    const startCol = Math.floor(col / 3) * 3;
-    for (let r = startRow; r < startRow + 3; r++) {
-      for (let c = startCol; c < startCol + 3; c++) {
-        if ((r !== row || c !== col) && typeof board[r][c] === 'number' && board[r][c] === num) {
-          return true;
-        }
-      }
-    }
-    return false;
-  };
-
   // 计算剩余未填写的数字数量
   const remainingCount = useMemo(() => {
     let count = 0;
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
-        const cell = board[r][c];
-        if (typeof cell !== 'number') count++;
+        if (board[r][c] === 0) count++;
       }
     }
     return count;
@@ -284,23 +301,6 @@ const SudokuGame: React.FC = () => {
       cursor: 'pointer',
       color: isFixed ? '#333' : '#1890ff',
       position: 'relative' as const,
-    };
-  };
-
-  // 候选数面板按钮样式
-  const getCandidateButtonStyle = (num: number): React.CSSProperties => {
-    const isConflict = config.showConflictInCandidates && isCandidateConflict(num);
-    const isSelected = selectedCellValue === num;
-
-    return {
-      width: '35px',
-      height: '35px',
-      fontSize: '14px',
-      cursor: 'pointer',
-      backgroundColor: isConflict ? '#f5f5f5' : '#f0f0f0',
-      border: isSelected ? '2px solid #1890ff' : '1px solid #ddd',
-      borderRadius: '4px',
-      color: isConflict ? '#999' : '#333',
     };
   };
 
@@ -382,14 +382,6 @@ const SudokuGame: React.FC = () => {
         <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
           <input
             type="checkbox"
-            checked={config.showConflictInCandidates}
-            onChange={(e) => setConfig({ ...config, showConflictInCandidates: e.target.checked })}
-          />
-          候选数提示冲突
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <input
-            type="checkbox"
             checked={config.showRemainingCount}
             onChange={(e) => setConfig({ ...config, showRemainingCount: e.target.checked })}
           />
@@ -425,49 +417,100 @@ const SudokuGame: React.FC = () => {
         )}
       </div>
 
-      {/* 底部控制区：候选数 + 剩余数量 + 操作按钮 */}
-      <div style={{ display: 'flex', gap: '30px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-        {/* 候选数面板 */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '14px', color: '#666' }}>
-            {selectedCell ? '候选数 (点击填入)' : '选择格子'}
+<div style={{ display: 'flex', gap: '30px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div style={{ padding: '15px 25px', backgroundColor: '#f5f5f5', borderRadius: '8px', textAlign: 'center' }}>
+          <span style={{ fontSize: '14px', color: '#666', display: 'block', marginBottom: '8px' }}>
+            {selectedCell ? '按键盘 1-9 输入数字' : '选择一个格子后输入数字'}
           </span>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(9, 35px)',
-              gap: '5px',
-            }}
-          >
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-              <button
-                key={num}
-                onClick={() => {
-                  if (!selectedCell) return;
-                  handleNumberInput(num);
-                }}
-                style={getCandidateButtonStyle(num)}
-              >
-                {num}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 剩余数字数量显示 */}
-        {config.showRemainingCount && (
-          <div style={{ padding: '15px 25px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+          {config.showRemainingCount && (
             <span style={{ fontSize: '16px', color: '#666' }}>
               剩余：<strong style={{ color: '#1890ff', fontSize: '20px' }}>{remainingCount}</strong> 格
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* 快捷键提示 */}
       <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px', fontSize: '12px', color: '#666' }}>
         <strong>快捷键:</strong> 1-9 输入数字 | 空格/Backspace 清除 | ↑↓←→ 移动选择
       </div>
+
+      {/* 完成成功对话框 */}
+      {showCompleteDialog && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '40px',
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            maxWidth: '400px',
+          }}>
+            <div style={{
+              fontSize: '48px',
+              marginBottom: '20px',
+            }}>
+              🎉
+            </div>
+            <h2 style={{ 
+              margin: '0 0 20px 0',
+              color: '#1890ff',
+              fontSize: '24px',
+            }}>
+              恭喜！完成成功
+            </h2>
+            <p style={{
+              margin: '0 0 30px 0',
+              color: '#666',
+              fontSize: '16px',
+              lineHeight: '1.6',
+            }}>
+              你已经正确完成了这个数独谜题！
+              所有格子已锁定，无法再修改。
+            </p>
+            <button
+              onClick={() => setShowCompleteDialog(false)}
+              style={{
+                padding: '12px 32px',
+                fontSize: '16px',
+                cursor: 'pointer',
+                backgroundColor: '#1890ff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                marginRight: '10px',
+              }}
+            >
+              关闭
+            </button>
+            <button
+              onClick={handleNewGame}
+              style={{
+                padding: '12px 32px',
+                fontSize: '16px',
+                cursor: 'pointer',
+                backgroundColor: '#52c41a',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+              }}
+            >
+              新游戏
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
