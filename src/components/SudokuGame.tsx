@@ -1,10 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
-// 笔记类型：使用 Set 存储候选数字
-type Notes = Set<number>;
-// 游戏板类型：每个格子可以是数字或笔记
-type GameCell = number | Notes;
-type GameBoard = GameCell[][];
+type GameBoard = number[][];
 
 const SudokuGame: React.FC = () => {
   // 初始数独板，0 表示空格
@@ -23,10 +19,8 @@ const SudokuGame: React.FC = () => {
   // 游戏难度
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
 
-  // 游戏板状态：使用对象存储每个格子的值，支持数字和笔记
-  const [board, setBoard] = useState<GameBoard>(() =>
-    initialBoardData.map(row => row.map(cell => cell === 0 ? new Set() : cell))
-  );
+  // 游戏板状态
+  const [board, setBoard] = useState<GameBoard>(() => initialBoardData.map(row => [...row]));
 
   // 已固定的初始格子（不可修改）
   const [fixedCells, setFixedCells] = useState<boolean[][]>(() =>
@@ -40,8 +34,6 @@ const SudokuGame: React.FC = () => {
   const [config, setConfig] = useState({
     highlightRegion: true,           // 突出显示区域（行、列、宫）
     highlightSameNumbers: true,      // 突出显示相同数字
-    highlightSameNotes: true,        // 突出显示相同笔记
-    showNoteBorder: true,            // 显示笔记背景边框
     showConflictInCandidates: true,  // 候选数面板提示冲突
     showRemainingCount: true,        // 显示剩余数字数量
   });
@@ -85,90 +77,46 @@ const SudokuGame: React.FC = () => {
     return true;
   };
 
-  // 获取当前选中格子的值（数字或笔记）
   const selectedCellValue = useMemo(() => {
     if (!selectedCell) return null;
     const [row, col] = selectedCell;
-    return board[row][col];
+    return board[row][col] || null;
   }, [board, selectedCell]);
 
-  // 获取单元格显示的值
-  const getCellValue = (cell: GameCell): number | null => {
-    if (typeof cell === 'number') return cell;
-    if (cell instanceof Set && cell.size === 1) {
-      // 如果笔记只有一个数字，显示该数字
-      return Array.from(cell)[0];
-    }
-    return null;
+  const getCellValue = (cell: number): number | null => {
+    return cell === 0 ? null : cell;
   };
 
-  // 处理数字输入（作为实际数字填入）
   const handleNumberInput = (num: number) => {
-    if (!selectedCell) return;
-    const [row, col] = selectedCell;
-    if (fixedCells[row][col]) return; // 固定格子不可修改
-
-    const newBoard = board.map(r => r.map(c => (c instanceof Set ? new Set(c) : c)));
-    newBoard[row][col] = num;
-    setBoard(newBoard);
-  };
-
-  // 处理笔记切换（在笔记模式和数字之间切换）
-  const handleNoteToggle = (num: number) => {
     if (!selectedCell) return;
     const [row, col] = selectedCell;
     if (fixedCells[row][col]) return;
 
-    const newBoard = board.map(r => r.map(c => (c instanceof Set ? new Set(c) : c)));
-    const currentCell = newBoard[row][col];
-
-    if (currentCell instanceof Set) {
-      // 切换笔记：添加或移除数字
-      const newNotes = new Set(currentCell);
-      if (newNotes.has(num)) {
-        newNotes.delete(num);
-      } else {
-        newNotes.add(num);
-      }
-      // 如果笔记为空，转为数字 0（表示空）
-      newBoard[row][col] = newNotes.size === 0 ? 0 : newNotes;
-    } else {
-      // 当前是数字，转为笔记模式
-      if (currentCell === 0) {
-        newBoard[row][col] = new Set([num]);
-      } else {
-        // 当前已有数字，先转为包含该数字的笔记
-        newBoard[row][col] = new Set([currentCell, num]);
-      }
-    }
+    const newBoard = board.map(row => [...row]);
+    newBoard[row][col] = num;
     setBoard(newBoard);
   };
 
-  // 清除单元格
   const handleClear = () => {
     if (!selectedCell) return;
     const [row, col] = selectedCell;
-    const newBoard = board.map(r => r.map(c => (c instanceof Set ? new Set(c) : c)));
-    newBoard[row][col] = new Set();
+    const newBoard = board.map(row => [...row]);
+    newBoard[row][col] = 0;
     setBoard(newBoard);
   };
 
-  // 生成新游戏
   const handleNewGame = () => {
-    setBoard(initialBoardData.map(row => row.map(cell => cell === 0 ? new Set() : cell)));
+    setBoard(initialBoardData.map(row => [...row]));
     setFixedCells(initialBoardData.map(row => row.map(cell => cell !== 0)));
     setSelectedCell(null);
   };
 
-  // 处理单元格点击
   const handleCellClick = (row: number, col: number) => {
     setSelectedCell([row, col]);
   };
 
-  // 键盘事件处理
-  React.useEffect(() => {
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 如果不在游戏区域内，忽略键盘事件
       if (!selectedCell) return;
 
       const [row, col] = selectedCell;
@@ -190,15 +138,11 @@ const SudokuGame: React.FC = () => {
           e.preventDefault();
           setSelectedCell([row, Math.min(8, col + 1)]);
           break;
-        case 'Enter':
+        case 'Backspace':
+        case 'Delete':
         case ' ':
           e.preventDefault();
-          // 如果当前格子有笔记且只有一个数字，填入该数字
-          const currentCell = board[row][col];
-          if (currentCell instanceof Set && currentCell.size === 1) {
-            const num = Array.from(currentCell)[0];
-            handleNumberInput(num);
-          }
+          handleClear();
           break;
       }
     };
@@ -207,8 +151,7 @@ const SudokuGame: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedCell, board]);
 
-  // 计算需要高亮的单元格类型（区分行、列、宫）
-  type HighlightType = 'none' | 'row' | 'col' | 'box' | 'sameNumber' | 'sameNote';
+  type HighlightType = 'none' | 'row' | 'col' | 'box' | 'sameNumber';
 
   const getCellHighlightType = (row: number, col: number): HighlightType => {
     if (!selectedCell) return 'none';
@@ -217,39 +160,20 @@ const SudokuGame: React.FC = () => {
     const cell = board[row][col];
     const selectedValue = board[selRow][selCol];
 
-    // 突出显示区域（行、列、宫）- 使用不同的类型区分
     if (config.highlightRegion) {
       const inSameRow = row === selRow;
       const inSameCol = col === selCol;
       const inSameBox = Math.floor(row / 3) === Math.floor(selRow / 3) &&
                         Math.floor(col / 3) === Math.floor(selCol / 3);
 
-      // 优先判断宫（重叠区域显示宫）
       if (inSameBox) return 'box';
       if (inSameRow) return 'row';
       if (inSameCol) return 'col';
     }
 
-    // 突出显示相同数字
-    if (config.highlightSameNumbers && typeof selectedValue === 'number') {
-      if (typeof cell === 'number' && cell === selectedValue) {
+    if (config.highlightSameNumbers && selectedValue !== 0) {
+      if (cell === selectedValue) {
         return 'sameNumber';
-      }
-    }
-
-    // 突出显示相同笔记
-    if (config.highlightSameNotes && selectedValue instanceof Set) {
-      if (cell instanceof Set && cell.size === selectedValue.size) {
-        let hasSameElements = true;
-        for (const val of selectedValue) {
-          if (!cell.has(val)) {
-            hasSameElements = false;
-            break;
-          }
-        }
-        if (hasSameElements) {
-          return 'sameNote';
-        }
       }
     }
 
@@ -333,26 +257,17 @@ const SudokuGame: React.FC = () => {
       backgroundColor = '#ffe58f'; // 列 - 浅黄色
     } else if (highlightType === 'sameNumber') {
       backgroundColor = '#e6f7ff'; // 相同数字 - 更浅的蓝色
-    } else if (highlightType === 'sameNote') {
-      backgroundColor = '#fff7e6'; // 相同笔记 - 浅橙色
     } else if (isFixed) {
       backgroundColor = '#f0f0f0'; // 初始固定格子
     }
 
-    // 边框样式 - 所有格子都显示边框，宫格线更粗更明显
-    let borderRight = col < 8 ? (col % 3 === 2 ? '2px solid #666' : '1px solid #bbb') : '2px solid #666';
-    let borderBottom = row < 8 ? (row % 3 === 2 ? '2px solid #666' : '1px solid #bbb') : '2px solid #666';
-    let borderLeft = col > 0 ? (col % 3 === 0 ? '2px solid #666' : '1px solid #bbb') : '2px solid #666';
-    let borderTop = row > 0 ? (row % 3 === 0 ? '2px solid #666' : '1px solid #bbb') : '2px solid #666';
+    const thickBorder = '2px solid #666';
+    const thinBorder = '1px solid #bbb';
 
-    // 笔记背景边框
-    let noteBorderStyle: React.CSSProperties['borderStyle'] = 'none';
-    let noteBorderWidth = '0px';
-    let noteBorderColor = '#1890ff';
-    if (config.showNoteBorder && cell instanceof Set && cell.size > 0) {
-      noteBorderStyle = 'dashed';
-      noteBorderWidth = '1px';
-    }
+    const borderRight = col < 8 ? (col % 3 === 2 ? thickBorder : thinBorder) : thickBorder;
+    const borderBottom = row < 8 ? (row % 3 === 2 ? thickBorder : thinBorder) : thickBorder;
+    const borderLeft = col > 0 ? (col % 3 === 0 ? thickBorder : thinBorder) : thickBorder;
+    const borderTop = row > 0 ? (row % 3 === 0 ? thickBorder : thinBorder) : thickBorder;
 
     return {
       width: '40px',
@@ -360,6 +275,8 @@ const SudokuGame: React.FC = () => {
       backgroundColor,
       borderRight,
       borderBottom,
+      borderLeft,
+      borderTop,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -367,9 +284,6 @@ const SudokuGame: React.FC = () => {
       cursor: 'pointer',
       color: isFixed ? '#333' : '#1890ff',
       position: 'relative' as const,
-      borderStyle: noteBorderStyle,
-      borderWidth: noteBorderWidth,
-      borderColor: noteBorderColor,
     };
   };
 
@@ -468,22 +382,6 @@ const SudokuGame: React.FC = () => {
         <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
           <input
             type="checkbox"
-            checked={config.highlightSameNotes}
-            onChange={(e) => setConfig({ ...config, highlightSameNotes: e.target.checked })}
-          />
-          突出显示相同笔记
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <input
-            type="checkbox"
-            checked={config.showNoteBorder}
-            onChange={(e) => setConfig({ ...config, showNoteBorder: e.target.checked })}
-          />
-          显示笔记边框
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <input
-            type="checkbox"
             checked={config.showConflictInCandidates}
             onChange={(e) => setConfig({ ...config, showConflictInCandidates: e.target.checked })}
           />
@@ -521,22 +419,6 @@ const SudokuGame: React.FC = () => {
                 style={cellStyle}
               >
                 {displayValue !== null ? displayValue : ''}
-                {/* 笔记数字显示 - 小字体显示在角落 */}
-                {cell instanceof Set && cell.size > 0 && typeof displayValue !== 'number' && (
-                  <div style={{
-                    position: 'absolute',
-                    bottom: '2px',
-                    right: '2px',
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 10px)',
-                    gap: '1px',
-                    fontSize: '8px',
-                  }}>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n =>
-                      cell.has(n) ? <span key={n}>{n}</span> : <span key={n} style={{ visibility: 'hidden' }}>-</span>
-                    )}
-                  </div>
-                )}
               </div>
             );
           })
@@ -548,7 +430,7 @@ const SudokuGame: React.FC = () => {
         {/* 候选数面板 */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '14px', color: '#666' }}>
-            {selectedCell ? '候选数 (点击填入/切换笔记)' : '选择格子'}
+            {selectedCell ? '候选数 (点击填入)' : '选择格子'}
           </span>
           <div
             style={{
@@ -562,15 +444,7 @@ const SudokuGame: React.FC = () => {
                 key={num}
                 onClick={() => {
                   if (!selectedCell) return;
-                  const [row, col] = selectedCell;
-                  const cell = board[row][col];
-                  // 如果当前格子是笔记且包含该数字，则移除（切换笔记）
-                  if (cell instanceof Set && cell.has(num)) {
-                    handleNoteToggle(num);
-                  } else {
-                    // 否则作为数字填入
-                    handleNumberInput(num);
-                  }
+                  handleNumberInput(num);
                 }}
                 style={getCandidateButtonStyle(num)}
               >
@@ -588,46 +462,11 @@ const SudokuGame: React.FC = () => {
             </span>
           </div>
         )}
-
-        {/* 笔记模式切换按钮 */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '14px', color: '#666' }}>笔记 (N)</span>
-          <button
-            onClick={() => {
-              if (!selectedCell) return;
-              const [row, col] = selectedCell;
-              const cell = board[row][col];
-              if (cell instanceof Set) {
-                // 当前是笔记，切换到数字模式
-                if (cell.size === 1) {
-                  setBoard(board.map(r => r.map(c => (c instanceof Set && c.size === 1 ? Array.from(c)[0] : c))));
-                } else {
-                  // 多个笔记数字，保持笔记但清空
-                  setBoard(board.map(r => r.map(c => (c instanceof Set ? new Set() : c))));
-                }
-              } else {
-                // 当前是数字，切换到笔记模式
-                setBoard(board.map(r => r.map(c => (typeof c === 'number' ? new Set(c === 0 ? [] : [c]) : c))));
-              }
-            }}
-            style={{
-              padding: '10px 20px',
-              fontSize: '14px',
-              cursor: 'pointer',
-              backgroundColor: '#52c41a',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-            }}
-          >
-            切换笔记模式
-          </button>
-        </div>
       </div>
 
       {/* 快捷键提示 */}
       <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px', fontSize: '12px', color: '#666' }}>
-        <strong>快捷键:</strong> 1-9 输入数字 | N 切换笔记模式 | 空格/Backspace 清除 | ↑↓←→ 移动选择
+        <strong>快捷键:</strong> 1-9 输入数字 | 空格/Backspace 清除 | ↑↓←→ 移动选择
       </div>
     </div>
   );
