@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { API_BASE_URL } from '../config';
 
 type GameBoard = number[][];
 
@@ -101,6 +102,9 @@ const SudokuGame: React.FC = () => {
   // 完成对话框显示状态
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
 
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(true);
+
   // 配置选项
   const [config, setConfig] = useState({
     highlightRegion: true,           // 突出显示区域（行、列、宫）
@@ -151,6 +155,43 @@ const SudokuGame: React.FC = () => {
     return cell === 0 ? null : cell;
   };
 
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const saveGameRecord = async (won: boolean, timeSeconds: number) => {
+    try {
+      const token = window.localStorage.getItem('token');
+      if (!token) {
+        console.log('未登录，不保存数独记录');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/sudoku/record`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          difficulty,
+          timeSeconds,
+          won
+        })
+      });
+
+      if (response.ok) {
+        console.log('数独游戏记录保存成功');
+      } else {
+        console.warn('保存数独记录失败', response.statusText);
+      }
+    } catch (error) {
+      console.error('保存数独记录失败:', error);
+    }
+  };
+
   const handleNumberInput = (num: number) => {
     if (!selectedCell || isGameComplete) return;
     const [row, col] = selectedCell;
@@ -164,7 +205,9 @@ const SudokuGame: React.FC = () => {
     setTimeout(() => {
       if (checkIsComplete(newBoard)) {
         setIsGameComplete(true);
+        setIsTimerRunning(false);
         setShowCompleteDialog(true);
+        saveGameRecord(true, timeElapsed);
       }
     }, 0);
   };
@@ -212,6 +255,8 @@ const SudokuGame: React.FC = () => {
     setSelectedCell(null);
     setIsGameComplete(false);
     setShowCompleteDialog(false);
+    setTimeElapsed(0);
+    setIsTimerRunning(true);
   };
 
   const handleNewGame = () => {
@@ -274,6 +319,16 @@ const SudokuGame: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedCell, board]);
+
+  useEffect(() => {
+    if (!isTimerRunning) return;
+
+    const intervalId = window.setInterval(() => {
+      setTimeElapsed((prev) => prev + 1);
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isTimerRunning]);
 
   type HighlightType = 'none' | 'row' | 'col' | 'box' | 'sameNumber';
 
@@ -496,6 +551,9 @@ const SudokuGame: React.FC = () => {
         <div style={{ padding: '15px 25px', backgroundColor: '#f5f5f5', borderRadius: '8px', textAlign: 'center' }}>
           <span style={{ fontSize: '14px', color: '#666', display: 'block', marginBottom: '8px' }}>
             {selectedCell ? '按键盘 1-9 输入数字' : '选择一个格子后输入数字'}
+          </span>
+          <span style={{ fontSize: '16px', color: '#666', display: 'block', marginBottom: '8px' }}>
+            用时：<strong style={{ color: '#1890ff', fontSize: '20px' }}>{formatTime(timeElapsed)}</strong>
           </span>
           {config.showRemainingCount && (
             <span style={{ fontSize: '16px', color: '#666' }}>

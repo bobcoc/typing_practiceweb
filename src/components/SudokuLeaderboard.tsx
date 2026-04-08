@@ -1,77 +1,237 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Typography,
+  Pagination,
+  Tabs,
+  Tab,
+  Chip,
+  CircularProgress
+} from '@mui/material';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import { API_BASE_URL } from '../config';
 
-interface LeaderboardEntry {
-  rank: number;
-  name: string;
-  time: string;
-  date: string;
+type Difficulty = 'easy' | 'medium' | 'hard';
+
+interface LeaderboardRecord {
+  userId: string;
+  username: string;
+  fullname: string;
+  bestTime: number;
+  totalGames: number;
+  wonGames: number;
+  winRate: number;
+  lastPlayed: string;
 }
 
+interface LeaderboardResponse {
+  records: LeaderboardRecord[];
+  total: number;
+  currentPage: number;
+  totalPages: number;
+  difficulty: string;
+}
+
+const DIFFICULTY_LABELS: Record<Difficulty, string> = {
+  easy: '简单',
+  medium: '中等',
+  hard: '困难'
+};
+
 const SudokuLeaderboard: React.FC = () => {
-  const dummyData: LeaderboardEntry[] = [
-    { rank: 1, name: '玩家 A', time: '3:25', date: '2024-01-15' },
-    { rank: 2, name: '玩家 B', time: '4:12', date: '2024-01-14' },
-    { rank: 3, name: '玩家 C', time: '4:45', date: '2024-01-13' },
-    { rank: 4, name: '玩家 D', time: '5:03', date: '2024-01-12' },
-    { rank: 5, name: '玩家 E', time: '5:28', date: '2024-01-11' },
-    { rank: 6, name: '玩家 F', time: '5:55', date: '2024-01-10' },
-    { rank: 7, name: '玩家 G', time: '6:10', date: '2024-01-09' },
-    { rank: 8, name: '玩家 H', time: '6:33', date: '2024-01-08' },
-    { rank: 9, name: '玩家 I', time: '7:01', date: '2024-01-07' },
-    { rank: 10, name: '玩家 J', time: '7:22', date: '2024-01-06' },
-  ];
+  const [difficulty, setDifficulty] = useState<Difficulty>('hard');
+  const [records, setRecords] = useState<LeaderboardRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [difficulty, page]);
+
+  const fetchLeaderboard = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/sudoku/leaderboard/${difficulty}?page=${page}&limit=10`
+      );
+
+      if (!response.ok) {
+        throw new Error('获取排行榜失败');
+      }
+
+      const data: LeaderboardResponse = await response.json();
+      setRecords(data.records);
+      setTotalPages(data.totalPages);
+    } catch (error) {
+      console.error('获取排行榜失败:', error);
+      setError(error instanceof Error ? error.message : '获取排行榜失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDifficultyChange = (_event: React.SyntheticEvent, newValue: Difficulty) => {
+    setDifficulty(newValue);
+    setPage(1);
+  };
+
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+  };
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getRankBadge = (rank: number) => {
+    if (rank === 1) return { emoji: '🥇', color: 'success' as const };
+    if (rank === 2) return { emoji: '🥈', color: 'primary' as const };
+    if (rank === 3) return { emoji: '🥉', color: 'default' as const };
+    return null;
+  };
+
+  if (loading && records.length === 0) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <Typography color="error">{error}</Typography>
+      </Box>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto' }}>
-      <h3 style={{ textAlign: 'center', marginBottom: '20px' }}>数独排行榜</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ backgroundColor: '#fafafa' }}>
-            <th style={{ padding: '12px', textAlign: 'center', border: '1px solid #ddd' }}>排名</th>
-            <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}>玩家</th>
-            <th style={{ padding: '12px', textAlign: 'center', border: '1px solid #ddd' }}>用时</th>
-            <th style={{ padding: '12px', textAlign: 'center', border: '1px solid #ddd' }}>日期</th>
-          </tr>
-        </thead>
-        <tbody>
-          {dummyData.map((entry) => (
-            <tr
-              key={entry.rank}
-              style={{
-                backgroundColor: entry.rank === 1 ? '#fffbe6' : entry.rank === 2 ? '#f6ffed' : '#fff',
-              }}
-            >
-              <td
-                style={{
-                  padding: '12px',
-                  textAlign: 'center',
-                  border: '1px solid #ddd',
-                  fontWeight: 'bold',
-                  color: entry.rank === 1 ? '#faad14' : '#333',
-                }}
-              >
-                {entry.rank}
-              </td>
-              <td
-                style={{ padding: '12px', textAlign: 'left', border: '1px solid #ddd' }}
-              >
-                {entry.name}
-              </td>
-              <td
-                style={{ padding: '12px', textAlign: 'center', border: '1px solid #ddd' }}
-              >
-                {entry.time}
-              </td>
-              <td
-                style={{ padding: '12px', textAlign: 'center', border: '1px solid #ddd' }}
-              >
-                {entry.date}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Box sx={{ padding: 3 }}>
+      <Box display="flex" alignItems="center" justifyContent="center" mb={3}>
+        <EmojiEventsIcon sx={{ fontSize: 40, color: 'gold', mr: 1 }} />
+        <Typography variant="h4">数独排行榜</Typography>
+      </Box>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs
+          value={difficulty}
+          onChange={handleDifficultyChange}
+          centered
+          textColor="primary"
+          indicatorColor="primary"
+        >
+          <Tab value="easy" label={DIFFICULTY_LABELS.easy} />
+          <Tab value="medium" label={DIFFICULTY_LABELS.medium} />
+          <Tab value="hard" label={DIFFICULTY_LABELS.hard} />
+        </Tabs>
+      </Box>
+
+      <TableContainer component={Paper} sx={{ mb: 3 }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell align="center" width="80px">排名</TableCell>
+              <TableCell>姓名</TableCell>
+              <TableCell align="center">最佳时间</TableCell>
+              <TableCell align="center">总游戏次数</TableCell>
+              <TableCell align="center">获胜次数</TableCell>
+              <TableCell align="center">胜率</TableCell>
+              <TableCell align="center">最后游玩</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {records.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center">
+                  <Typography variant="body2" color="textSecondary" py={3}>
+                    暂无排行榜数据
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              records.map((record, index) => {
+                const rank = (page - 1) * 10 + index + 1;
+                const badge = page === 1 ? getRankBadge(rank) : null;
+                return (
+                  <TableRow
+                    key={record.userId}
+                    sx={badge ? { backgroundColor: 'rgba(255, 215, 0, 0.1)' } : {}}
+                  >
+                    <TableCell align="center">
+                      <Box display="flex" alignItems="center" justifyContent="center" gap={0.5}>
+                        <Typography fontWeight={badge ? 'bold' : 'normal'}>{rank}</Typography>
+                        {badge && <Chip size="small" label={badge.emoji} color={badge.color} />}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography fontWeight={badge ? 'bold' : 'normal'}>
+                        {record.fullname || record.username}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Chip
+                        label={formatTime(record.bestTime)}
+                        color={rank <= 3 && page === 1 ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">{record.totalGames}</TableCell>
+                    <TableCell align="center">{record.wonGames}</TableCell>
+                    <TableCell align="center">
+                      <Chip
+                        label={`${record.winRate.toFixed(1)}%`}
+                        color={record.winRate >= 50 ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      {new Date(record.lastPlayed).toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {totalPages > 1 && (
+        <Box display="flex" justifyContent="center" mt={3} mb={3}>
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={handlePageChange}
+            color="primary"
+            size="large"
+          />
+        </Box>
+      )}
+
+      <Paper sx={{ padding: 2, marginTop: 3, backgroundColor: '#f5f5f5' }}>
+        <Typography variant="body2" color="textSecondary">
+          💡 提示：排行榜按最佳完成时间排序，时间越短排名越高。只有登录用户的获胜记录才会计入排行榜。
+        </Typography>
+      </Paper>
+    </Box>
   );
 };
 

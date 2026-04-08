@@ -21,6 +21,7 @@ import vocabularyRoutes from './routes/vocabulary';
 import userWordPassRouter from './routes/userWordPass';
 import minesweeperRouter from './routes/minesweeper';
 import towerDefenseRouter from './routes/towerDefense';
+import sudokuRouter from './routes/sudoku';
 // 加载环境变量
 dotenv.config();
 
@@ -157,6 +158,7 @@ app.use('/api/vocabulary', vocabularyRoutes);
 app.use('/api', userWordPassRouter);
 app.use('/api/minesweeper', minesweeperRouter);
 app.use('/api/tower-defense', towerDefenseRouter);
+app.use('/api/sudoku', sudokuRouter);
 
 
 // SPA 回退路由 - 必须放在所有路由之后
