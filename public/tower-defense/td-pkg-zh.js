@@ -2035,25 +2035,61 @@ _TD.a.push(function (TD) {
 		},
 
 		/**
+		 * 计算怪物当前的路径进度优先级。
+		 * 返回值越大，表示怪物越靠近终点、越危险。
+		 */
+		getMonsterEntrancePriority: function (monster) {
+			if (!monster || !monster.is_valid) return -1;
+
+			var remaining = monster.way ? monster.way.length : 0;
+
+			if (monster.next_grid) {
+				remaining += Math.sqrt(
+					Math.pow(monster.next_grid.cx - monster.cx, 2) +
+					Math.pow(monster.next_grid.cy - monster.cy, 2)
+				) / TD.grid_size;
+			} else if (monster.map && monster.map.exit) {
+				remaining += Math.sqrt(
+					Math.pow(monster.map.exit.cx - monster.cx, 2) +
+					Math.pow(monster.map.exit.cy - monster.cy, 2)
+				) / TD.grid_size;
+			}
+
+			return -remaining;
+		},
+
+		/**
 		 * 寻找一个目标（怪物）
 		 */
 		findTaget: function () {
 			if (!this.is_weapon || this.is_pre_building || !this.grid) return;
 
-			var cx = this.cx, cy = this.cy,
-				range2 = Math.pow(this.range_px, 2);
+			var _this = this,
+				cx = this.cx, cy = this.cy,
+				range2 = Math.pow(this.range_px, 2),
+				best_target = null,
+				best_priority = -1,
+				best_distance2 = Infinity;
 
-			// 如果当前建筑有目标，并且目标还是有效的，并且目标仍在射程内
-			if (this.target && this.target.is_valid &&
-				Math.pow(this.target.cx - cx, 2) + Math.pow(this.target.cy - cy, 2) <= range2)
-				return;
+			TD.lang.each(this.map.monsters, function (obj) {
+				if (!obj || !obj.is_valid) return;
 
-			// 在进入射程的怪物中寻找新的目标
-			this.target = TD.lang.any(
-				TD.lang.rndSort(this.map.monsters), // 将怪物随机排序
-				function (obj) {
-					return Math.pow(obj.cx - cx, 2) + Math.pow(obj.cy - cy, 2) <= range2;
-				});
+				var distance2 = Math.pow(obj.cx - cx, 2) + Math.pow(obj.cy - cy, 2);
+				if (distance2 > range2) return;
+
+				var priority = _this.getMonsterEntrancePriority(obj);
+				if (
+					!best_target ||
+					priority > best_priority ||
+					(priority == best_priority && distance2 < best_distance2)
+				) {
+					best_target = obj;
+					best_priority = priority;
+					best_distance2 = distance2;
+				}
+			});
+
+			this.target = best_target;
 		},
 
 		/**
@@ -4527,5 +4563,3 @@ _TD.a.push(function (TD) {
 	};
 
 }); // _TD.a.push end
-
-

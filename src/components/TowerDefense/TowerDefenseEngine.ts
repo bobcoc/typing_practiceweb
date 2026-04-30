@@ -328,11 +328,38 @@ export class TowerDefenseEngine {
           if (this._fire_wait <= 0) { this.fire(); this._fire_wait = this._fire_wait2; }
         }
       }
+      getMonsterEntrancePriority(monster: any) {
+        if (!monster || !monster.is_valid) return -1;
+        let remaining = monster.way ? monster.way.length : 0;
+        if (monster.next_grid) {
+          const dx = monster.next_grid.cx - monster.cx;
+          const dy = monster.next_grid.cy - monster.cy;
+          remaining += Math.sqrt(dx * dx + dy * dy) / self.grid_size;
+        } else if (monster.map && monster.map.exit) {
+          const dx = monster.map.exit.cx - monster.cx;
+          const dy = monster.map.exit.cy - monster.cy;
+          remaining += Math.sqrt(dx * dx + dy * dy) / self.grid_size;
+        }
+        return -remaining;
+      }
       findTarget() {
         if (!this.map) return;
         const range2 = Math.pow(this.range_px, 2);
-        if (this.target && this.target.is_valid && Math.pow(this.target.cx-this.cx, 2)+Math.pow(this.target.cy-this.cy, 2) <= range2) return;
-        this.target = self.lang.any(self.lang.rndSort(this.map.monsters), (m: any) => Math.pow(m.cx-this.cx, 2)+Math.pow(m.cy-this.cy, 2) <= range2);
+        let bestTarget: any = null;
+        let bestPriority = -1;
+        let bestDistance2 = Infinity;
+        this.map.monsters.forEach((m: any) => {
+          if (!m || !m.is_valid) return;
+          const distance2 = Math.pow(m.cx - this.cx, 2) + Math.pow(m.cy - this.cy, 2);
+          if (distance2 > range2) return;
+          const priority = this.getMonsterEntrancePriority(m);
+          if (!bestTarget || priority > bestPriority || (priority === bestPriority && distance2 < bestDistance2)) {
+            bestTarget = m;
+            bestPriority = priority;
+            bestDistance2 = distance2;
+          }
+        });
+        this.target = bestTarget;
       }
       fire() {
         if (!this.target || !this.target.is_valid) return;
