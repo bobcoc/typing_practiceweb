@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, Input, Progress, Modal, message, Tabs, Radio, Spin, Select, Table, Tag, InputNumber, Space } from 'antd';
-import { SoundOutlined, CaretLeftOutlined, CaretRightOutlined, TrophyOutlined, HistoryOutlined, ReloadOutlined, SettingOutlined } from '@ant-design/icons';
+import { SoundOutlined, CaretLeftOutlined, CaretRightOutlined, TrophyOutlined, HistoryOutlined, ReloadOutlined, SettingOutlined, LinkOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError, authEvents } from '../api/apiClient';
 import { API_PATHS } from '../config';
@@ -1350,6 +1350,28 @@ const VocabularyStudy: React.FC = () => {
               },
             ]}
           />
+        </div>
+      ),
+    },
+    {
+      key: 'realtime-query',
+      label: '实时查询',
+      children: (
+        <div style={{ width: '100%', textAlign: 'center', padding: '32px 16px' }}>
+          <h3>学生单词完成数量实时查询</h3>
+          <p style={{ color: '#666', marginBottom: 24 }}>
+            点击下方按钮，在新窗口打开实时查询页面，供学生查看已完成的单词数量。
+          </p>
+          <Button
+            type="primary"
+            size="large"
+            icon={<LinkOutlined />}
+            href="https://d1kt.cn/user-word-pass"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            打开实时查询页面
+          </Button>
         </div>
       ),
     },
