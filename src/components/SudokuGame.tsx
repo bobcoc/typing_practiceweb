@@ -1,93 +1,29 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { API_BASE_URL } from '../config';
+import {
+  GameBoard,
+  Difficulty,
+  GameMode,
+  STANDARD_REGION_MAP,
+  generatePuzzle,
+  getRegionId,
+  getRegionNeighbors,
+  getRegionMapByMode,
+} from './sudokuEngine';
 
-type GameBoard = number[][];
-
-const shuffleArray = (arr: number[]) => {
-  const result = [...arr];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
-};
-
-const createEmptyBoard = (): GameBoard => Array.from({ length: 9 }, () => Array(9).fill(0));
-
-const isSafeForGeneration = (board: GameBoard, row: number, col: number, num: number): boolean => {
-  for (let c = 0; c < 9; c++) {
-    if (board[row][c] === num) return false;
-  }
-  for (let r = 0; r < 9; r++) {
-    if (board[r][col] === num) return false;
-  }
-  const startRow = Math.floor(row / 3) * 3;
-  const startCol = Math.floor(col / 3) * 3;
-  for (let r = startRow; r < startRow + 3; r++) {
-    for (let c = startCol; c < startCol + 3; c++) {
-      if (board[r][c] === num) return false;
-    }
-  }
-  return true;
-};
-
-const fillBoard = (board: GameBoard): boolean => {
-  for (let row = 0; row < 9; row++) {
-    for (let col = 0; col < 9; col++) {
-      if (board[row][col] !== 0) continue;
-      const numbers = shuffleArray([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-      for (const num of numbers) {
-        if (isSafeForGeneration(board, row, col, num)) {
-          board[row][col] = num;
-          if (fillBoard(board)) {
-            return true;
-          }
-          board[row][col] = 0;
-        }
-      }
-      return false;
-    }
-  }
-  return true;
-};
-
-const generateFullBoard = (): GameBoard => {
-  const board = createEmptyBoard();
-  fillBoard(board);
-  return board;
-};
-
-const getRemovalCount = (difficulty: 'easy' | 'medium' | 'hard') => {
-  switch (difficulty) {
-    case 'easy':
-      return 35;
-    case 'medium':
-      return 45;
-    case 'hard':
-      return 55;
-    default:
-      return 45;
-  }
-};
-
-const generatePuzzle = (difficulty: 'easy' | 'medium' | 'hard'): GameBoard => {
-  const fullBoard = generateFullBoard();
-  const puzzle = fullBoard.map(row => [...row]);
-  const positions = Array.from({ length: 81 }, (_, idx) => idx);
-  const toRemove = shuffleArray(positions).slice(0, getRemovalCount(difficulty));
-  for (const idx of toRemove) {
-    const row = Math.floor(idx / 9);
-    const col = idx % 9;
-    puzzle[row][col] = 0;
-  }
-  return puzzle;
-};
+type HighlightType = 'none' | 'row' | 'col' | 'box' | 'sameNumber';
 
 const SudokuGame: React.FC = () => {
   // 游戏难度
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('hard');
-
-  const [board, setBoard] = useState<GameBoard>(() => generatePuzzle('hard'));
+  const [difficulty, setDifficulty] = useState<Difficulty>('hard');
+  
+  // 游戏模式：标准或不规则
+  const [gameMode, setGameMode] = useState<GameMode>('standard');
+  
+  // 使用 useMemo 确保 regionMap 随 gameMode 变化
+  const regionMap = useMemo(() => getRegionMapByMode(gameMode), [gameMode]);
+  
+  const [board, setBoard] = useState<GameBoard>(() => generatePuzzle('hard', STANDARD_REGION_MAP));
 
   const [fixedCells, setFixedCells] = useState<boolean[][]>(() =>
     board.map(row => row.map(cell => cell !== 0))
@@ -114,25 +50,21 @@ const SudokuGame: React.FC = () => {
 
   // 检查在位置 (row, col) 放置数字 num 是否有效
   const isValid = (row: number, col: number, num: number): boolean => {
-    // 检查行
     for (let c = 0; c < 9; c++) {
       const cell = board[row][c];
-      if (typeof cell === 'number' && cell === num) return false;
+      if (c !== col && typeof cell === 'number' && cell === num) return false;
     }
 
-    // 检查列
     for (let r = 0; r < 9; r++) {
       const cell = board[r][col];
-      if (typeof cell === 'number' && cell === num) return false;
+      if (r !== row && typeof cell === 'number' && cell === num) return false;
     }
 
-    // 检查 3x3 宫格
-    const startRow = Math.floor(row / 3) * 3;
-    const startCol = Math.floor(col / 3) * 3;
-    for (let r = startRow; r < startRow + 3; r++) {
-      for (let c = startCol; c < startCol + 3; c++) {
+    const targetRegion = getRegionId(regionMap, row, col);
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
         const cell = board[r][c];
-        if (typeof cell === 'number' && cell === num) return false;
+        if ((r !== row || c !== col) && getRegionId(regionMap, r, c) === targetRegion && typeof cell === 'number' && cell === num) return false;
       }
     }
 
@@ -230,11 +162,11 @@ const SudokuGame: React.FC = () => {
     for (let r = 0; r < 9; r++) {
       if (r !== row && boardToCheck[r][col] === num) return false;
     }
-    const startRow = Math.floor(row / 3) * 3;
-    const startCol = Math.floor(col / 3) * 3;
-    for (let r = startRow; r < startRow + 3; r++) {
-      for (let c = startCol; c < startCol + 3; c++) {
-        if ((r !== row || c !== col) && boardToCheck[r][c] === num) return false;
+    // 使用 regionMap 检查不规则区域
+    const targetRegion = getRegionId(regionMap, row, col);
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if ((r !== row || c !== col) && getRegionId(regionMap, r, c) === targetRegion && boardToCheck[r][c] === num) return false;
       }
     }
     return true;
@@ -248,8 +180,9 @@ const SudokuGame: React.FC = () => {
     setBoard(newBoard);
   };
 
-  const createNewGame = (level: 'easy' | 'medium' | 'hard') => {
-    const newPuzzle = generatePuzzle(level);
+  const createNewGame = (level: Difficulty, mode: GameMode = gameMode) => {
+    const nextRegionMap = getRegionMapByMode(mode);
+    const newPuzzle = generatePuzzle(level, nextRegionMap);
     setBoard(newPuzzle);
     setFixedCells(newPuzzle.map(row => row.map(cell => cell !== 0)));
     setSelectedCell(null);
@@ -263,9 +196,14 @@ const SudokuGame: React.FC = () => {
     createNewGame(difficulty);
   };
 
-  const handleDifficultyChange = (level: 'easy' | 'medium' | 'hard') => {
+  const handleDifficultyChange = (level: Difficulty) => {
     setDifficulty(level);
     createNewGame(level);
+  };
+
+  const handleModeChange = (mode: GameMode) => {
+    setGameMode(mode);
+    createNewGame(difficulty, mode);
   };
 
   const handleCellClick = (row: number, col: number) => {
@@ -330,8 +268,6 @@ const SudokuGame: React.FC = () => {
     return () => window.clearInterval(intervalId);
   }, [isTimerRunning]);
 
-  type HighlightType = 'none' | 'row' | 'col' | 'box' | 'sameNumber';
-
   const getCellHighlightType = (row: number, col: number): HighlightType => {
     if (!selectedCell) return 'none';
 
@@ -342,8 +278,7 @@ const SudokuGame: React.FC = () => {
     if (config.highlightRegion) {
       const inSameRow = row === selRow;
       const inSameCol = col === selCol;
-      const inSameBox = Math.floor(row / 3) === Math.floor(selRow / 3) &&
-                        Math.floor(col / 3) === Math.floor(selCol / 3);
+      const inSameBox = getRegionId(regionMap, row, col) === getRegionId(regionMap, selRow, selCol);
 
       if (inSameBox) return 'box';
       if (inSameRow) return 'row';
@@ -384,7 +319,7 @@ const SudokuGame: React.FC = () => {
     return count;
   }, [board]);
 
-  // 获取单元格样式 - 优化高亮区域的边框显示
+  // 获取单元格样式 - 支持不规则区域的边框显示
   const getCellStyle = (row: number, col: number): React.CSSProperties => {
     const cell = board[row][col];
     const isFixed = fixedCells[row][col];
@@ -411,10 +346,13 @@ const SudokuGame: React.FC = () => {
     const thickBorder = '2px solid #666';
     const thinBorder = '1px solid #bbb';
 
-    const borderRight = col < 8 ? (col % 3 === 2 ? thickBorder : thinBorder) : thickBorder;
-    const borderBottom = row < 8 ? (row % 3 === 2 ? thickBorder : thinBorder) : thickBorder;
-    const borderLeft = col > 0 ? (col % 3 === 0 ? thickBorder : thinBorder) : thickBorder;
-    const borderTop = row > 0 ? (row % 3 === 0 ? thickBorder : thinBorder) : thickBorder;
+    // 使用 getRegionNeighbors 判断边框粗细，支持不规则区域
+    const neighbors = getRegionNeighbors(regionMap, row, col);
+    
+    const borderRight = col < 8 ? (neighbors.right ? thickBorder : thinBorder) : thickBorder;
+    const borderBottom = row < 8 ? (neighbors.bottom ? thickBorder : thinBorder) : thickBorder;
+    const borderLeft = col > 0 ? (neighbors.left ? thickBorder : thinBorder) : thickBorder;
+    const borderTop = row > 0 ? (neighbors.top ? thickBorder : thinBorder) : thickBorder;
 
     return {
       width: '40px',
@@ -486,6 +424,27 @@ const SudokuGame: React.FC = () => {
               }}
             >
               {d === 'easy' ? '简单' : d === 'medium' ? '中等' : '困难'}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+          <span>模式:</span>
+          {(['standard', 'irregular'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => handleModeChange(m)}
+              style={{
+                padding: '5px 10px',
+                fontSize: '14px',
+                cursor: 'pointer',
+                backgroundColor: gameMode === m ? '#52c41a' : '#f0f0f0',
+                color: gameMode === m ? 'white' : '#333',
+                border: 'none',
+                borderRadius: '4px',
+              }}
+            >
+              {m === 'standard' ? '标准' : '不规则'}
             </button>
           ))}
         </div>
